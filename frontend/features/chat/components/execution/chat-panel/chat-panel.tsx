@@ -257,7 +257,7 @@ export function ChatPanel({
     void getFilesAction({ sessionId: currentSessionId }).then((nodes) => {
       setFileUrlByPath(visit(nodes, {}));
     });
-  }, [session?.session_id, session?.workspace_export_status]);
+  }, [deliverables, session?.session_id]);
 
   const deliverablesByUserMessageId = React.useMemo(() => {
     const grouped: Record<string, AssistantDeliverableCardData[]> = {};

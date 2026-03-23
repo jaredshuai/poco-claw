@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.models import Base
 from app.models.deliverable import Deliverable
 from app.models.deliverable_version import DeliverableVersion
+from app.models.tool_execution import ToolExecution
 from app.repositories.deliverable_repository import DeliverableRepository
 from app.repositories.deliverable_version_repository import (
     DeliverableVersionRepository,
 )
 from app.schemas.deliverable import DeliverableResponse, DeliverableVersionResponse
+from app.services.deliverable_service import DeliverableService
 
 
 class _SQLiteHarness(unittest.TestCase):
@@ -297,6 +299,79 @@ class DeliverableSchemaTests(unittest.TestCase):
 
         self.assertEqual(payload.id, version.id)
         self.assertEqual(payload.version_no, 3)
+
+
+class DeliverableServiceTests(_SQLiteHarness):
+    def setUp(self) -> None:
+        super().setUp()
+        self.service = DeliverableService()
+
+    def test_list_by_session_returns_response_models(self) -> None:
+        session_id = uuid4()
+        self.db.add(
+            Deliverable(
+                session_id=session_id,
+                kind="docx",
+                logical_name="实施方案",
+                status="active",
+            )
+        )
+        self.db.commit()
+
+        items = self.service.list_by_session(self.db, session_id=session_id)
+
+        self.assertEqual(len(items), 1)
+        self.assertIsInstance(items[0], DeliverableResponse)
+        self.assertEqual(items[0].logical_name, "实施方案")
+
+    def test_get_version_tool_executions_returns_linked_items(self) -> None:
+        session_id = uuid4()
+        deliverable = Deliverable(
+            session_id=session_id,
+            kind="xlsx",
+            logical_name="报价单",
+            status="active",
+        )
+        self.db.add(deliverable)
+        self.db.flush()
+
+        execution = ToolExecution(
+            id=uuid4(),
+            session_id=session_id,
+            message_id=1,
+            tool_use_id="tool-1",
+            tool_name="Write",
+            tool_input={"file_path": "outputs/报价单_v1.xlsx"},
+            tool_output={"content": "ok"},
+            is_error=False,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.db.add(execution)
+        self.db.flush()
+
+        version = DeliverableVersion(
+            session_id=session_id,
+            run_id=uuid4(),
+            deliverable_id=deliverable.id,
+            version_no=1,
+            file_path="outputs/报价单_v1.xlsx",
+            related_tool_execution_ids_json={
+                "strong": [str(execution.id)],
+                "moderate": [],
+            },
+        )
+        self.db.add(version)
+        self.db.commit()
+
+        items = self.service.get_version_tool_executions(
+            self.db,
+            session_id=session_id,
+            version_id=version.id,
+        )
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].id, execution.id)
 
 
 if __name__ == "__main__":

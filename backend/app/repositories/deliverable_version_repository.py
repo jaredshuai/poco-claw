@@ -103,3 +103,15 @@ class DeliverableVersionRepository:
             .order_by(DeliverableVersion.version_no.asc())
             .all()
         )
+
+    @staticmethod
+    def get_latest_by_deliverable(
+        session_db: Session, deliverable_id: uuid.UUID
+    ) -> DeliverableVersion | None:
+        """Gets the latest version for a deliverable by version number."""
+        return (
+            session_db.query(DeliverableVersion)
+            .filter(DeliverableVersion.deliverable_id == deliverable_id)
+            .order_by(DeliverableVersion.version_no.desc())
+            .first()
+        )

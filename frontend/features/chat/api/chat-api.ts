@@ -12,6 +12,9 @@
 import { apiClient, API_ENDPOINTS } from "@/services/api-client";
 import type {
   ComputerBrowserScreenshotResponse,
+  DeliverableResponse,
+  DeliverableVersionResponse,
+  DeliverableVersionToolExecutionResponse,
   ExecutionSession,
   FileNode,
   InputFile,
@@ -304,6 +307,41 @@ export const chatService = {
     const query = buildQuery(params);
     return apiClient.get<ToolExecutionDeltaResponse>(
       `${API_ENDPOINTS.sessionToolExecutionsDelta(sessionId)}${query}`,
+    );
+  },
+
+  getDeliverables: async (
+    sessionId: string,
+  ): Promise<DeliverableResponse[]> => {
+    return apiClient.get<DeliverableResponse[]>(
+      API_ENDPOINTS.sessionDeliverables(sessionId),
+    );
+  },
+
+  getDeliverable: async (
+    sessionId: string,
+    deliverableId: string,
+  ): Promise<DeliverableResponse> => {
+    return apiClient.get<DeliverableResponse>(
+      API_ENDPOINTS.sessionDeliverable(sessionId, deliverableId),
+    );
+  },
+
+  getDeliverableVersion: async (
+    sessionId: string,
+    versionId: string,
+  ): Promise<DeliverableVersionResponse> => {
+    return apiClient.get<DeliverableVersionResponse>(
+      API_ENDPOINTS.sessionDeliverableVersion(sessionId, versionId),
+    );
+  },
+
+  getDeliverableVersionToolExecutions: async (
+    sessionId: string,
+    versionId: string,
+  ): Promise<DeliverableVersionToolExecutionResponse[]> => {
+    return apiClient.get<DeliverableVersionToolExecutionResponse[]>(
+      API_ENDPOINTS.sessionDeliverableVersionToolExecutions(sessionId, versionId),
     );
   },
 

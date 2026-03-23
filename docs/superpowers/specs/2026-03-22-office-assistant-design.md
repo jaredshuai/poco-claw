@@ -205,6 +205,15 @@ Reference inputs are all materials provided or referenced by the user:
 
 Reference inputs are not themselves considered formal deliverables by default.
 
+A previously generated deliverable version can appear in two roles at the same
+time:
+
+- as a historical deliverable version in the deliverable timeline
+- as a reference input for a newer deliverable version
+
+Using a prior deliverable version as source material must not remove or
+reclassify its original deliverable identity.
+
 ## 8.2 Deliverables
 
 `deliverables` represents a logical output object such as:
@@ -220,6 +229,7 @@ Suggested fields:
 - `kind` such as `docx`, `xlsx`, `pptx`
 - `logical_name`
 - `latest_version_id`
+- `status` such as `draft`, `active`, `superseded`
 - `created_at`
 - `updated_at`
 
@@ -240,9 +250,65 @@ Suggested fields:
 - `mime_type`
 - `input_refs_json`
 - `related_tool_execution_ids_json`
+- `detection_metadata_json`
 - `created_at`
 
 The first release can store input references and related tool execution ids as JSON fields to avoid introducing unnecessary relational complexity.
+
+`run_id` refers to the existing Poco execution-cycle identifier already used
+across backend, executor manager, and executor callbacks for a single run of
+work inside a session. It is not a new concept introduced by this design.
+
+Recommended `input_refs_json` shape:
+
+```json
+{
+  "file_refs": [
+    {
+      "path": "inputs/customer_requirements.xlsx",
+      "ref_type": "upload",
+      "message_id": 123
+    },
+    {
+      "path": "outputs/quotation_v1.xlsx",
+      "ref_type": "deliverable_version",
+      "deliverable_version_id": "uuid"
+    }
+  ],
+  "web_refs": [
+    {
+      "url": "https://example.com/spec",
+      "message_id": 124
+    }
+  ],
+  "message_refs": [123, 124]
+}
+```
+
+Recommended `related_tool_execution_ids_json` shape:
+
+```json
+{
+  "strong": ["uuid-1", "uuid-2"],
+  "moderate": ["uuid-3"]
+}
+```
+
+Recommended `detection_metadata_json` shape:
+
+```json
+{
+  "confidence": 0.93,
+  "normalized_logical_name": "quotation",
+  "candidate_rank": 1,
+  "same_run_candidates": [
+    {
+      "file_path": "outputs/quotation_v2.xlsx",
+      "confidence": 0.93
+    }
+  ]
+}
+```
 
 ## 9. Deliverable Detection
 
@@ -255,7 +321,7 @@ Prioritize these file types as deliverable candidates:
 - `.docx`
 - `.xlsx`
 - `.pptx`
-- optional later extension to `.pdf`
+- `.pdf` when the file is produced by the current run as a user-facing export
 
 Exclude:
 
@@ -275,6 +341,23 @@ Prefer files that are:
 - referenced by structured tool inputs or outputs
 - clearly named as user-facing documents
 
+When a single run produces multiple Office or PDF outputs, each surviving
+candidate is evaluated independently and may become:
+
+- a new logical deliverable, or
+- a new version of an existing logical deliverable
+
+The grouping key for this decision is:
+
+- `session_id`
+- normalized `logical_name`
+- file kind / extension family
+
+If the same run produces multiple files that normalize to the same grouping key,
+the highest-confidence candidate becomes the primary detected version for that
+key and the remaining candidates are recorded in `detection_metadata_json` for
+debugging and possible future UI disclosure.
+
 ## 9.3 Logical Name Normalization
 
 Normalize file names to merge versions of the same deliverable:
@@ -282,6 +365,34 @@ Normalize file names to merge versions of the same deliverable:
 - strip common version suffixes such as `v2`, `v3`, `final`, `修订版`, timestamps
 - keep the normalized base name as `logical_name`
 - separate objects by extension to avoid merging `报价单.docx` and `报价单.xlsx`
+
+The first release should use a deterministic, rule-based normalization pipeline:
+
+1. lowercase the base file name
+2. remove the extension
+3. trim surrounding whitespace and punctuation
+4. remove common suffix patterns at the end of the name, including:
+   - `v\d+`
+   - `_v\d+`
+   - `-v\d+`
+   - `final`
+   - `final-\d+`
+   - `修订版`
+   - `最终版`
+   - `_?\d{8}`
+   - `_?\d{14}`
+5. collapse repeated separators such as `_`, `-`, and spaces
+6. trim again
+
+Examples:
+
+- `报价单_v2.xlsx` -> `报价单`
+- `报价单-final.xlsx` -> `报价单`
+- `方案_修订版.docx` -> `方案`
+- `报价单_20260322.xlsx` -> `报价单`
+
+If normalization results in an empty string, fall back to the original base
+name without extension.
 
 ## 9.4 Tool Linkage
 
@@ -322,14 +433,26 @@ Responsibilities:
 
 ## 10.3 Trigger Point
 
-The best first trigger is after workspace export is ready and the backend has:
+The first release should use one explicit trigger path only:
+
+- executor manager forwards the completed callback with workspace export metadata
+- backend updates the session with `workspace_manifest_key`,
+  `workspace_files_prefix`, and related export fields
+- backend then invokes deliverable detection for the terminal run associated
+  with that callback
+
+This keeps detection on the backend side, after workspace export is ready, and
+avoids introducing executor-side deliverable state for phase 1.
+
+At detection time, the backend must have:
 
 - workspace manifest key
 - file list
 - completed run metadata
 - tool execution records
 
-This can be invoked after the completed callback updates session workspace export metadata, or through an explicit service call in the backend session update flow.
+Detection should run asynchronously from the user-facing callback response path,
+but it must remain part of the same post-run completion pipeline.
 
 ## 10.4 APIs
 
@@ -341,6 +464,22 @@ Suggested session-scoped endpoints:
 - `GET /sessions/{session_id}/deliverable-versions/{version_id}/tool-executions`
 
 The first release should keep deliverables session-scoped and avoid introducing broader workspace libraries.
+
+## 10.5 Legacy Sessions and Migration
+
+Existing sessions without deliverable records should remain valid.
+
+Phase 1 migration strategy:
+
+- add the new tables through Alembic
+- do not backfill all historical sessions
+- only create deliverable records for new completed runs after rollout
+- if a legacy session has no deliverable records, the frontend falls back to the
+  current artifacts/file behavior
+
+Optional future enhancement:
+
+- add an administrative or on-demand backfill job for selected sessions
 
 ## 11. Frontend Design
 
@@ -402,6 +541,20 @@ If process linkage is incomplete:
 
 - fall back to full-session process view
 - do not hide available tool execution data
+
+If a newer run overwrites the same file path instead of creating a distinct file
+name:
+
+- create a new `deliverable_version` record anyway
+- preserve the old version record with its prior stored path metadata
+- treat the newer completed run as the latest version for that logical
+  deliverable
+
+If a user deletes a previously generated file from the workspace:
+
+- keep historical `deliverable_version` records intact
+- mark the missing file as unavailable for preview/download
+- do not remove it from version history automatically
 
 ## 13. Testing Strategy
 

@@ -233,6 +233,10 @@ Suggested fields:
 - `created_at`
 - `updated_at`
 
+Recommended persistence invariant:
+
+- one logical deliverable per `(session_id, kind, logical_name)`
+
 ## 8.3 Deliverable Versions
 
 `deliverable_versions` represents concrete generated files such as `报价单 v2.xlsx`.
@@ -258,6 +262,10 @@ The first release can store input references and related tool execution ids as J
 `run_id` refers to the existing Poco execution-cycle identifier already used
 across backend, executor manager, and executor callbacks for a single run of
 work inside a session. It is not a new concept introduced by this design.
+
+`source_message_id` refers to the user-authored message that triggered the run
+which produced this version. If the version is created by a scheduled or
+non-user-triggered run with no direct user message, this field may be null.
 
 Recommended `input_refs_json` shape:
 
@@ -310,6 +318,26 @@ Recommended `detection_metadata_json` shape:
 }
 ```
 
+## 8.4 Lifecycle Invariants
+
+The first release should define the following lifecycle rules explicitly:
+
+- deliverable detection must be idempotent for the same completed run
+- repeated callback retries or repeated detection invocations must not create
+  duplicate logical deliverables or duplicate deliverable versions
+- `latest_version_id` must be derived from the highest committed
+  `deliverable_versions.version_no` for a deliverable, not from wall-clock
+  detection completion order
+- `version_no` must be assigned transactionally inside the backend when a new
+  version record is created
+
+Recommended persistence invariant for deliverable versions:
+
+- one version record per `(session_id, run_id, file_path)` in phase 1
+
+This is intentionally conservative: if the same run is processed twice, the
+backend should upsert rather than insert again.
+
 ## 9. Deliverable Detection
 
 Deliverable detection should be rule-based in the first release.
@@ -331,6 +359,12 @@ Exclude:
 - temporary tool outputs
 - screenshots
 - raw uploaded references
+
+Exception:
+
+- if a user-uploaded Office or PDF file is materially modified during the
+  current run and is presented as the user-facing result, it may be promoted
+  from pure reference input to a deliverable version for that run
 
 ## 9.2 Version Detection
 
@@ -357,6 +391,9 @@ If the same run produces multiple files that normalize to the same grouping key,
 the highest-confidence candidate becomes the primary detected version for that
 key and the remaining candidates are recorded in `detection_metadata_json` for
 debugging and possible future UI disclosure.
+
+`latest_version_id` must then point to the version with the highest committed
+`version_no` for that logical deliverable.
 
 ## 9.3 Logical Name Normalization
 
@@ -430,6 +467,7 @@ Responsibilities:
 - create or extend logical deliverables
 - create deliverable version records
 - set `latest_version_id`
+- apply idempotent upsert rules for callback retries and repeated detection
 
 ## 10.3 Trigger Point
 
@@ -453,6 +491,14 @@ At detection time, the backend must have:
 
 Detection should run asynchronously from the user-facing callback response path,
 but it must remain part of the same post-run completion pipeline.
+
+If detection fails after the callback response has already completed:
+
+- the session and run remain valid
+- workspace artifacts remain available through the existing manifest/file flow
+- the backend should record the detection failure for retry or operator
+  inspection
+- the frontend should fall back to the current artifacts behavior for that run
 
 ## 10.4 APIs
 

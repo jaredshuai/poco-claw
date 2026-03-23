@@ -48,6 +48,8 @@ export const API_ENDPOINTS = {
   sessionDeliverables: (sessionId: string) => `/sessions/${sessionId}/deliverables`,
   sessionDeliverable: (sessionId: string, deliverableId: string) =>
     `/sessions/${sessionId}/deliverables/${deliverableId}`,
+  sessionDeliverableVersions: (sessionId: string, deliverableId: string) =>
+    `/sessions/${sessionId}/deliverables/${deliverableId}/versions`,
   sessionDeliverableVersion: (sessionId: string, versionId: string) =>
     `/sessions/${sessionId}/deliverable-versions/${versionId}`,
   sessionDeliverableVersionToolExecutions: (

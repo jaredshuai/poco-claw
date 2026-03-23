@@ -33,7 +33,12 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
   );
   const fileChanges = session?.state_patch.workspace_state?.file_changes ?? [];
   const hasArtifacts = fileChanges.length > 0;
-  const { deliverables, ensureVersion } = useSessionDeliverables({
+  const {
+    deliverables,
+    versionsByDeliverableId,
+    ensureVersion,
+    ensureVersionsForDeliverable,
+  } = useSessionDeliverables({
     sessionId,
     isActive: isSessionActive,
   });
@@ -202,6 +207,22 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
           ? () => setIsRightPanelCollapsed((collapsed) => !collapsed)
           : undefined
       }
+      deliverables={deliverables}
+      versionsByDeliverableId={versionsByDeliverableId}
+      ensureVersionsForDeliverable={ensureVersionsForDeliverable}
+      onOpenDeliverablePreview={(deliverableId, versionId) => {
+        setSelectedDeliverableId(deliverableId);
+        setSelectedDeliverableVersionId(versionId);
+        setRightTab("artifacts");
+        setIsRightPanelCollapsed(false);
+      }}
+      onOpenDeliverableProcess={(deliverableId, versionId) => {
+        setSelectedDeliverableId(deliverableId);
+        setSelectedDeliverableVersionId(versionId);
+        setProcessMode("deliverable");
+        setRightTab("computer");
+        setIsRightPanelCollapsed(false);
+      }}
     />
   );
 

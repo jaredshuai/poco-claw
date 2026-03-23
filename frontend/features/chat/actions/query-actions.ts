@@ -202,6 +202,11 @@ export async function getDeliverableAction(input: GetDeliverableInput) {
   return chatService.getDeliverable(sessionId, deliverableId);
 }
 
+export async function getDeliverableVersionsAction(input: GetDeliverableInput) {
+  const { sessionId, deliverableId } = deliverableIdSchema.parse(input);
+  return chatService.getDeliverableVersions(sessionId, deliverableId);
+}
+
 export async function getDeliverableVersionAction(
   input: GetDeliverableVersionInput,
 ) {

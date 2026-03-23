@@ -327,6 +327,15 @@ export const chatService = {
     );
   },
 
+  getDeliverableVersions: async (
+    sessionId: string,
+    deliverableId: string,
+  ): Promise<DeliverableVersionResponse[]> => {
+    return apiClient.get<DeliverableVersionResponse[]>(
+      API_ENDPOINTS.sessionDeliverableVersions(sessionId, deliverableId),
+    );
+  },
+
   getDeliverableVersion: async (
     sessionId: string,
     versionId: string,

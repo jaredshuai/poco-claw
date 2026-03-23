@@ -10,7 +10,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { ChatPanel } from "../execution/chat-panel/chat-panel";
 import { ArtifactsPanel } from "../execution/file-panel/artifacts-panel";
 import { ComputerPanel } from "../execution/computer-panel/computer-panel";
-import type { ExecutionSession } from "@/features/chat/types";
+import type { DeliverableResponse, ExecutionSession } from "@/features/chat/types";
 import { useT } from "@/lib/i18n/client";
 import { MessageSquare, Layers, Monitor, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,12 @@ interface MobileExecutionViewProps {
   updateSession: (newSession: Partial<ExecutionSession>) => void;
   showArtifactsTab: boolean;
   showComputerTab: boolean;
+  deliverables: DeliverableResponse[];
+  selectedDeliverableId: string | null;
+  selectedDeliverableVersionId: string | null;
+  processMode: "deliverable" | "session";
+  onSelectDeliverable: (deliverableId: string, versionId: string | null) => void;
+  onProcessModeChange: (mode: "deliverable" | "session") => void;
 }
 
 export function MobileExecutionView({
@@ -29,6 +35,12 @@ export function MobileExecutionView({
   updateSession,
   showArtifactsTab,
   showComputerTab,
+  deliverables,
+  selectedDeliverableId,
+  selectedDeliverableVersionId,
+  processMode,
+  onSelectDeliverable,
+  onProcessModeChange,
 }: MobileExecutionViewProps) {
   const { t } = useT("translation");
   const { setOpenMobile } = useSidebar();
@@ -199,6 +211,9 @@ export function MobileExecutionView({
                         sessionId={sessionId}
                         sessionStatus={session?.status}
                         browserEnabled={browserEnabled}
+                        selectedDeliverableVersionId={selectedDeliverableVersionId}
+                        processMode={processMode}
+                        onProcessModeChange={onProcessModeChange}
                         hideHeader
                       />
                     ) : null
@@ -209,6 +224,10 @@ export function MobileExecutionView({
                       }
                       sessionId={sessionId}
                       sessionStatus={session?.status}
+                      deliverables={deliverables}
+                      selectedDeliverableId={selectedDeliverableId}
+                      selectedDeliverableVersionId={selectedDeliverableVersionId}
+                      onSelectDeliverable={onSelectDeliverable}
                       hideHeader
                     />
                   )}

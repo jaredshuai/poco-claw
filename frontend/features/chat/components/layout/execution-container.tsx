@@ -11,6 +11,7 @@ import { ChatPanelSkeleton } from "@/features/chat/components/layout/execution-c
 import { ExecutionTabsSwitch } from "@/features/chat/components/layout/execution-tabs-switch";
 import { DesktopExecutionLayout } from "@/features/chat/components/layout/desktop-execution-layout";
 import { useToolExecutions } from "@/features/chat/components/execution/computer-panel/hooks/use-tool-executions";
+import { useSessionDeliverables } from "@/features/chat/hooks/use-session-deliverables";
 
 interface ExecutionContainerProps {
   sessionId: string;
@@ -32,6 +33,10 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
   );
   const fileChanges = session?.state_patch.workspace_state?.file_changes ?? [];
   const hasArtifacts = fileChanges.length > 0;
+  const { deliverables, ensureVersion } = useSessionDeliverables({
+    sessionId,
+    isActive: isSessionActive,
+  });
   const { executions, isLoading: isLoadingToolExecutions } = useToolExecutions({
     sessionId,
     isActive: isSessionActive,
@@ -56,6 +61,14 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
   const [rightTab, setRightTab] = React.useState<string>(defaultRightTab);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] =
     React.useState(false);
+  const [selectedDeliverableId, setSelectedDeliverableId] = React.useState<
+    string | null
+  >(null);
+  const [selectedDeliverableVersionId, setSelectedDeliverableVersionId] =
+    React.useState<string | null>(null);
+  const [processMode, setProcessMode] = React.useState<"deliverable" | "session">(
+    "session",
+  );
   const effectiveRightPanelCollapsed = isRightPanelCollapsed || !showFilePanel;
   const didManualSwitchRef = React.useRef(false);
   const prevDefaultRef = React.useRef<string>(defaultRightTab);
@@ -69,7 +82,24 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
     didManualSwitchRef.current = false;
     prevDefaultRef.current = defaultRightTab;
     setRightTab(defaultRightTab);
+    setSelectedDeliverableId(null);
+    setSelectedDeliverableVersionId(null);
+    setProcessMode("session");
   }, [defaultRightTab, sessionId]);
+
+  React.useEffect(() => {
+    const first = deliverables.find((item) => item.latest_version_id);
+    if (!first) return;
+    if (selectedDeliverableId && selectedDeliverableVersionId) return;
+    setSelectedDeliverableId(first.id);
+    setSelectedDeliverableVersionId(first.latest_version_id ?? null);
+    setProcessMode(first.latest_version_id ? "deliverable" : "session");
+  }, [deliverables, selectedDeliverableId, selectedDeliverableVersionId]);
+
+  React.useEffect(() => {
+    if (!selectedDeliverableVersionId) return;
+    void ensureVersion(selectedDeliverableVersionId);
+  }, [ensureVersion, selectedDeliverableVersionId]);
 
   // Smart default: switch to artifacts on completion only if user didn't manually switch.
   React.useEffect(() => {
@@ -134,6 +164,16 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
         updateSession={updateSession}
         showArtifactsTab={showArtifactsTab}
         showComputerTab={showComputerTab}
+        deliverables={deliverables}
+        selectedDeliverableId={selectedDeliverableId}
+        selectedDeliverableVersionId={selectedDeliverableVersionId}
+        processMode={processMode}
+        onSelectDeliverable={(deliverableId, versionId) => {
+          setSelectedDeliverableId(deliverableId);
+          setSelectedDeliverableVersionId(versionId);
+          setProcessMode(versionId ? "deliverable" : "session");
+        }}
+        onProcessModeChange={setProcessMode}
       />
     );
   }
@@ -181,6 +221,16 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
       chatPanel={chatPanel}
       tabsSwitch={tabsSwitch}
       browserEnabled={browserEnabled}
+      deliverables={deliverables}
+      selectedDeliverableId={selectedDeliverableId}
+      selectedDeliverableVersionId={selectedDeliverableVersionId}
+      processMode={processMode}
+      onSelectDeliverable={(deliverableId, versionId) => {
+        setSelectedDeliverableId(deliverableId);
+        setSelectedDeliverableVersionId(versionId);
+        setProcessMode(versionId ? "deliverable" : "session");
+      }}
+      onProcessModeChange={setProcessMode}
     />
   );
 }

@@ -8,7 +8,11 @@ import { FileChangesList } from "./file-changes-list";
 import { ArtifactsEmpty } from "./artifacts-empty";
 import { useArtifacts } from "./hooks/use-artifacts";
 import { PackageSkillDialog } from "./package-skill-dialog";
-import type { FileChange, FileNode } from "@/features/chat/types";
+import type {
+  DeliverableResponse,
+  FileChange,
+  FileNode,
+} from "@/features/chat/types";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/client";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -19,6 +23,10 @@ interface ArtifactsPanelProps {
   fileChanges?: FileChange[];
   sessionId?: string;
   sessionStatus?: "pending" | "running" | "completed" | "failed" | "canceled";
+  deliverables?: DeliverableResponse[];
+  selectedDeliverableId?: string | null;
+  selectedDeliverableVersionId?: string | null;
+  onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
   headerAction?: React.ReactNode;
   hideHeader?: boolean;
 }
@@ -46,6 +54,10 @@ export function ArtifactsPanel({
   fileChanges = [],
   sessionId,
   sessionStatus,
+  deliverables = [],
+  selectedDeliverableId,
+  selectedDeliverableVersionId,
+  onSelectDeliverable,
   headerAction,
   hideHeader = false,
 }: ArtifactsPanelProps) {
@@ -94,6 +106,10 @@ export function ArtifactsPanel({
       <FileChangesList
         fileChanges={fileChanges}
         sessionStatus={sessionStatus}
+        deliverables={deliverables}
+        selectedDeliverableId={selectedDeliverableId}
+        selectedDeliverableVersionId={selectedDeliverableVersionId}
+        onSelectDeliverable={onSelectDeliverable}
         onFileClick={(filePath) => {
           const findFileByPath = (
             nodes: FileNode[],

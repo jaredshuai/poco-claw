@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ComputerPanel } from "@/features/chat/components/execution/computer-panel/computer-panel";
 import { ArtifactsPanel } from "@/features/chat/components/execution/file-panel/artifacts-panel";
-import type { ExecutionSession } from "@/features/chat/types";
+import type { DeliverableResponse, ExecutionSession } from "@/features/chat/types";
 import { useT } from "@/lib/i18n/client";
 
 interface DesktopExecutionLayoutProps {
@@ -26,6 +26,12 @@ interface DesktopExecutionLayoutProps {
   chatPanel: React.ReactNode;
   tabsSwitch: React.ReactNode;
   browserEnabled: boolean;
+  deliverables: DeliverableResponse[];
+  selectedDeliverableId: string | null;
+  selectedDeliverableVersionId: string | null;
+  processMode: "deliverable" | "session";
+  onSelectDeliverable: (deliverableId: string, versionId: string | null) => void;
+  onProcessModeChange: (mode: "deliverable" | "session") => void;
 }
 
 export function DesktopExecutionLayout({
@@ -40,6 +46,12 @@ export function DesktopExecutionLayout({
   chatPanel,
   tabsSwitch,
   browserEnabled,
+  deliverables,
+  selectedDeliverableId,
+  selectedDeliverableVersionId,
+  processMode,
+  onSelectDeliverable,
+  onProcessModeChange,
 }: DesktopExecutionLayoutProps) {
   const { t } = useT("translation");
   const isComputerLive =
@@ -113,6 +125,9 @@ export function DesktopExecutionLayout({
                           sessionId={sessionId}
                           sessionStatus={session?.status}
                           browserEnabled={browserEnabled}
+                          selectedDeliverableVersionId={selectedDeliverableVersionId}
+                          processMode={processMode}
+                          onProcessModeChange={onProcessModeChange}
                           hideHeader
                         />
                       </TabsContent>
@@ -128,6 +143,12 @@ export function DesktopExecutionLayout({
                           }
                           sessionId={sessionId}
                           sessionStatus={session?.status}
+                          deliverables={deliverables}
+                          selectedDeliverableId={selectedDeliverableId}
+                          selectedDeliverableVersionId={
+                            selectedDeliverableVersionId
+                          }
+                          onSelectDeliverable={onSelectDeliverable}
                           hideHeader
                         />
                       </TabsContent>

@@ -373,6 +373,45 @@ class DeliverableServiceTests(_SQLiteHarness):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].id, execution.id)
 
+    def test_list_versions_by_deliverable_returns_all_versions(self) -> None:
+        session_id = uuid4()
+        deliverable = Deliverable(
+            session_id=session_id,
+            kind="docx",
+            logical_name="实施方案",
+            status="active",
+        )
+        self.db.add(deliverable)
+        self.db.flush()
+
+        self.db.add_all(
+            [
+                DeliverableVersion(
+                    session_id=session_id,
+                    run_id=uuid4(),
+                    deliverable_id=deliverable.id,
+                    version_no=1,
+                    file_path="outputs/实施方案_v1.docx",
+                ),
+                DeliverableVersion(
+                    session_id=session_id,
+                    run_id=uuid4(),
+                    deliverable_id=deliverable.id,
+                    version_no=2,
+                    file_path="outputs/实施方案_v2.docx",
+                ),
+            ]
+        )
+        self.db.commit()
+
+        items = self.service.list_versions_by_deliverable(
+            self.db,
+            session_id=session_id,
+            deliverable_id=deliverable.id,
+        )
+
+        self.assertEqual([item.version_no for item in items], [1, 2])
+
 
 if __name__ == "__main__":
     unittest.main()

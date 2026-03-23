@@ -42,6 +42,27 @@ class DeliverableService:
             )
         return DeliverableResponse.model_validate(deliverable)
 
+    def list_versions_by_deliverable(
+        self,
+        db: Session,
+        *,
+        session_id: uuid.UUID,
+        deliverable_id: uuid.UUID,
+    ) -> list[DeliverableVersionResponse]:
+        deliverable = DeliverableRepository.get_by_id(db, deliverable_id)
+        if deliverable is None or deliverable.session_id != session_id:
+            raise AppException(
+                error_code=ErrorCode.NOT_FOUND,
+                message=f"Deliverable not found: {deliverable_id}",
+            )
+        return [
+            DeliverableVersionResponse.model_validate(item)
+            for item in DeliverableVersionRepository.list_by_deliverable(
+                db,
+                deliverable_id,
+            )
+        ]
+
     def get_version(
         self,
         db: Session,

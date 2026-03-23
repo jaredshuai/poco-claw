@@ -62,6 +62,25 @@ async def get_session_deliverable(
 
 
 @router.get(
+    "/{session_id}/deliverables/{deliverable_id}/versions",
+    response_model=ResponseSchema[list[DeliverableVersionResponse]],
+)
+async def list_session_deliverable_versions(
+    session_id: uuid.UUID,
+    deliverable_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    _ensure_session_owner(db, session_id, user_id)
+    payload = deliverable_service.list_versions_by_deliverable(
+        db,
+        session_id=session_id,
+        deliverable_id=deliverable_id,
+    )
+    return Response.success(data=payload, message="Deliverable versions retrieved")
+
+
+@router.get(
     "/{session_id}/deliverable-versions/{version_id}",
     response_model=ResponseSchema[DeliverableVersionResponse],
 )

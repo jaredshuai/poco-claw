@@ -32,6 +32,8 @@ interface MobileExecutionViewProps {
   processMode: "deliverable" | "session";
   onSelectDeliverable: (deliverableId: string, versionId: string | null) => void;
   onProcessModeChange: (mode: "deliverable" | "session") => void;
+  onOpenDeliverablePreview: (deliverableId: string, versionId: string) => void;
+  onOpenDeliverableProcess: (deliverableId: string, versionId: string) => void;
 }
 
 export function MobileExecutionView({
@@ -47,6 +49,8 @@ export function MobileExecutionView({
   processMode,
   onSelectDeliverable,
   onProcessModeChange,
+  onOpenDeliverablePreview,
+  onOpenDeliverableProcess,
 }: MobileExecutionViewProps) {
   const { t } = useT("translation");
   const { setOpenMobile } = useSidebar();
@@ -234,6 +238,8 @@ export function MobileExecutionView({
                       versionMap={versionMap}
                       selectedDeliverableId={selectedDeliverableId}
                       onSelectDeliverable={onSelectDeliverable}
+                      onOpenDeliverablePreview={onOpenDeliverablePreview}
+                      onOpenDeliverableProcess={onOpenDeliverableProcess}
                       hideHeader
                     />
                   )}

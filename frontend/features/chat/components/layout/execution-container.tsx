@@ -181,6 +181,19 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
           setProcessMode(versionId ? "deliverable" : "session");
         }}
         onProcessModeChange={setProcessMode}
+        onOpenDeliverablePreview={(deliverableId, versionId) => {
+          setSelectedDeliverableId(deliverableId);
+          setSelectedDeliverableVersionId(versionId);
+          setRightTab("artifacts");
+          setIsRightPanelCollapsed(false);
+        }}
+        onOpenDeliverableProcess={(deliverableId, versionId) => {
+          setSelectedDeliverableId(deliverableId);
+          setSelectedDeliverableVersionId(versionId);
+          setProcessMode("deliverable");
+          setRightTab("computer");
+          setIsRightPanelCollapsed(false);
+        }}
       />
     );
   }
@@ -255,6 +268,19 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
         setProcessMode(versionId ? "deliverable" : "session");
       }}
       onProcessModeChange={setProcessMode}
+      onOpenDeliverablePreview={(deliverableId, versionId) => {
+        setSelectedDeliverableId(deliverableId);
+        setSelectedDeliverableVersionId(versionId);
+        setRightTab("artifacts");
+        setIsRightPanelCollapsed(false);
+      }}
+      onOpenDeliverableProcess={(deliverableId, versionId) => {
+        setSelectedDeliverableId(deliverableId);
+        setSelectedDeliverableVersionId(versionId);
+        setProcessMode("deliverable");
+        setRightTab("computer");
+        setIsRightPanelCollapsed(false);
+      }}
     />
   );
 }

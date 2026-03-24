@@ -29,6 +29,8 @@ interface ArtifactsPanelProps {
   versionMap?: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId?: string | null;
   onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
+  onOpenDeliverablePreview?: (deliverableId: string, versionId: string) => void;
+  onOpenDeliverableProcess?: (deliverableId: string, versionId: string) => void;
   headerAction?: React.ReactNode;
   hideHeader?: boolean;
 }
@@ -60,6 +62,8 @@ export function ArtifactsPanel({
   versionMap = {},
   selectedDeliverableId,
   onSelectDeliverable,
+  onOpenDeliverablePreview,
+  onOpenDeliverableProcess,
   headerAction,
   hideHeader = false,
 }: ArtifactsPanelProps) {
@@ -108,6 +112,28 @@ export function ArtifactsPanel({
           versionMap={versionMap}
           selectedDeliverableId={selectedDeliverableId}
           onSelectDeliverable={onSelectDeliverable}
+          onPreviewVersion={(version) => {
+            const file = findWorkspaceNodeByPath(version.file_path);
+            if (file) {
+              selectFile(file);
+              return;
+            }
+            onOpenDeliverablePreview?.(version.deliverable_id, version.id);
+          }}
+          onViewProcess={(deliverableId, versionId) => {
+            onOpenDeliverableProcess?.(deliverableId, versionId);
+          }}
+          onDownloadVersion={(version) => {
+            const file = findWorkspaceNodeByPath(version.file_path);
+            if (!file?.url) return;
+            void downloadFileFromUrl(
+              file.url,
+              file.name ||
+                version.file_name ||
+                version.file_path.split("/").pop() ||
+                "deliverable",
+            );
+          }}
           onFileClick={(filePath) => {
             const findFileByPath = (
               nodes: FileNode[],
@@ -234,6 +260,23 @@ export function ArtifactsPanel({
       }
     },
     [sessionId, t],
+  );
+
+  const findWorkspaceNodeByPath = React.useCallback(
+    (path: string): FileNode | undefined => {
+      const walk = (nodes: FileNode[]): FileNode | undefined => {
+        for (const node of nodes) {
+          if (node.path === path) return node;
+          if (node.children?.length) {
+            const found = walk(node.children);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      return walk(files);
+    },
+    [files],
   );
 
   const handleSubmitSkill = React.useCallback(

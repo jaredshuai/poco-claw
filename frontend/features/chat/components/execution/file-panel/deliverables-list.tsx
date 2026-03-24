@@ -13,6 +13,7 @@ import {
   Eye,
   Clock,
   FolderInput,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/client";
@@ -30,6 +31,7 @@ interface DeliverablesListProps {
   onFileClick?: (filePath: string) => void;
   onViewProcess?: (deliverableId: string, versionId: string) => void;
   onDownloadVersion?: (version: DeliverableVersionResponse) => void;
+  onPreviewVersion?: (version: DeliverableVersionResponse) => void;
   fileChanges?: FileChange[];
 }
 
@@ -54,9 +56,9 @@ interface DeliverableCardProps {
   latestVersion?: DeliverableVersionResponse | null;
   isSelected: boolean;
   onSelect: () => void;
+  onPreview?: () => void;
   onViewProcess?: () => void;
   onDownload?: () => void;
-  onFileClick?: (filePath: string) => void;
   t: (key: string) => string;
 }
 
@@ -65,6 +67,7 @@ function DeliverableCard({
   latestVersion,
   isSelected,
   onSelect,
+  onPreview,
   onViewProcess,
   onDownload,
   t,
@@ -116,6 +119,20 @@ function DeliverableCard({
             <span>{t("deliverables.latestVersion")}</span>
           </div>
           <div className="flex gap-2">
+            {onPreview && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPreview();
+                }}
+              >
+                <Eye className="size-3 mr-1" />
+                {t("artifacts.viewer.openInNewWindow")}
+              </Button>
+            )}
             {onViewProcess && (
               <Button
                 variant="outline"
@@ -126,7 +143,7 @@ function DeliverableCard({
                   onViewProcess();
                 }}
               >
-                <Eye className="size-3 mr-1" />
+                <Monitor className="size-3 mr-1" />
                 {t("deliverables.viewProcess")}
               </Button>
             )}
@@ -201,6 +218,7 @@ export function DeliverablesList({
   onFileClick,
   onViewProcess,
   onDownloadVersion,
+  onPreviewVersion,
   fileChanges = [],
 }: DeliverablesListProps) {
   const { t } = useT("translation");
@@ -258,6 +276,11 @@ export function DeliverablesList({
                     onSelect={() =>
                       onSelectDeliverable?.(deliverable.id, latestVersion?.id ?? null)
                     }
+                    onPreview={
+                      latestVersion && onPreviewVersion
+                        ? () => onPreviewVersion(latestVersion)
+                        : undefined
+                    }
                     onViewProcess={
                       latestVersion && onViewProcess
                         ? () => onViewProcess(deliverable.id, latestVersion.id)
@@ -268,7 +291,6 @@ export function DeliverablesList({
                         ? () => onDownloadVersion(latestVersion)
                         : undefined
                     }
-                    onFileClick={onFileClick}
                     t={t}
                   />
                 ))}

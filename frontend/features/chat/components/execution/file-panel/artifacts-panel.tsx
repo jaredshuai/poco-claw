@@ -6,10 +6,12 @@ import { DocumentViewer } from "./document-viewer";
 import { ArtifactsHeader } from "./artifacts-header";
 import { FileChangesList } from "./file-changes-list";
 import { ArtifactsEmpty } from "./artifacts-empty";
+import { DeliverablesList } from "./deliverables-list";
 import { useArtifacts } from "./hooks/use-artifacts";
 import { PackageSkillDialog } from "./package-skill-dialog";
 import type {
   DeliverableResponse,
+  DeliverableVersionResponse,
   FileChange,
   FileNode,
 } from "@/features/chat/types";
@@ -24,6 +26,7 @@ interface ArtifactsPanelProps {
   sessionId?: string;
   sessionStatus?: "pending" | "running" | "completed" | "failed" | "canceled";
   deliverables?: DeliverableResponse[];
+  versionMap?: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId?: string | null;
   selectedDeliverableVersionId?: string | null;
   onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
@@ -55,6 +58,7 @@ export function ArtifactsPanel({
   sessionId,
   sessionStatus,
   deliverables = [],
+  versionMap = {},
   selectedDeliverableId,
   selectedDeliverableVersionId,
   onSelectDeliverable,
@@ -98,6 +102,50 @@ export function ArtifactsPanel({
       );
     }
 
+    // Show deliverables-first list when deliverables exist
+    if (deliverables.length > 0) {
+      return (
+        <DeliverablesList
+          deliverables={deliverables}
+          versionMap={versionMap}
+          selectedDeliverableId={selectedDeliverableId}
+          onSelectDeliverable={onSelectDeliverable}
+          onFileClick={(filePath) => {
+            const findFileByPath = (
+              nodes: FileNode[],
+              path: string,
+            ): FileNode | undefined => {
+              for (const node of nodes) {
+                if (node.path === path) return node;
+                if (node.children) {
+                  const found = findFileByPath(node.children, path);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            };
+
+            let file = findFileByPath(files, filePath);
+
+            if (!file) {
+              const name = filePath.split("/").pop() || filePath;
+              file = {
+                id: filePath,
+                name,
+                path: filePath,
+                type: "file",
+              };
+            }
+
+            if (file) {
+              selectFile(file);
+            }
+          }}
+          fileChanges={fileChanges}
+        />
+      );
+    }
+
     if (fileChanges.length === 0) {
       return <ArtifactsEmpty sessionStatus={sessionStatus} />;
     }
@@ -106,10 +154,6 @@ export function ArtifactsPanel({
       <FileChangesList
         fileChanges={fileChanges}
         sessionStatus={sessionStatus}
-        deliverables={deliverables}
-        selectedDeliverableId={selectedDeliverableId}
-        selectedDeliverableVersionId={selectedDeliverableVersionId}
-        onSelectDeliverable={onSelectDeliverable}
         onFileClick={(filePath) => {
           const findFileByPath = (
             nodes: FileNode[],

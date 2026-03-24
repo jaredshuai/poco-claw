@@ -232,6 +232,7 @@ export function ComputerPanel({
     null,
   );
   const [sliderProgress, setSliderProgress] = React.useState(0);
+  const showProcessModeToggle = Boolean(selectedDeliverableVersionId);
 
   const replayFrames: ReplayFrame[] = React.useMemo(() => {
     if (replayFilter === "browser") {
@@ -815,6 +816,26 @@ export function ComputerPanel({
       ) : null}
       <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">
         <div className="h-full min-h-0 flex flex-col gap-3">
+          {showProcessModeToggle ? (
+            <div className="flex items-center gap-2 rounded-xl border bg-card px-2 py-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={processMode === "deliverable" ? "default" : "ghost"}
+                onClick={() => onProcessModeChange?.("deliverable")}
+              >
+                {t("deliverables.viewProcess")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={processMode === "session" ? "default" : "ghost"}
+                onClick={() => onProcessModeChange?.("session")}
+              >
+                {t("deliverables.fullSessionProcess")}
+              </Button>
+            </div>
+          ) : null}
           <div className="relative flex-1 min-h-0 overflow-hidden rounded-xl border bg-card shadow-sm">
             {viewer}
           </div>

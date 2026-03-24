@@ -32,7 +32,6 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
     session?.state_patch?.browser?.enabled,
   );
   const fileChanges = session?.state_patch.workspace_state?.file_changes ?? [];
-  const hasArtifacts = fileChanges.length > 0;
   const {
     deliverables,
     versionMap,
@@ -43,6 +42,7 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
     sessionId,
     isActive: isSessionActive,
   });
+  const hasArtifacts = fileChanges.length > 0 || deliverables.length > 0;
   const { executions, isLoading: isLoadingToolExecutions } = useToolExecutions({
     sessionId,
     isActive: isSessionActive,

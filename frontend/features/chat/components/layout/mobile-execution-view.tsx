@@ -233,7 +233,6 @@ export function MobileExecutionView({
                       deliverables={deliverables}
                       versionMap={versionMap}
                       selectedDeliverableId={selectedDeliverableId}
-                      selectedDeliverableVersionId={selectedDeliverableVersionId}
                       onSelectDeliverable={onSelectDeliverable}
                       hideHeader
                     />

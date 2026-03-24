@@ -152,9 +152,6 @@ export function DesktopExecutionLayout({
                           deliverables={deliverables}
                           versionMap={versionMap}
                           selectedDeliverableId={selectedDeliverableId}
-                          selectedDeliverableVersionId={
-                            selectedDeliverableVersionId
-                          }
                           onSelectDeliverable={onSelectDeliverable}
                           hideHeader
                         />

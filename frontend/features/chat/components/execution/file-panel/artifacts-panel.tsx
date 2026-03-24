@@ -28,7 +28,6 @@ interface ArtifactsPanelProps {
   deliverables?: DeliverableResponse[];
   versionMap?: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId?: string | null;
-  selectedDeliverableVersionId?: string | null;
   onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
   headerAction?: React.ReactNode;
   hideHeader?: boolean;
@@ -60,7 +59,6 @@ export function ArtifactsPanel({
   deliverables = [],
   versionMap = {},
   selectedDeliverableId,
-  selectedDeliverableVersionId,
   onSelectDeliverable,
   headerAction,
   hideHeader = false,

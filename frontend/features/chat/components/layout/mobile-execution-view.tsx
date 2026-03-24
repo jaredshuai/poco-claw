@@ -10,7 +10,11 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { ChatPanel } from "../execution/chat-panel/chat-panel";
 import { ArtifactsPanel } from "../execution/file-panel/artifacts-panel";
 import { ComputerPanel } from "../execution/computer-panel/computer-panel";
-import type { DeliverableResponse, ExecutionSession } from "@/features/chat/types";
+import type {
+  DeliverableResponse,
+  DeliverableVersionResponse,
+  ExecutionSession,
+} from "@/features/chat/types";
 import { useT } from "@/lib/i18n/client";
 import { MessageSquare, Layers, Monitor, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +26,7 @@ interface MobileExecutionViewProps {
   showArtifactsTab: boolean;
   showComputerTab: boolean;
   deliverables: DeliverableResponse[];
+  versionMap: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId: string | null;
   selectedDeliverableVersionId: string | null;
   processMode: "deliverable" | "session";
@@ -36,6 +41,7 @@ export function MobileExecutionView({
   showArtifactsTab,
   showComputerTab,
   deliverables,
+  versionMap,
   selectedDeliverableId,
   selectedDeliverableVersionId,
   processMode,
@@ -225,6 +231,7 @@ export function MobileExecutionView({
                       sessionId={sessionId}
                       sessionStatus={session?.status}
                       deliverables={deliverables}
+                      versionMap={versionMap}
                       selectedDeliverableId={selectedDeliverableId}
                       selectedDeliverableVersionId={selectedDeliverableVersionId}
                       onSelectDeliverable={onSelectDeliverable}

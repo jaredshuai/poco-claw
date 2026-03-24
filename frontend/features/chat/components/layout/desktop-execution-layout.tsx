@@ -11,7 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ComputerPanel } from "@/features/chat/components/execution/computer-panel/computer-panel";
 import { ArtifactsPanel } from "@/features/chat/components/execution/file-panel/artifacts-panel";
-import type { DeliverableResponse, ExecutionSession } from "@/features/chat/types";
+import type {
+  DeliverableResponse,
+  DeliverableVersionResponse,
+  ExecutionSession,
+} from "@/features/chat/types";
 import { useT } from "@/lib/i18n/client";
 
 interface DesktopExecutionLayoutProps {
@@ -27,6 +31,7 @@ interface DesktopExecutionLayoutProps {
   tabsSwitch: React.ReactNode;
   browserEnabled: boolean;
   deliverables: DeliverableResponse[];
+  versionMap: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId: string | null;
   selectedDeliverableVersionId: string | null;
   processMode: "deliverable" | "session";
@@ -47,6 +52,7 @@ export function DesktopExecutionLayout({
   tabsSwitch,
   browserEnabled,
   deliverables,
+  versionMap,
   selectedDeliverableId,
   selectedDeliverableVersionId,
   processMode,
@@ -144,6 +150,7 @@ export function DesktopExecutionLayout({
                           sessionId={sessionId}
                           sessionStatus={session?.status}
                           deliverables={deliverables}
+                          versionMap={versionMap}
                           selectedDeliverableId={selectedDeliverableId}
                           selectedDeliverableVersionId={
                             selectedDeliverableVersionId

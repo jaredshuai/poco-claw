@@ -35,6 +35,7 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
   const hasArtifacts = fileChanges.length > 0;
   const {
     deliverables,
+    versionMap,
     versionsByDeliverableId,
     ensureVersion,
     ensureVersionsForDeliverable,
@@ -170,6 +171,7 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
         showArtifactsTab={showArtifactsTab}
         showComputerTab={showComputerTab}
         deliverables={deliverables}
+        versionMap={versionMap}
         selectedDeliverableId={selectedDeliverableId}
         selectedDeliverableVersionId={selectedDeliverableVersionId}
         processMode={processMode}
@@ -243,6 +245,7 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
       tabsSwitch={tabsSwitch}
       browserEnabled={browserEnabled}
       deliverables={deliverables}
+      versionMap={versionMap}
       selectedDeliverableId={selectedDeliverableId}
       selectedDeliverableVersionId={selectedDeliverableVersionId}
       processMode={processMode}

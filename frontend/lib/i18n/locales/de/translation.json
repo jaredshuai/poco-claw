@@ -1674,6 +1674,8 @@
     "referenceInputs": "Referenzdateien",
     "viewProcess": "Ablauf ansehen",
     "download": "Herunterladen",
+    "preview": "Vorschau",
+    "versionHistory": "Versionsverlauf",
     "fullSessionProcess": "Gesamter Sitzungsablauf",
     "unavailable": "Nicht verfügbar",
     "noDeliverables": "Noch keine Ergebnisse erkannt",

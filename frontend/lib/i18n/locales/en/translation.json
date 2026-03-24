@@ -1786,6 +1786,8 @@
     "referenceInputs": "Reference inputs",
     "viewProcess": "View process",
     "download": "Download",
+    "preview": "Preview",
+    "versionHistory": "Version history",
     "fullSessionProcess": "Full session process",
     "unavailable": "Unavailable",
     "noDeliverables": "No deliverables detected yet",

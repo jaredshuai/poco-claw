@@ -1670,6 +1670,8 @@
     "referenceInputs": "Références",
     "viewProcess": "Voir le processus",
     "download": "Télécharger",
+    "preview": "Aperçu",
+    "versionHistory": "Historique des versions",
     "fullSessionProcess": "Processus complet de la session",
     "unavailable": "Indisponible",
     "noDeliverables": "Aucun livrable détecté pour le moment",

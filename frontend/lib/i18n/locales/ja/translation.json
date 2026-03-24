@@ -1670,6 +1670,8 @@
     "referenceInputs": "参照資料",
     "viewProcess": "作業プロセスを見る",
     "download": "ダウンロード",
+    "preview": "プレビュー",
+    "versionHistory": "バージョン履歴",
     "fullSessionProcess": "セッション全体のプロセス",
     "unavailable": "利用不可",
     "noDeliverables": "まだ成果物が見つかっていません",

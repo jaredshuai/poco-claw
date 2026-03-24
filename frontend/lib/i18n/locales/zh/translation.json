@@ -1786,6 +1786,8 @@
     "referenceInputs": "参考资料",
     "viewProcess": "查看过程",
     "download": "下载",
+    "preview": "预览",
+    "versionHistory": "版本历史",
     "fullSessionProcess": "本次会话全部过程",
     "unavailable": "暂不可用",
     "noDeliverables": "暂未识别到交付物",

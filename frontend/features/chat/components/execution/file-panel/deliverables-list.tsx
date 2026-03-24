@@ -54,22 +54,26 @@ function getKindIcon(kind: string, className?: string) {
 interface DeliverableCardProps {
   deliverable: DeliverableResponse;
   latestVersion?: DeliverableVersionResponse | null;
+  olderVersions: DeliverableVersionResponse[];
   isSelected: boolean;
   onSelect: () => void;
   onPreview?: () => void;
   onViewProcess?: () => void;
   onDownload?: () => void;
+  onPreviewVersion?: (version: DeliverableVersionResponse) => void;
   t: (key: string) => string;
 }
 
 function DeliverableCard({
   deliverable,
   latestVersion,
+  olderVersions,
   isSelected,
   onSelect,
   onPreview,
   onViewProcess,
   onDownload,
+  onPreviewVersion,
   t,
 }: DeliverableCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -162,6 +166,41 @@ function DeliverableCard({
               </Button>
             )}
           </div>
+
+          {/* Version History */}
+          {olderVersions.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-border/50">
+              <p className="text-xs text-muted-foreground mb-1.5">
+                {t("deliverables.versionHistory")}
+              </p>
+              <div className="space-y-1">
+                {olderVersions.map((version) => (
+                  <div
+                    key={version.id}
+                    className="flex items-center justify-between py-1 px-2 rounded text-xs hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="text-muted-foreground">
+                      v{version.version_no}
+                    </span>
+                    {onPreviewVersion && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1.5 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPreviewVersion(version);
+                        }}
+                      >
+                        <Eye className="size-3 mr-0.5" />
+                        {t("deliverables.preview")}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -233,12 +272,20 @@ export function DeliverablesList({
     );
   }
 
-  // Separate deliverables from reference inputs
+  // Separate deliverables from reference inputs and compute version history
   const deliverableVersions = deliverables
-    .map((d) => ({
-      deliverable: d,
-      latestVersion: d.latest_version_id ? versionMap[d.latest_version_id] ?? null : null,
-    }))
+    .map((d) => {
+      const latestVersion = d.latest_version_id ? versionMap[d.latest_version_id] ?? null : null;
+      // Get older versions: all versions for this deliverable except the latest, sorted by version_no desc
+      const olderVersions = Object.values(versionMap)
+        .filter(
+          (v) =>
+            v.deliverable_id === d.id &&
+            v.id !== d.latest_version_id
+        )
+        .sort((a, b) => b.version_no - a.version_no);
+      return { deliverable: d, latestVersion, olderVersions };
+    })
     .filter((item) => item.latestVersion);
 
   // Files that are reference inputs (not deliverables)
@@ -267,11 +314,12 @@ export function DeliverablesList({
                 </span>
               </div>
               <div className="space-y-2">
-                {deliverableVersions.map(({ deliverable, latestVersion }) => (
+                {deliverableVersions.map(({ deliverable, latestVersion, olderVersions }) => (
                   <DeliverableCard
                     key={deliverable.id}
                     deliverable={deliverable}
                     latestVersion={latestVersion}
+                    olderVersions={olderVersions}
                     isSelected={selectedDeliverableId === deliverable.id}
                     onSelect={() =>
                       onSelectDeliverable?.(deliverable.id, latestVersion?.id ?? null)
@@ -291,6 +339,7 @@ export function DeliverablesList({
                         ? () => onDownloadVersion(latestVersion)
                         : undefined
                     }
+                    onPreviewVersion={onPreviewVersion}
                     t={t}
                   />
                 ))}

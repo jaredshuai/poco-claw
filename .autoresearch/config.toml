@@ -1,0 +1,85 @@
+# Autoresearch Tuning Configuration
+
+[project]
+name = "poco-claw"
+base_branch = "master"
+
+[tuning]
+# Maximum lines changed per commit (keep atomic)
+max_change_lines = 50
+
+# Target test coverage percentage
+target_coverage = 80.0
+
+# Phase 1: Backend Core Services (highest priority)
+[[modules]]
+path = "backend/app/services/session_service.py"
+phase = 1
+priority = 1
+
+[[modules]]
+path = "backend/app/services/task_service.py"
+phase = 1
+priority = 2
+
+[[modules]]
+path = "backend/app/services/run_service.py"
+phase = 1
+priority = 3
+
+[[modules]]
+path = "backend/app/services/callback_service.py"
+phase = 1
+priority = 4
+
+[[modules]]
+path = "backend/app/repositories/session_repository.py"
+phase = 1
+priority = 5
+
+[[modules]]
+path = "backend/app/repositories/run_repository.py"
+phase = 1
+priority = 6
+
+# Phase 2: Backend Extended Services
+[[modules]]
+path = "backend/app/services/project_service.py"
+phase = 2
+priority = 10
+
+[[modules]]
+path = "backend/app/services/message_service.py"
+phase = 2
+priority = 11
+
+[[modules]]
+path = "backend/app/services/usage_service.py"
+phase = 2
+priority = 12
+
+[[modules]]
+path = "backend/app/repositories/message_repository.py"
+phase = 2
+priority = 13
+
+[[modules]]
+path = "backend/app/repositories/project_repository.py"
+phase = 2
+priority = 14
+
+# Phase 3: Executor & Executor Manager
+[[modules]]
+path = "executor/app/core/engine.py"
+phase = 3
+priority = 20
+
+[[modules]]
+path = "executor/app/core/workspace.py"
+phase = 3
+priority = 21
+
+[[modules]]
+path = "executor_manager/app/scheduler/dispatcher.py"
+phase = 3
+priority = 30

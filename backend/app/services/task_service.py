@@ -35,7 +35,8 @@ class TaskService:
         Rules:
         - `model` unset/empty -> removed and clear `model_provider_id`
         - `model` equals settings.default_model -> removed and clear `model_provider_id`
-        - explicit `model_provider_id` must be a known provider and match the inferred provider when available
+        - explicit `model_provider_id` must be a known provider
+        - when `model_provider_id` is explicit, trust that provider binding for custom models
         - otherwise `model` must be in the backend model catalog or belong to a known provider
         """
         if not isinstance(config, dict):
@@ -94,12 +95,6 @@ class TaskService:
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Invalid model: {value}",
             )
-        if provider_id and inferred_provider_id and provider_id != inferred_provider_id:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message=f"Invalid model/provider pair: {provider_id}/{value}",
-            )
-
         config["model"] = value
         if provider_id:
             config["model_provider_id"] = provider_id

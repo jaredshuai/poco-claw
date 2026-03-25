@@ -169,31 +169,41 @@ def save_baseline(baseline: dict[str, Any]) -> None:
 
 def record_result(
     module: str,
-    ruff_errors: int,
-    ty_errors: int,
-    coverage: float,
-    notes: str = "",
+    change_type: str,
+    lint_before: int,
+    lint_after: int,
+    type_before: int,
+    type_after: int,
+    cov_before: float,
+    cov_after: float,
+    status: str,
+    description: str = "",
 ) -> None:
     """
     Append measurement results to TSV file.
 
     Args:
         module: Path to the measured module
-        ruff_errors: Number of lint errors
-        ty_errors: Number of type errors
-        coverage: Test coverage percentage
-        notes: Optional notes about this measurement
+        change_type: Type of change (lint_fix, type_fix, test_add, refactor)
+        lint_before: Lint error count before change
+        lint_after: Lint error count after change
+        type_before: Type error count before change
+        type_after: Type error count after change
+        cov_before: Test coverage before change
+        cov_after: Test coverage after change
+        status: Status of the change (keep/discard/crash)
+        description: Description of the change
     """
     timestamp = datetime.now().isoformat()
 
     # Create file with header if it doesn't exist
     if not RESULTS_FILE.exists():
         with open(RESULTS_FILE, "w", encoding="utf-8") as f:
-            f.write("timestamp\tmodule\truff_errors\tty_errors\tcoverage\tnotes\n")
+            f.write("timestamp\tmodule\tchange_type\tlint_before\tlint_after\ttype_before\ttype_after\tcov_before\tcov_after\tstatus\tdescription\n")
 
     # Append the result
     with open(RESULTS_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{timestamp}\t{module}\t{ruff_errors}\t{ty_errors}\t{coverage}\t{notes}\n")
+        f.write(f"{timestamp}\t{module}\t{change_type}\t{lint_before}\t{lint_after}\t{type_before}\t{type_after}\t{cov_before}\t{cov_after}\t{status}\t{description}\n")
 
 
 def measure_module(module: str) -> dict[str, Any]:
@@ -204,7 +214,7 @@ def measure_module(module: str) -> dict[str, Any]:
         module: Path to the module (relative to project root)
 
     Returns:
-        Dictionary with ruff_errors, ty_errors, and coverage
+        Dictionary with lint_errors, type_errors, and test_coverage
     """
     # Resolve the path
     if module.startswith("backend/"):
@@ -221,22 +231,22 @@ def measure_module(module: str) -> dict[str, Any]:
 
     print(f"Measuring: {module_path}")
 
-    ruff_errors = count_ruff_errors(module_path)
-    print(f"  Ruff errors: {ruff_errors}")
+    lint_errors = count_ruff_errors(module_path)
+    print(f"  Lint errors: {lint_errors}")
 
-    ty_errors = count_ty_errors(module_path)
-    print(f"  Type errors: {ty_errors}")
+    type_errors = count_ty_errors(module_path)
+    print(f"  Type errors: {type_errors}")
 
-    coverage = get_test_coverage(module_path)
-    if coverage >= 0:
-        print(f"  Test coverage: {coverage}%")
+    test_coverage = get_test_coverage(module_path)
+    if test_coverage >= 0:
+        print(f"  Test coverage: {test_coverage}%")
     else:
         print("  Test coverage: N/A")
 
     return {
-        "ruff_errors": ruff_errors,
-        "ty_errors": ty_errors,
-        "coverage": coverage,
+        "lint_errors": lint_errors,
+        "type_errors": type_errors,
+        "test_coverage": test_coverage,
     }
 
 
@@ -252,13 +262,35 @@ def cmd_baseline(module: str) -> None:
     save_baseline(baseline)
 
     print(f"\nBaseline saved for {module}")
-    record_result(module, metrics["ruff_errors"], metrics["ty_errors"], metrics["coverage"], "baseline")
+    record_result(
+        module=module,
+        change_type="baseline",
+        lint_before=metrics["lint_errors"],
+        lint_after=metrics["lint_errors"],
+        type_before=metrics["type_errors"],
+        type_after=metrics["type_errors"],
+        cov_before=metrics["test_coverage"],
+        cov_after=metrics["test_coverage"],
+        status="keep",
+        description="Initial baseline measurement",
+    )
 
 
 def cmd_measure(module: str) -> None:
     """Measure current metrics for a module."""
     metrics = measure_module(module)
-    record_result(module, metrics["ruff_errors"], metrics["ty_errors"], metrics["coverage"], "measure")
+    record_result(
+        module=module,
+        change_type="measure",
+        lint_before=metrics["lint_errors"],
+        lint_after=metrics["lint_errors"],
+        type_before=metrics["type_errors"],
+        type_after=metrics["type_errors"],
+        cov_before=metrics["test_coverage"],
+        cov_after=metrics["test_coverage"],
+        status="keep",
+        description="Current measurement",
+    )
 
     print(f"\nResults recorded for {module}")
 
@@ -280,26 +312,31 @@ def cmd_compare(module: str) -> None:
     print(f"{'Metric':<20} {'Baseline':<12} {'Current':<12} {'Change':<12}")
     print("-" * 50)
 
-    ruff_diff = current["ruff_errors"] - base["ruff_errors"]
-    print(f"{'Ruff errors':<20} {base['ruff_errors']:<12} {current['ruff_errors']:<12} {ruff_diff:+d}")
+    lint_diff = current["lint_errors"] - base["lint_errors"]
+    print(f"{'Lint errors':<20} {base['lint_errors']:<12} {current['lint_errors']:<12} {lint_diff:+d}")
 
-    ty_diff = current["ty_errors"] - base["ty_errors"]
-    print(f"{'Type errors':<20} {base['ty_errors']:<12} {current['ty_errors']:<12} {ty_diff:+d}")
+    type_diff = current["type_errors"] - base["type_errors"]
+    print(f"{'Type errors':<20} {base['type_errors']:<12} {current['type_errors']:<12} {type_diff:+d}")
 
-    if current["coverage"] >= 0 and base["coverage"] >= 0:
-        cov_diff = current["coverage"] - base["coverage"]
-        print(f"{'Coverage %':<20} {base['coverage']:<12.1f} {current['coverage']:<12.1f} {cov_diff:+.1f}")
+    if current["test_coverage"] >= 0 and base["test_coverage"] >= 0:
+        cov_diff = current["test_coverage"] - base["test_coverage"]
+        print(f"{'Coverage %':<20} {base['test_coverage']:<12.1f} {current['test_coverage']:<12.1f} {cov_diff:+.1f}")
     else:
         print(f"{'Coverage %':<20} {'N/A':<12} {'N/A':<12} {'N/A':<12}")
 
     print("-" * 50)
 
     record_result(
-        module,
-        current["ruff_errors"],
-        current["ty_errors"],
-        current["coverage"],
-        f"compare (baseline: ruff={base['ruff_errors']}, ty={base['ty_errors']})",
+        module=module,
+        change_type="compare",
+        lint_before=base["lint_errors"],
+        lint_after=current["lint_errors"],
+        type_before=base["type_errors"],
+        type_after=current["type_errors"],
+        cov_before=base["test_coverage"],
+        cov_after=current["test_coverage"],
+        status="keep",
+        description=f"Comparison: lint {lint_diff:+d}, type {type_diff:+d}",
     )
 
 

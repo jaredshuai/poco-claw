@@ -135,3 +135,136 @@ LOOP FOREVER:
 ## Priority Order
 
 See `config.toml` for the full module priority list. Core services first, then repositories, then API endpoints.
+
+---
+
+## Execution Details
+
+### Environment Setup Commands
+
+```bash
+# From project root (E:/codespace/poco-claw)
+cd backend && uv sync
+
+# Verify tools are available
+uv run ruff --version
+uv run ty --version
+uv run pytest --version
+```
+
+### Running Checks per Module
+
+```bash
+# Check single file for lint errors
+uv run ruff check backend/app/services/task_service.py
+
+# Auto-fix lint errors (safe fixes only)
+uv run ruff check --fix backend/app/services/task_service.py
+
+# Check single file for type errors
+uv run ty check backend/app/services/capability_recommendation_service.py
+
+# Run tests with coverage for specific module
+cd backend && uv run pytest --cov=app/services/session_service tests/ -v
+```
+
+### IMPORTANT: VIRTUAL_ENV Workaround
+
+**Problem**: `ty` may fail with "broken venv" error if `VIRTUAL_ENV` environment variable is set incorrectly.
+
+**Solution**: Unset the variable before running `ty`:
+
+```bash
+# PowerShell
+$env:VIRTUAL_ENV = $null; uv run ty check backend/
+
+# Bash/Git Bash
+unset VIRTUAL_ENV && uv run ty check backend/
+```
+
+This is a known issue with ty when the shell has a stale VIRTUAL_ENV pointing to a different environment.
+
+---
+
+## Common Fix Patterns
+
+### Pattern 1: F811 Redefinition Error
+
+**Error**: `F811 Redefinition of unused 'variable_name'`
+
+**Cause**: Variable redefined in the same scope without being used between definitions.
+
+**Fix**: Usually auto-fixable. If not, rename the variable or merge the definitions.
+
+```bash
+# Auto-fix
+uv run ruff check --fix backend/app/services/file.py
+```
+
+### Pattern 2: Type Narrowing with isinstance(x, dict)
+
+**Error**: `ty` narrows `isinstance(x, dict)` to `dict[Never, Never]`, causing type mismatches.
+
+**Solution**: Use `typing.cast` to provide explicit type annotation:
+
+```python
+from typing import cast
+
+# Before (causes error)
+if isinstance(result, dict):
+    value = result.get("key")  # Error: dict[Never, Never] has no get
+
+# After (works)
+if isinstance(result, dict):
+    typed_result = cast(dict[str, Any], result)
+    value = typed_result.get("key")  # OK
+```
+
+### Pattern 3: Optional Type Handling
+
+**Error**: Type checker complains about accessing attribute of `None`.
+
+**Solution**: Add explicit None check or use `typing.cast`:
+
+```python
+# Option 1: Guard clause
+if user is None:
+    return None
+# Now ty knows user is not None
+
+# Option 2: Cast (use sparingly)
+user = cast(User, maybe_user)
+```
+
+---
+
+## Experiment 1 Learnings (mar25 run)
+
+### Time Estimates
+
+| Activity | Average Time |
+|----------|--------------|
+| Lint error fix (auto-fixable) | 1-2 minutes |
+| Lint error fix (manual) | 3-5 minutes |
+| Type error fix (simple cast) | 2-3 minutes |
+| Type error fix (complex) | 5-10 minutes |
+| Baseline measurement | 2-3 minutes per module |
+
+### Common Pitfalls
+
+1. **VIRTUAL_ENV issue**: Always unset before running `ty`
+2. **Ruff auto-fix is safe**: `--fix` only applies safe fixes by default
+3. **Type narrowing surprises**: `isinstance(x, dict)` narrows to `dict[Never, Never]`
+4. **Run metrics before and after**: Never assume a fix worked without re-running checks
+
+### Files Successfully Improved
+
+| File | Lint Before | Lint After | Type Before | Type After |
+|------|-------------|------------|-------------|------------|
+| session_service.py | 0 | 0 | 0 | 0 |
+| task_service.py | 3 | 0 | - | - |
+| capability_recommendation_service.py | - | - | 3 | 0 |
+
+### Key Takeaway
+
+Always run checks on the entire `backend/` directory at the end of a session to catch any regressions introduced by partial fixes.

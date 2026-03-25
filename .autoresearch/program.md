@@ -100,6 +100,18 @@ Record each experiment in `results.tsv`:
 | status | `keep`, `discard`, or `crash` |
 | description | Short description of the change |
 
+## Branch Strategy
+
+All experiments run on a dedicated branch, keeping main clean:
+
+- **Branch name**: `autoresearch/<tag>` (e.g., `autoresearch/mar25`)
+- **Create**: `git checkout -b autoresearch/<tag>` from main/master
+- **Keep changes**: `git commit` when metrics improve
+- **Discard changes**: `git reset --hard HEAD` when metrics don't improve
+- **Merge**: After completing a phase or when satisfied with results
+
+The results.tsv and baseline.json files are NOT committed to git (keep untracked).
+
 ## The experiment loop
 
 The experiment runs on a dedicated branch (e.g. `autoresearch/mar25`).

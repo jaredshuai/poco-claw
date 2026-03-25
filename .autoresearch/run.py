@@ -56,7 +56,7 @@ def count_ruff_errors(path: Path) -> int:
     cwd = PROJECT_ROOT / "backend" if (PROJECT_ROOT / "backend").exists() else PROJECT_ROOT
 
     cmd = ["uv", "run", "ruff", "check", str(path), "--output-format=json"]
-    returncode, stdout, stderr = run_command(cmd, cwd=cwd)
+    returncode, stdout, _ = run_command(cmd, cwd=cwd)
 
     if returncode == 0 or not stdout.strip():
         return 0
@@ -83,7 +83,7 @@ def count_ty_errors(path: Path) -> int:
     cwd = PROJECT_ROOT / "backend" if (PROJECT_ROOT / "backend").exists() else PROJECT_ROOT
 
     cmd = ["uv", "run", "ty", "check", str(path)]
-    returncode, stdout, stderr = run_command(cmd, cwd=cwd)
+    _, stdout, stderr = run_command(cmd, cwd=cwd)
 
     # ty outputs errors in stderr or stdout
     output = stdout + stderr
@@ -123,7 +123,7 @@ def get_test_coverage(module_path: Path) -> float:
         "-q",
     ]
 
-    returncode, stdout, stderr = run_command(cmd, cwd=cwd)
+    _, stdout, stderr = run_command(cmd, cwd=cwd)
     output = stdout + stderr
 
     # Parse coverage percentage from output

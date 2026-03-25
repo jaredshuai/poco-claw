@@ -19,10 +19,7 @@ from app.services.session_queue_service import SessionQueueService
 from app.services.model_config_service import get_allowed_model_ids, infer_provider_id
 from app.services.model_config_service import (
     PROVIDER_SPEC_MAP,
-    get_allowed_model_ids,
-    infer_provider_id,
 )
-from app.services.session_queue_service import SessionQueueService
 
 
 class TaskService:

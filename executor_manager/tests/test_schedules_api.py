@@ -1,4 +1,5 @@
 """Tests for app/api/v1/schedules.py."""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -160,15 +161,19 @@ class TestGetSchedules(unittest.TestCase):
             ],
         )
 
-        with patch(
-            "app.api.v1.schedules.get_current_pull_schedule_config",
-            return_value=None,
-        ), patch(
-            "app.api.v1.schedules.load_pull_schedule_config",
-            return_value=None,
-        ), patch(
-            "app.api.v1.schedules.default_pull_schedule_config_from_settings",
-            return_value=mock_config,
+        with (
+            patch(
+                "app.api.v1.schedules.get_current_pull_schedule_config",
+                return_value=None,
+            ),
+            patch(
+                "app.api.v1.schedules.load_pull_schedule_config",
+                return_value=None,
+            ),
+            patch(
+                "app.api.v1.schedules.default_pull_schedule_config_from_settings",
+                return_value=mock_config,
+            ),
         ):
             client = TestClient(app)
             response = client.get("/api/v1/schedules")
@@ -196,12 +201,15 @@ class TestGetSchedules(unittest.TestCase):
             ],
         )
 
-        with patch(
-            "app.api.v1.schedules.get_current_pull_schedule_config",
-            return_value=None,
-        ), patch(
-            "app.api.v1.schedules.load_pull_schedule_config",
-            return_value=mock_config,
+        with (
+            patch(
+                "app.api.v1.schedules.get_current_pull_schedule_config",
+                return_value=None,
+            ),
+            patch(
+                "app.api.v1.schedules.load_pull_schedule_config",
+                return_value=mock_config,
+            ),
         ):
             client = TestClient(app)
             response = client.get("/api/v1/schedules")
@@ -234,12 +242,15 @@ class TestGetSchedules(unittest.TestCase):
         mock_job.trigger = "interval[0:00:05]"
         mock_job.next_run_time = datetime.now(timezone.utc)
 
-        with patch(
-            "app.api.v1.schedules.get_current_pull_schedule_config",
-            return_value=mock_config,
-        ), patch(
-            "app.api.v1.schedules.scheduler.get_job",
-            return_value=mock_job,
+        with (
+            patch(
+                "app.api.v1.schedules.get_current_pull_schedule_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "app.api.v1.schedules.scheduler.get_job",
+                return_value=mock_job,
+            ),
         ):
             client = TestClient(app)
             response = client.get("/api/v1/schedules")
@@ -275,12 +286,15 @@ class TestGetSchedules(unittest.TestCase):
         mock_job.trigger = "cron[hour='2']"
         mock_job.next_run_time = datetime.now(timezone.utc)
 
-        with patch(
-            "app.api.v1.schedules.get_current_pull_schedule_config",
-            return_value=mock_config,
-        ), patch(
-            "app.api.v1.schedules.scheduler.get_job",
-            return_value=mock_job,
+        with (
+            patch(
+                "app.api.v1.schedules.get_current_pull_schedule_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "app.api.v1.schedules.scheduler.get_job",
+                return_value=mock_job,
+            ),
         ):
             client = TestClient(app)
             response = client.get("/api/v1/schedules")

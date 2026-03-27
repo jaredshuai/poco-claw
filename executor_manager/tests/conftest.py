@@ -1,4 +1,5 @@
 """Test configuration for executor_manager tests."""
+
 import os
 import tempfile
 from pathlib import Path

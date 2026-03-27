@@ -136,7 +136,9 @@ class TestTaskServiceValidateAndNormalizeModel(unittest.TestCase):
 
     @patch("app.services.task_service.get_allowed_model_ids")
     @patch("app.services.task_service.get_settings")
-    def test_model_valid(self, mock_settings: MagicMock, mock_allowed: MagicMock) -> None:
+    def test_model_valid(
+        self, mock_settings: MagicMock, mock_allowed: MagicMock
+    ) -> None:
         settings = MagicMock()
         settings.default_model = "default-model"
         mock_settings.return_value = settings
@@ -384,9 +386,7 @@ class TestTaskServiceBuildUserMcpServerIdsDefaults(unittest.TestCase):
     def test_empty_list(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserMcpInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserMcpInstallRepository") as mock_repo:
             mock_repo.list_by_user.return_value = []
             result = service._build_user_mcp_server_ids_defaults(db, "user-123")
             self.assertEqual(result, [])
@@ -394,9 +394,7 @@ class TestTaskServiceBuildUserMcpServerIdsDefaults(unittest.TestCase):
     def test_with_installs(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserMcpInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserMcpInstallRepository") as mock_repo:
             install1 = MagicMock()
             install1.server_id = 1
             install1.enabled = True
@@ -415,9 +413,7 @@ class TestTaskServiceBuildUserSkillIdsDefaults(unittest.TestCase):
     def test_empty_list(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserSkillInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserSkillInstallRepository") as mock_repo:
             mock_repo.list_by_user.return_value = []
             result = service._build_user_skill_ids_defaults(db, "user-123")
             self.assertEqual(result, [])
@@ -425,9 +421,7 @@ class TestTaskServiceBuildUserSkillIdsDefaults(unittest.TestCase):
     def test_with_installs(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserSkillInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserSkillInstallRepository") as mock_repo:
             install1 = MagicMock()
             install1.skill_id = 1
             install1.enabled = True
@@ -474,7 +468,9 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         with patch.object(
             service, "_build_user_mcp_server_ids_defaults", return_value=[]
         ):
-            with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+            with patch.object(
+                service, "_build_user_skill_ids_defaults", return_value=[]
+            ):
                 with patch.object(
                     service, "_build_user_plugin_ids_defaults", return_value=[]
                 ):
@@ -500,7 +496,9 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         with patch.object(
             service, "_build_user_mcp_server_ids_defaults", return_value=[]
         ):
-            with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+            with patch.object(
+                service, "_build_user_skill_ids_defaults", return_value=[]
+            ):
                 with patch.object(
                     service, "_build_user_plugin_ids_defaults", return_value=[]
                 ):
@@ -525,7 +523,9 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         with patch.object(
             service, "_build_user_mcp_server_ids_defaults", return_value=[]
         ):
-            with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+            with patch.object(
+                service, "_build_user_skill_ids_defaults", return_value=[]
+            ):
                 with patch.object(
                     service, "_build_user_plugin_ids_defaults", return_value=[]
                 ):
@@ -549,7 +549,10 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
             "model": "test-model",
             "mcp_config": {"server1": True},
         }
-        with patch("app.services.task_service.get_allowed_model_ids", return_value=["test-model"]):
+        with patch(
+            "app.services.task_service.get_allowed_model_ids",
+            return_value=["test-model"],
+        ):
             with patch("app.services.task_service.get_settings") as mock_settings:
                 mock_settings.return_value.default_model = "default-model"
                 with patch.object(
@@ -557,12 +560,16 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
                     "_build_user_mcp_server_ids_with_toggles",
                     return_value=[1, 2],
                 ):
-                    with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+                    with patch.object(
+                        service, "_build_user_skill_ids_defaults", return_value=[]
+                    ):
                         with patch.object(
                             service, "_build_user_plugin_ids_defaults", return_value=[]
                         ):
                             with patch.object(
-                                service, "_build_user_subagent_ids_defaults", return_value=[]
+                                service,
+                                "_build_user_subagent_ids_defaults",
+                                return_value=[],
                             ):
                                 result = service._build_config_snapshot(
                                     db, "user-123", task_config, base_config={}
@@ -573,15 +580,22 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         db = MagicMock()
         service = TaskService()
         base_config = {"mcp_server_ids": [10, 20]}
-        with patch("app.services.task_service.get_allowed_model_ids", return_value=["test-model"]):
+        with patch(
+            "app.services.task_service.get_allowed_model_ids",
+            return_value=["test-model"],
+        ):
             with patch("app.services.task_service.get_settings") as mock_settings:
                 mock_settings.return_value.default_model = "default-model"
-                with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+                with patch.object(
+                    service, "_build_user_skill_ids_defaults", return_value=[]
+                ):
                     with patch.object(
                         service, "_build_user_plugin_ids_defaults", return_value=[]
                     ):
                         with patch.object(
-                            service, "_build_user_subagent_ids_defaults", return_value=[]
+                            service,
+                            "_build_user_subagent_ids_defaults",
+                            return_value=[],
                         ):
                             result = service._build_config_snapshot(
                                 db, "user-123", None, base_config=base_config
@@ -592,7 +606,10 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         db = MagicMock()
         service = TaskService()
         base_config = {"skill_ids": [30, 40]}
-        with patch("app.services.task_service.get_allowed_model_ids", return_value=["test-model"]):
+        with patch(
+            "app.services.task_service.get_allowed_model_ids",
+            return_value=["test-model"],
+        ):
             with patch("app.services.task_service.get_settings") as mock_settings:
                 mock_settings.return_value.default_model = "default-model"
                 with patch.object(
@@ -602,7 +619,9 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
                         service, "_build_user_plugin_ids_defaults", return_value=[]
                     ):
                         with patch.object(
-                            service, "_build_user_subagent_ids_defaults", return_value=[]
+                            service,
+                            "_build_user_subagent_ids_defaults",
+                            return_value=[],
                         ):
                             result = service._build_config_snapshot(
                                 db, "user-123", None, base_config=base_config
@@ -613,15 +632,22 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         db = MagicMock()
         service = TaskService()
         base_config = {"plugin_ids": [50, 60]}
-        with patch("app.services.task_service.get_allowed_model_ids", return_value=["test-model"]):
+        with patch(
+            "app.services.task_service.get_allowed_model_ids",
+            return_value=["test-model"],
+        ):
             with patch("app.services.task_service.get_settings") as mock_settings:
                 mock_settings.return_value.default_model = "default-model"
                 with patch.object(
                     service, "_build_user_mcp_server_ids_defaults", return_value=[]
                 ):
-                    with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+                    with patch.object(
+                        service, "_build_user_skill_ids_defaults", return_value=[]
+                    ):
                         with patch.object(
-                            service, "_build_user_subagent_ids_defaults", return_value=[]
+                            service,
+                            "_build_user_subagent_ids_defaults",
+                            return_value=[],
                         ):
                             result = service._build_config_snapshot(
                                 db, "user-123", None, base_config=base_config
@@ -632,13 +658,18 @@ class TestTaskServiceBuildConfigSnapshot(unittest.TestCase):
         db = MagicMock()
         service = TaskService()
         base_config = {"subagent_ids": [70, 80]}
-        with patch("app.services.task_service.get_allowed_model_ids", return_value=["test-model"]):
+        with patch(
+            "app.services.task_service.get_allowed_model_ids",
+            return_value=["test-model"],
+        ):
             with patch("app.services.task_service.get_settings") as mock_settings:
                 mock_settings.return_value.default_model = "default-model"
                 with patch.object(
                     service, "_build_user_mcp_server_ids_defaults", return_value=[]
                 ):
-                    with patch.object(service, "_build_user_skill_ids_defaults", return_value=[]):
+                    with patch.object(
+                        service, "_build_user_skill_ids_defaults", return_value=[]
+                    ):
                         with patch.object(
                             service, "_build_user_plugin_ids_defaults", return_value=[]
                         ):
@@ -679,9 +710,7 @@ class TestTaskServiceBuildUserMcpServerIdsWithToggles(unittest.TestCase):
     def test_with_toggles(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserMcpInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserMcpInstallRepository") as mock_repo:
             install1 = MagicMock()
             install1.server_id = 1
             install2 = MagicMock()
@@ -697,9 +726,7 @@ class TestTaskServiceBuildUserMcpServerIdsWithToggles(unittest.TestCase):
     def test_toggle_not_in_toggles_uses_enabled(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserMcpInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserMcpInstallRepository") as mock_repo:
             install1 = MagicMock()
             install1.server_id = 1
             install1.enabled = True
@@ -722,9 +749,7 @@ class TestTaskServiceBuildUserSkillIdsWithToggles(unittest.TestCase):
     def test_with_toggles(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserSkillInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserSkillInstallRepository") as mock_repo:
             install1 = MagicMock()
             install1.skill_id = 1
             install2 = MagicMock()
@@ -732,17 +757,13 @@ class TestTaskServiceBuildUserSkillIdsWithToggles(unittest.TestCase):
             mock_repo.list_by_user.return_value = [install1, install2]
 
             toggles = {"1": True, "2": False}
-            result = service._build_user_skill_ids_with_toggles(
-                db, "user-123", toggles
-            )
+            result = service._build_user_skill_ids_with_toggles(db, "user-123", toggles)
             self.assertEqual(result, [1])
 
     def test_toggle_not_in_toggles_uses_enabled(self) -> None:
         db = MagicMock()
         service = TaskService()
-        with patch(
-            "app.services.task_service.UserSkillInstallRepository"
-        ) as mock_repo:
+        with patch("app.services.task_service.UserSkillInstallRepository") as mock_repo:
             install1 = MagicMock()
             install1.skill_id = 1
             install1.enabled = True
@@ -753,9 +774,7 @@ class TestTaskServiceBuildUserSkillIdsWithToggles(unittest.TestCase):
 
             # Empty toggles - should use install.enabled
             toggles: dict[str, bool] = {}
-            result = service._build_user_skill_ids_with_toggles(
-                db, "user-123", toggles
-            )
+            result = service._build_user_skill_ids_with_toggles(db, "user-123", toggles)
             self.assertEqual(result, [1])
 
 
@@ -829,7 +848,9 @@ class TestTaskServiceValidateModelExtended(unittest.TestCase):
 
     @patch("app.services.task_service.get_allowed_model_ids")
     @patch("app.services.task_service.get_settings")
-    def test_model_not_allowed_no_provider(self, mock_settings: MagicMock, mock_allowed: MagicMock) -> None:
+    def test_model_not_allowed_no_provider(
+        self, mock_settings: MagicMock, mock_allowed: MagicMock
+    ) -> None:
         """Test model not in allowed list and no provider_id (line 90-94)."""
         settings = MagicMock()
         settings.default_model = "default-model"
@@ -920,7 +941,10 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
     @patch("app.services.task_service.ProjectRepository")
     @patch("app.services.task_service.SessionQueueService")
     def test_enqueue_task_empty_prompt(
-        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+        self,
+        mock_queue_service: MagicMock,
+        mock_project_repo: MagicMock,
+        mock_session_repo: MagicMock,
     ) -> None:
         """Test enqueue_task with empty prompt raises error (line 248-253)."""
         request = MagicMock()
@@ -943,7 +967,10 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
     @patch("app.services.task_service.ProjectRepository")
     @patch("app.services.task_service.SessionQueueService")
     def test_enqueue_task_invalid_permission_mode(
-        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+        self,
+        mock_queue_service: MagicMock,
+        mock_project_repo: MagicMock,
+        mock_session_repo: MagicMock,
     ) -> None:
         """Test enqueue_task with invalid permission_mode (line 258-267)."""
         request = MagicMock()
@@ -966,7 +993,10 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
     @patch("app.services.task_service.ProjectRepository")
     @patch("app.services.task_service.SessionQueueService")
     def test_enqueue_task_project_not_found(
-        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+        self,
+        mock_queue_service: MagicMock,
+        mock_project_repo: MagicMock,
+        mock_session_repo: MagicMock,
     ) -> None:
         """Test enqueue_task with project not found (line 273-278)."""
         request = MagicMock()
@@ -990,7 +1020,10 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
     @patch("app.services.task_service.ProjectRepository")
     @patch("app.services.task_service.SessionQueueService")
     def test_enqueue_task_session_not_found(
-        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+        self,
+        mock_queue_service: MagicMock,
+        mock_project_repo: MagicMock,
+        mock_session_repo: MagicMock,
     ) -> None:
         """Test enqueue_task with session not found (line 284-288)."""
         request = MagicMock()
@@ -1014,7 +1047,10 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
     @patch("app.services.task_service.ProjectRepository")
     @patch("app.services.task_service.SessionQueueService")
     def test_enqueue_task_session_wrong_user(
-        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+        self,
+        mock_queue_service: MagicMock,
+        mock_project_repo: MagicMock,
+        mock_session_repo: MagicMock,
     ) -> None:
         """Test enqueue_task with session wrong user (line 289-293)."""
         request = MagicMock()
@@ -1040,7 +1076,10 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
     @patch("app.services.task_service.ProjectRepository")
     @patch("app.services.task_service.SessionQueueService")
     def test_enqueue_task_project_session_mismatch(
-        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+        self,
+        mock_queue_service: MagicMock,
+        mock_project_repo: MagicMock,
+        mock_session_repo: MagicMock,
     ) -> None:
         """Test enqueue_task with project_id/session_id mismatch (line 294-298)."""
         project_id = uuid.uuid4()

@@ -64,11 +64,12 @@ class TestComputerServiceInit(unittest.TestCase):
     """Test ComputerService.__init__."""
 
     def test_init_with_defaults(self) -> None:
-        with patch(
-            "app.services.computer_service.WorkspaceManager"
-        ) as mock_workspace_cls, patch(
-            "app.services.computer_service.S3StorageService"
-        ) as mock_storage_cls:
+        with (
+            patch(
+                "app.services.computer_service.WorkspaceManager"
+            ) as mock_workspace_cls,
+            patch("app.services.computer_service.S3StorageService") as mock_storage_cls,
+        ):
             mock_workspace_cls.return_value = MagicMock()
             mock_storage_cls.return_value = MagicMock()
 

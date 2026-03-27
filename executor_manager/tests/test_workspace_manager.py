@@ -113,9 +113,7 @@ class TestWorkspaceManagerGetSessionWorkspaceDir(unittest.TestCase):
                 manager = WorkspaceManager()
 
                 # Create workspace
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 result = manager.get_session_workspace_dir(
                     user_id="user-123", session_id="session-456"
@@ -159,9 +157,7 @@ class TestWorkspaceManagerResolveUserId(unittest.TestCase):
                 manager = WorkspaceManager()
 
                 # Create workspace
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 result = manager.resolve_user_id("session-456")
 
@@ -199,9 +195,7 @@ class TestWorkspaceManagerListWorkspaceFiles(unittest.TestCase):
             ):
                 manager = WorkspaceManager()
 
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 result = manager.list_workspace_files(
                     user_id="user-123", session_id="session-456"
@@ -341,9 +335,7 @@ class TestWorkspaceManagerResolveWorkspaceFile(unittest.TestCase):
             ):
                 manager = WorkspaceManager()
 
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 result = manager.resolve_workspace_file(
                     user_id="user-123",
@@ -387,9 +379,7 @@ class TestWorkspaceManagerMeta(unittest.TestCase):
             ):
                 manager = WorkspaceManager()
 
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 meta = manager.get_meta(user_id="user-123", session_id="session-456")
 
@@ -426,9 +416,7 @@ class TestWorkspaceManagerMeta(unittest.TestCase):
             ):
                 manager = WorkspaceManager()
 
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 manager.update_meta_status(
                     user_id="user-123", session_id="session-456", status="archived"
@@ -580,11 +568,14 @@ class TestWorkspaceManagerDeleteWorkspace(unittest.TestCase):
                     status="active",
                 )
                 # Update meta to set container_mode
-                meta = manager.get_meta(user_id="user-123", session_id="persistent-session")
+                meta = manager.get_meta(
+                    user_id="user-123", session_id="persistent-session"
+                )
                 assert meta is not None
 
                 # Create a new meta with persistent container_mode
                 import json
+
                 meta_path = workspace_path / "meta.json"
                 meta_data = json.loads(meta_path.read_text())
                 meta_data["container_mode"] = "persistent"
@@ -615,6 +606,7 @@ class TestWorkspaceManagerDeleteWorkspace(unittest.TestCase):
                     user_id="user-123", session_id="persistent-session-2"
                 )
                 import json
+
                 meta_path = workspace_path / "meta.json"
                 meta_data = json.loads(meta_path.read_text())
                 meta_data["container_mode"] = "persistent"
@@ -758,7 +750,9 @@ class TestWorkspaceManagerDeleteWorkspace(unittest.TestCase):
                     1
                     for item in result
                     if item.get("type") == "file"
-                    or sum(1 for c in item.get("children", []) if c.get("type") == "file")
+                    or sum(
+                        1 for c in item.get("children", []) if c.get("type") == "file"
+                    )
                 )
                 assert total_files <= 10
 
@@ -812,9 +806,7 @@ class TestWorkspaceManagerDeleteWorkspace(unittest.TestCase):
             ):
                 manager = WorkspaceManager()
 
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 result = manager.resolve_workspace_file(
                     user_id="user-123", session_id="session-456", file_path=""
@@ -892,7 +884,9 @@ class TestWorkspaceManagerDeleteWorkspace(unittest.TestCase):
                     user_id="user-123", session_id="session-to-archive"
                 )
 
-                with patch("tarfile.open", side_effect=PermissionError("access denied")):
+                with patch(
+                    "tarfile.open", side_effect=PermissionError("access denied")
+                ):
                     result = manager.archive_workspace(
                         user_id="user-123", session_id="session-to-archive"
                     )
@@ -916,7 +910,9 @@ class TestWorkspaceManagerDeleteWorkspace(unittest.TestCase):
                     user_id="user-123", session_id="session-to-delete"
                 )
 
-                with patch("shutil.rmtree", side_effect=PermissionError("access denied")):
+                with patch(
+                    "shutil.rmtree", side_effect=PermissionError("access denied")
+                ):
                     result = manager.delete_workspace(
                         user_id="user-123", session_id="session-to-delete"
                     )
@@ -1073,9 +1069,7 @@ class TestWorkspaceManagerDiskUsage(unittest.TestCase):
                 manager = WorkspaceManager()
 
                 # Create a workspace
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-456"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-456")
 
                 result = manager.get_disk_usage()
 
@@ -1145,12 +1139,8 @@ class TestWorkspaceManagerGetUserWorkspaces(unittest.TestCase):
                 manager = WorkspaceManager()
 
                 # Create multiple workspaces
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-1"
-                )
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-2"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-1")
+                manager.get_workspace_path(user_id="user-123", session_id="session-2")
 
                 result = manager.get_user_workspaces("user-123")
 
@@ -1168,9 +1158,7 @@ class TestWorkspaceManagerGetUserWorkspaces(unittest.TestCase):
             ):
                 manager = WorkspaceManager()
 
-                manager.get_workspace_path(
-                    user_id="user-123", session_id="session-1"
-                )
+                manager.get_workspace_path(user_id="user-123", session_id="session-1")
 
                 # Create a file in user dir (not a session dir)
                 user_dir = manager.active_dir / "user-123"
@@ -1261,9 +1249,7 @@ class TestWorkspaceManagerMissingLines(unittest.TestCase):
                 (user_dir / "not-a-session.txt").write_text("content")
 
                 # Also create a valid workspace to ensure normal flow works
-                manager.get_workspace_path(
-                    user_id="user-456", session_id="session-1"
-                )
+                manager.get_workspace_path(user_id="user-456", session_id="session-1")
 
                 result = manager.cleanup_expired_workspaces(max_age_hours=1)
 

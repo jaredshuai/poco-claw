@@ -26,7 +26,9 @@ class ModelConfigServiceProviderTests(unittest.TestCase):
         settings = self._make_settings()
 
         with (
-            patch("app.services.model_config_service.get_settings", return_value=settings),
+            patch(
+                "app.services.model_config_service.get_settings", return_value=settings
+            ),
             patch(
                 "app.services.model_config_service.ModelProviderSettingRepository.list_by_user_id",
                 return_value=[],
@@ -84,9 +86,7 @@ class TestHumanizeModelName(unittest.TestCase):
     """Test humanize_model_name function."""
 
     def test_known_model(self) -> None:
-        self.assertEqual(
-            humanize_model_name("claude-sonnet-4-6"), "Claude Sonnet 4.6"
-        )
+        self.assertEqual(humanize_model_name("claude-sonnet-4-6"), "Claude Sonnet 4.6")
 
     def test_unknown_model(self) -> None:
         result = humanize_model_name("my-custom-model")

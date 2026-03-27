@@ -39,9 +39,7 @@ class TestResolveEnvValue(unittest.TestCase):
         assert result == "default_value"
 
     def test_env_var_with_default_override(self) -> None:
-        result = _resolve_env_value(
-            "${VAR:-default_value}", {"VAR": "actual_value"}
-        )
+        result = _resolve_env_value("${VAR:-default_value}", {"VAR": "actual_value"})
         assert result == "actual_value"
 
     def test_env_var_with_env_prefix(self) -> None:
@@ -87,9 +85,7 @@ class TestResolveEnvValue(unittest.TestCase):
         assert result == {"keys": ["a", "b"], "nested": {"key": "c"}}
 
     def test_env_var_in_middle_of_string(self) -> None:
-        result = _resolve_env_value(
-            "prefix-${VAR}-suffix", {"VAR": "middle"}
-        )
+        result = _resolve_env_value("prefix-${VAR}-suffix", {"VAR": "middle"})
         assert result == "prefix-middle-suffix"
 
     def test_empty_string(self) -> None:
@@ -105,9 +101,7 @@ class TestResolveEnvValue(unittest.TestCase):
         assert result == ""
 
     def test_complex_default_value(self) -> None:
-        result = _resolve_env_value(
-            "${URL:-https://default.example.com}", {}
-        )
+        result = _resolve_env_value("${URL:-https://default.example.com}", {})
         assert result == "https://default.example.com"
 
 
@@ -199,9 +193,7 @@ class TestConfigResolverExtractEnabledIdsFromToggles(unittest.TestCase):
         assert result is None
 
     def test_invalid_key_format(self) -> None:
-        result = ConfigResolver._extract_enabled_ids_from_toggles(
-            {"invalid": True}
-        )
+        result = ConfigResolver._extract_enabled_ids_from_toggles({"invalid": True})
         assert result is None
 
     def test_duplicate_ids(self) -> None:
@@ -211,9 +203,7 @@ class TestConfigResolverExtractEnabledIdsFromToggles(unittest.TestCase):
         assert result == [1]
 
     def test_empty_key(self) -> None:
-        result = ConfigResolver._extract_enabled_ids_from_toggles(
-            {"": True, "1": True}
-        )
+        result = ConfigResolver._extract_enabled_ids_from_toggles({"": True, "1": True})
         assert result == [1]
 
 
@@ -265,9 +255,7 @@ class TestConfigResolverGetFirstEnvValue(unittest.TestCase):
         assert result == ""
 
     def test_empty_value(self) -> None:
-        result = ConfigResolver._get_first_env_value(
-            {"KEY1": ""}, ("KEY1", "KEY2")
-        )
+        result = ConfigResolver._get_first_env_value({"KEY1": ""}, ("KEY1", "KEY2"))
         assert result == ""
 
 
@@ -481,10 +469,12 @@ class TestConfigResolverResolve:
         mock_backend.resolve_mcp_config = AsyncMock(return_value={})
         mock_backend.resolve_skill_config = AsyncMock(return_value={})
         mock_backend.resolve_plugin_config = AsyncMock(return_value={})
-        mock_backend.resolve_subagents = AsyncMock(return_value={
-            "structured_agents": {"agent1": {"name": "test"}},
-            "raw_agents": {"agent2": {"content": "test"}},
-        })
+        mock_backend.resolve_subagents = AsyncMock(
+            return_value={
+                "structured_agents": {"agent1": {"name": "test"}},
+                "raw_agents": {"agent2": {"content": "test"}},
+            }
+        )
 
         with patch("app.services.config_resolver.get_settings") as mock_settings:
             mock_settings_obj = MagicMock()

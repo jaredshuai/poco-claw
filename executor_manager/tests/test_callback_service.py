@@ -41,10 +41,14 @@ class TestIsInternalMcpServer(unittest.TestCase):
 class TestIsIgnoredWorkspacePath(unittest.TestCase):
     """Test CallbackService._is_ignored_workspace_path."""
 
-    def _call_with_mock(self, path: str, ignore_names: set[str] | None = None, ignore_dot: bool = True) -> bool:
+    def _call_with_mock(
+        self, path: str, ignore_names: set[str] | None = None, ignore_dot: bool = True
+    ) -> bool:
         """Call _is_ignored_workspace_path with mocked workspace_manager."""
         mock_wm = MagicMock()
-        mock_wm._ignore_names = ignore_names if ignore_names is not None else {"node_modules", ".git"}
+        mock_wm._ignore_names = (
+            ignore_names if ignore_names is not None else {"node_modules", ".git"}
+        )
         mock_wm.ignore_dot_files = ignore_dot
 
         with patch(
@@ -72,9 +76,19 @@ class TestIsIgnoredWorkspacePath(unittest.TestCase):
 
     def test_ignored_name_is_ignored(self) -> None:
         """Test that paths with ignored names are ignored."""
-        assert self._call_with_mock("node_modules", ignore_names={"node_modules"}) is True
-        assert self._call_with_mock("node_modules/package.json", ignore_names={"node_modules"}) is True
-        assert self._call_with_mock("src/node_modules", ignore_names={"node_modules"}) is True
+        assert (
+            self._call_with_mock("node_modules", ignore_names={"node_modules"}) is True
+        )
+        assert (
+            self._call_with_mock(
+                "node_modules/package.json", ignore_names={"node_modules"}
+            )
+            is True
+        )
+        assert (
+            self._call_with_mock("src/node_modules", ignore_names={"node_modules"})
+            is True
+        )
         assert self._call_with_mock(".git", ignore_names={".git"}) is True
         assert self._call_with_mock(".git/config", ignore_names={".git"}) is True
 
@@ -103,13 +117,19 @@ class TestIsIgnoredWorkspacePath(unittest.TestCase):
 
     def test_normalizes_backslashes(self) -> None:
         """Test that backslashes are normalized to forward slashes."""
-        assert self._call_with_mock("src\\node_modules", ignore_names={"node_modules"}) is True
+        assert (
+            self._call_with_mock("src\\node_modules", ignore_names={"node_modules"})
+            is True
+        )
         assert self._call_with_mock("src\\.env", ignore_dot=True) is True
 
     def test_strips_leading_dot_slash(self) -> None:
         """Test that leading ./ is stripped."""
         assert self._call_with_mock("./src/main.py", ignore_names=set()) is False
-        assert self._call_with_mock("./node_modules", ignore_names={"node_modules"}) is True
+        assert (
+            self._call_with_mock("./node_modules", ignore_names={"node_modules"})
+            is True
+        )
 
 
 class TestFilterStatePatch(unittest.TestCase):
@@ -199,7 +219,9 @@ class TestFilterStatePatch(unittest.TestCase):
             assert result.state_patch.workspace_state is not None
             assert result.state_patch.workspace_state.file_changes is not None
             assert len(result.state_patch.workspace_state.file_changes) == 1
-            assert result.state_patch.workspace_state.file_changes[0].path == "src/main.py"
+            assert (
+                result.state_patch.workspace_state.file_changes[0].path == "src/main.py"
+            )
 
     def test_filter_recalculates_line_counts_when_filtered(self) -> None:
         """Test that line counts are recalculated after filtering."""
@@ -214,8 +236,18 @@ class TestFilterStatePatch(unittest.TestCase):
             # Include a file that will be filtered
             callback = self._create_callback(
                 file_changes=[
-                    FileChange(path="file1.py", status="modified", added_lines=10, deleted_lines=2),
-                    FileChange(path="node_modules/file2.py", status="modified", added_lines=5, deleted_lines=3),
+                    FileChange(
+                        path="file1.py",
+                        status="modified",
+                        added_lines=10,
+                        deleted_lines=2,
+                    ),
+                    FileChange(
+                        path="node_modules/file2.py",
+                        status="modified",
+                        added_lines=5,
+                        deleted_lines=3,
+                    ),
                 ]
             )
 
@@ -262,7 +294,9 @@ class TestFilterStatePatch(unittest.TestCase):
             assert result.state_patch is not None
             assert result.state_patch.workspace_state is not None
             assert result.state_patch.workspace_state.file_changes is not None
-            assert result.state_patch.workspace_state.file_changes[0].path == "src/main.py"
+            assert (
+                result.state_patch.workspace_state.file_changes[0].path == "src/main.py"
+            )
 
 
 class TestProcessCallback(unittest.TestCase):
@@ -286,11 +320,11 @@ class TestProcessCallback(unittest.TestCase):
     def test_process_callback_success(self) -> None:
         """Test successful callback processing."""
         mock_backend_client = MagicMock()
-        mock_backend_client.forward_callback = AsyncMock(return_value={"status": "received"})
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "received"}
+        )
 
-        with patch(
-            "app.services.callback_service.backend_client", mock_backend_client
-        ):
+        with patch("app.services.callback_service.backend_client", mock_backend_client):
             service = CallbackService()
             callback = self._create_callback()
 
@@ -306,18 +340,20 @@ class TestProcessCallback(unittest.TestCase):
     def test_process_callback_completed_status(self) -> None:
         """Test callback processing with completed status."""
         mock_backend_client = MagicMock()
-        mock_backend_client.forward_callback = AsyncMock(return_value={"status": "completed"})
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "completed"}
+        )
 
         mock_task_dispatcher = MagicMock()
         mock_task_dispatcher.on_task_complete = AsyncMock()
 
-        with patch(
-            "app.services.callback_service.backend_client", mock_backend_client
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher
-        ), patch(
-            "app.services.callback_service.asyncio.create_task"
-        ) as mock_create_task:
+        with (
+            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch(
+                "app.services.callback_service.asyncio.create_task"
+            ) as mock_create_task,
+        ):
             service = CallbackService()
             callback = self._create_callback(status="completed", progress=100)
 
@@ -332,18 +368,20 @@ class TestProcessCallback(unittest.TestCase):
     def test_process_callback_failed_status(self) -> None:
         """Test callback processing with failed status."""
         mock_backend_client = MagicMock()
-        mock_backend_client.forward_callback = AsyncMock(return_value={"status": "failed"})
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "failed"}
+        )
 
         mock_task_dispatcher = MagicMock()
         mock_task_dispatcher.on_task_complete = AsyncMock()
 
-        with patch(
-            "app.services.callback_service.backend_client", mock_backend_client
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher
-        ), patch(
-            "app.services.callback_service.asyncio.create_task"
-        ) as mock_create_task:
+        with (
+            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch(
+                "app.services.callback_service.asyncio.create_task"
+            ) as mock_create_task,
+        ):
             service = CallbackService()
             callback = self._create_callback(status="failed", progress=80)
 
@@ -365,13 +403,13 @@ class TestProcessCallback(unittest.TestCase):
         mock_task_dispatcher = MagicMock()
         mock_task_dispatcher.on_task_complete = AsyncMock()
 
-        with patch(
-            "app.services.callback_service.backend_client", mock_backend_client
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher
-        ), patch(
-            "app.services.callback_service.asyncio.create_task"
-        ) as mock_create_task:
+        with (
+            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch(
+                "app.services.callback_service.asyncio.create_task"
+            ) as mock_create_task,
+        ):
             service = CallbackService()
             callback = self._create_callback(status="completed", progress=100)
 
@@ -386,7 +424,9 @@ class TestProcessCallback(unittest.TestCase):
     def test_process_callback_with_state_patch(self) -> None:
         """Test callback processing with state_patch data."""
         mock_backend_client = MagicMock()
-        mock_backend_client.forward_callback = AsyncMock(return_value={"status": "received"})
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "received"}
+        )
 
         mock_workspace_manager = MagicMock()
         mock_workspace_manager._ignore_names = set()
@@ -397,10 +437,12 @@ class TestProcessCallback(unittest.TestCase):
             mcp_status=[McpStatus(server_name="test_mcp", status="running")],
         )
 
-        with patch(
-            "app.services.callback_service.backend_client", mock_backend_client
-        ), patch(
-            "app.services.callback_service.workspace_manager", mock_workspace_manager
+        with (
+            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.workspace_manager",
+                mock_workspace_manager,
+            ),
         ):
             service = CallbackService()
             callback = self._create_callback(state_patch=state)
@@ -421,9 +463,7 @@ class TestProcessCallback(unittest.TestCase):
             side_effect=Exception("Backend error")
         )
 
-        with patch(
-            "app.services.callback_service.backend_client", mock_backend_client
-        ):
+        with patch("app.services.callback_service.backend_client", mock_backend_client):
             service = CallbackService()
             callback = self._create_callback()
 
@@ -451,16 +491,19 @@ class TestExportAndForward(unittest.TestCase):
         )
 
         mock_workspace_export = MagicMock()
-        mock_workspace_export.export_workspace = MagicMock(return_value=mock_export_result)
+        mock_workspace_export.export_workspace = MagicMock(
+            return_value=mock_export_result
+        )
 
         mock_backend_client = MagicMock()
         mock_backend_client.forward_callback = AsyncMock(return_value={"status": "ok"})
 
-        with patch(
-            "app.services.callback_service.workspace_export_service",
-            mock_workspace_export,
-        ), patch(
-            "app.services.callback_service.backend_client", mock_backend_client
+        with (
+            patch(
+                "app.services.callback_service.workspace_export_service",
+                mock_workspace_export,
+            ),
+            patch("app.services.callback_service.backend_client", mock_backend_client),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -474,7 +517,9 @@ class TestExportAndForward(unittest.TestCase):
 
             asyncio.run(service._export_and_forward(callback))
 
-            mock_workspace_export.export_workspace.assert_called_once_with("test-session")
+            mock_workspace_export.export_workspace.assert_called_once_with(
+                "test-session"
+            )
             mock_backend_client.forward_callback.assert_called_once()
 
     def test_export_and_forward_export_failure(self) -> None:
@@ -487,11 +532,12 @@ class TestExportAndForward(unittest.TestCase):
         mock_backend_client = MagicMock()
         mock_backend_client.forward_callback = AsyncMock(return_value={"status": "ok"})
 
-        with patch(
-            "app.services.callback_service.workspace_export_service",
-            mock_workspace_export,
-        ), patch(
-            "app.services.callback_service.backend_client", mock_backend_client
+        with (
+            patch(
+                "app.services.callback_service.workspace_export_service",
+                mock_workspace_export,
+            ),
+            patch("app.services.callback_service.backend_client", mock_backend_client),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -521,18 +567,21 @@ class TestExportAndForward(unittest.TestCase):
         )
 
         mock_workspace_export = MagicMock()
-        mock_workspace_export.export_workspace = MagicMock(return_value=mock_export_result)
+        mock_workspace_export.export_workspace = MagicMock(
+            return_value=mock_export_result
+        )
 
         mock_backend_client = MagicMock()
         mock_backend_client.forward_callback = AsyncMock(
             side_effect=Exception("Callback failed")
         )
 
-        with patch(
-            "app.services.callback_service.workspace_export_service",
-            mock_workspace_export,
-        ), patch(
-            "app.services.callback_service.backend_client", mock_backend_client
+        with (
+            patch(
+                "app.services.callback_service.workspace_export_service",
+                mock_workspace_export,
+            ),
+            patch("app.services.callback_service.backend_client", mock_backend_client),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -559,16 +608,19 @@ class TestExportAndForward(unittest.TestCase):
         )
 
         mock_workspace_export = MagicMock()
-        mock_workspace_export.export_workspace = MagicMock(return_value=mock_export_result)
+        mock_workspace_export.export_workspace = MagicMock(
+            return_value=mock_export_result
+        )
 
         mock_backend_client = MagicMock()
         mock_backend_client.forward_callback = AsyncMock(return_value={"status": "ok"})
 
-        with patch(
-            "app.services.callback_service.workspace_export_service",
-            mock_workspace_export,
-        ), patch(
-            "app.services.callback_service.backend_client", mock_backend_client
+        with (
+            patch(
+                "app.services.callback_service.workspace_export_service",
+                mock_workspace_export,
+            ),
+            patch("app.services.callback_service.backend_client", mock_backend_client),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(

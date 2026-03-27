@@ -69,6 +69,7 @@ class TestCleanupServiceCleanupExpiredWorkspaces(unittest.TestCase):
 
             # Run the async method
             import asyncio
+
             asyncio.run(service.cleanup_expired_workspaces())
 
             mock_workspace.cleanup_expired_workspaces.assert_called_once()
@@ -97,6 +98,7 @@ class TestCleanupServiceCleanupExpiredWorkspaces(unittest.TestCase):
             service = CleanupService(scheduler=mock_scheduler)
 
             import asyncio
+
             asyncio.run(service.cleanup_expired_workspaces())
 
             mock_workspace.cleanup_expired_workspaces.assert_called_once()
@@ -118,6 +120,7 @@ class TestCleanupServiceCleanupExpiredWorkspaces(unittest.TestCase):
 
             # Should not raise, just log error
             import asyncio
+
             asyncio.run(service.cleanup_expired_workspaces())
 
             mock_workspace.cleanup_expired_workspaces.assert_called_once()
@@ -144,6 +147,7 @@ class TestCleanupServiceCleanupExpiredWorkspaces(unittest.TestCase):
 
             # Should not raise
             import asyncio
+
             asyncio.run(service.cleanup_expired_workspaces())
 
             mock_workspace.cleanup_expired_workspaces.assert_called_once()

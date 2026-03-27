@@ -1,4 +1,5 @@
 """Tests for app/api/v1/workspace.py."""
+
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -60,7 +61,9 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         from app.main import app
 
         mock_manager = MagicMock()
-        mock_manager.archive_workspace.return_value = "/archive/user-123/session-1.tar.gz"
+        mock_manager.archive_workspace.return_value = (
+            "/archive/user-123/session-1.tar.gz"
+        )
 
         with patch(
             "app.api.v1.workspace.workspace_manager",
@@ -84,7 +87,9 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         from app.main import app
 
         mock_manager = MagicMock()
-        mock_manager.archive_workspace.return_value = "/archive/user-123/session-1.tar.gz"
+        mock_manager.archive_workspace.return_value = (
+            "/archive/user-123/session-1.tar.gz"
+        )
 
         with patch(
             "app.api.v1.workspace.workspace_manager",
@@ -157,9 +162,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             mock_manager,
         ):
             client = TestClient(app)
-            response = client.delete(
-                "/api/v1/workspace/user-123/session-1?force=true"
-            )
+            response = client.delete("/api/v1/workspace/user-123/session-1?force=true")
 
             assert response.status_code == 200
             mock_manager.delete_workspace.assert_called_once_with(
@@ -217,21 +220,22 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         from app.main import app
 
         mock_manager = MagicMock()
-        mock_manager.resolve_workspace_file.return_value = Path("/workspace/user-123/session-1/main.py")
+        mock_manager.resolve_workspace_file.return_value = Path(
+            "/workspace/user-123/session-1/main.py"
+        )
 
         # Mock FileResponse to avoid file system access
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ), patch(
-            "app.api.v1.workspace.FileResponse"
-        ) as mock_file_response:
+        with (
+            patch(
+                "app.api.v1.workspace.workspace_manager",
+                mock_manager,
+            ),
+            patch("app.api.v1.workspace.FileResponse") as mock_file_response,
+        ):
             mock_file_response.return_value = MagicMock()
 
             client = TestClient(app)
-            client.get(
-                "/api/v1/workspace/file/user-123/session-1?path=main.py"
-            )
+            client.get("/api/v1/workspace/file/user-123/session-1?path=main.py")
 
             # Verify the manager was called correctly
             mock_manager.resolve_workspace_file.assert_called_once_with(

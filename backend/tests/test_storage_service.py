@@ -1,4 +1,5 @@
 """Tests for app/services/storage_service.py."""
+
 import json
 import tempfile
 import unittest
@@ -35,7 +36,9 @@ class TestS3StorageServiceInit(unittest.TestCase):
 
     @patch("app.services.storage_service.boto3")
     @patch("app.services.storage_service.get_settings")
-    def test_init_success(self, mock_get_settings: MagicMock, mock_boto3: MagicMock) -> None:
+    def test_init_success(
+        self, mock_get_settings: MagicMock, mock_boto3: MagicMock
+    ) -> None:
         """Test successful initialization."""
         mock_get_settings.return_value = _create_mock_settings()
         mock_client = MagicMock()
@@ -367,7 +370,8 @@ class TestS3StorageServicePresignGet(unittest.TestCase):
         service = S3StorageService()
 
         mock_client.generate_presigned_url.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "generate_presigned_url"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "generate_presigned_url",
         )
 
         with self.assertRaises(AppException) as ctx:
@@ -409,7 +413,9 @@ class TestS3StorageServiceExists(unittest.TestCase):
 
         service = S3StorageService()
 
-        error = ClientError({"Error": {"Code": "404", "Message": "Not found"}}, "head_object")
+        error = ClientError(
+            {"Error": {"Code": "404", "Message": "Not found"}}, "head_object"
+        )
         mock_client.head_object.side_effect = error
 
         result = service.exists("files/missing.pdf")
@@ -428,7 +434,9 @@ class TestS3StorageServiceExists(unittest.TestCase):
 
         service = S3StorageService()
 
-        error = ClientError({"Error": {"Code": "NoSuchKey", "Message": "Not found"}}, "head_object")
+        error = ClientError(
+            {"Error": {"Code": "NoSuchKey", "Message": "Not found"}}, "head_object"
+        )
         mock_client.head_object.side_effect = error
 
         result = service.exists("files/missing.pdf")
@@ -448,7 +456,8 @@ class TestS3StorageServiceExists(unittest.TestCase):
         service = S3StorageService()
 
         error = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "head_object"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "head_object",
         )
         mock_client.head_object.side_effect = error
 
@@ -530,7 +539,8 @@ class TestS3StorageServiceUploadFileobj(unittest.TestCase):
         service = S3StorageService()
 
         mock_client.upload_fileobj.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "upload_fileobj"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "upload_fileobj",
         )
 
         fileobj = BytesIO(b"test content")
@@ -591,7 +601,8 @@ class TestS3StorageServiceUploadFile(unittest.TestCase):
         service = S3StorageService()
 
         mock_client.upload_file.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "upload_file"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "upload_file",
         )
 
         with self.assertRaises(AppException) as ctx:
@@ -651,7 +662,8 @@ class TestS3StorageServicePutObject(unittest.TestCase):
         service = S3StorageService()
 
         mock_client.put_object.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "put_object"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "put_object",
         )
 
         with self.assertRaises(AppException) as ctx:
@@ -718,7 +730,8 @@ class TestS3StorageServiceListObjects(unittest.TestCase):
         service = S3StorageService()
 
         mock_client.get_paginator.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "get_paginator"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "get_paginator",
         )
 
         with self.assertRaises(AppException) as ctx:
@@ -743,7 +756,9 @@ class TestS3StorageServiceDownloadFile(unittest.TestCase):
         service = S3StorageService()
 
         with patch.object(Path, "mkdir"):
-            service.download_file(key="files/test.txt", destination=Path("/tmp/test.txt"))
+            service.download_file(
+                key="files/test.txt", destination=Path("/tmp/test.txt")
+            )
 
         mock_client.download_file.assert_called_once()
 
@@ -765,7 +780,9 @@ class TestS3StorageServiceDownloadFile(unittest.TestCase):
 
         with patch.object(Path, "mkdir"):
             with self.assertRaises(AppException) as ctx:
-                service.download_file(key="files/missing.txt", destination=Path("/tmp/test.txt"))
+                service.download_file(
+                    key="files/missing.txt", destination=Path("/tmp/test.txt")
+                )
 
         self.assertEqual(ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR)
 
@@ -822,7 +839,12 @@ class TestS3StorageServiceDownloadPrefix(unittest.TestCase):
         # Mock list_objects to return keys
         mock_paginator = MagicMock()
         mock_paginator.paginate.return_value = [
-            {"Contents": [{"Key": "prefix/file1.txt"}, {"Key": "prefix/subdir/file2.txt"}]}
+            {
+                "Contents": [
+                    {"Key": "prefix/file1.txt"},
+                    {"Key": "prefix/subdir/file2.txt"},
+                ]
+            }
         ]
         mock_client.get_paginator.return_value = mock_paginator
 
@@ -874,9 +896,7 @@ class TestS3StorageServiceDownloadPrefix(unittest.TestCase):
 
         # Key exactly matches prefix
         mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [
-            {"Contents": [{"Key": "prefix"}]}
-        ]
+        mock_paginator.paginate.return_value = [{"Contents": [{"Key": "prefix"}]}]
         mock_client.get_paginator.return_value = mock_paginator
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -950,9 +970,7 @@ class TestS3StorageServiceDeletePrefix(unittest.TestCase):
         # Create 2500 keys to test batching
         keys = [{"Key": f"prefix/file{i}.txt"} for i in range(2500)]
         mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [
-            {"Contents": keys}
-        ]
+        mock_paginator.paginate.return_value = [{"Contents": keys}]
         mock_client.get_paginator.return_value = mock_paginator
 
         result = service.delete_prefix(prefix="prefix/")
@@ -980,7 +998,8 @@ class TestS3StorageServiceDeletePrefix(unittest.TestCase):
         mock_client.get_paginator.return_value = mock_paginator
 
         mock_client.delete_objects.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "delete_objects"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "delete_objects",
         )
 
         with self.assertRaises(AppException) as ctx:
@@ -1177,14 +1196,17 @@ class TestS3StorageServiceSyncDirectory(unittest.TestCase):
             mock_client.get_paginator.return_value = mock_paginator
 
             mock_client.delete_objects.side_effect = ClientError(
-                {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "delete_objects"
+                {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+                "delete_objects",
             )
 
             with patch.object(service, "upload_file"):
                 with self.assertRaises(AppException) as ctx:
                     service.sync_directory(source_dir=tmp_path, prefix="test")
 
-                self.assertEqual(ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR)
+                self.assertEqual(
+                    ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR
+                )
 
 
 class TestS3StorageServiceCopyPrefix(unittest.TestCase):
@@ -1286,9 +1308,7 @@ class TestS3StorageServiceCopyPrefix(unittest.TestCase):
         service = S3StorageService()
 
         mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [
-            {"Contents": [{"Key": "src/file.txt"}]}
-        ]
+        mock_paginator.paginate.return_value = [{"Contents": [{"Key": "src/file.txt"}]}]
         mock_client.get_paginator.return_value = mock_paginator
 
         mock_client.copy.side_effect = ClientError(
@@ -1317,7 +1337,9 @@ class TestS3StorageServiceCopyPrefix(unittest.TestCase):
         # First call for source listing
         mock_paginator.paginate.side_effect = [
             [{"Contents": [{"Key": "src/file.txt"}]}],  # source
-            [{"Contents": [{"Key": "dst/file.txt"}, {"Key": "dst/stale.txt"}]}],  # destination
+            [
+                {"Contents": [{"Key": "dst/file.txt"}, {"Key": "dst/stale.txt"}]}
+            ],  # destination
         ]
         mock_client.get_paginator.return_value = mock_paginator
 
@@ -1343,12 +1365,15 @@ class TestS3StorageServiceCopyPrefix(unittest.TestCase):
         mock_paginator = MagicMock()
         mock_paginator.paginate.side_effect = [
             [{"Contents": [{"Key": "src/file.txt"}]}],  # source
-            [{"Contents": [{"Key": "dst/file.txt"}, {"Key": "dst/stale.txt"}]}],  # destination
+            [
+                {"Contents": [{"Key": "dst/file.txt"}, {"Key": "dst/stale.txt"}]}
+            ],  # destination
         ]
         mock_client.get_paginator.return_value = mock_paginator
 
         mock_client.delete_objects.side_effect = ClientError(
-            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}, "delete_objects"
+            {"Error": {"Code": "AccessDenied", "Message": "Access denied"}},
+            "delete_objects",
         )
 
         with self.assertRaises(AppException) as ctx:

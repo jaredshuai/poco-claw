@@ -6,7 +6,11 @@ import httpx
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.schemas.task import SessionStatusResponse, TaskCreateResponse, TaskStatusResponse
+from app.schemas.task import (
+    SessionStatusResponse,
+    TaskCreateResponse,
+    TaskStatusResponse,
+)
 from app.services.task_service import TaskService
 
 
@@ -56,16 +60,21 @@ class TestTaskServiceCreateTask(unittest.TestCase):
 
         mock_task_dispatcher = MagicMock()
 
-        with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
-        ), patch(
-            "app.services.task_service.scheduler", mock_scheduler
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher
-        ), patch(
-            "app.core.observability.request_context.get_request_id", return_value="req-123"
-        ), patch(
-            "app.core.observability.request_context.get_trace_id", return_value="trace-123"
+        with (
+            patch(
+                "app.services.backend_client.BackendClient",
+                return_value=mock_backend_client,
+            ),
+            patch("app.services.task_service.scheduler", mock_scheduler),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch(
+                "app.core.observability.request_context.get_request_id",
+                return_value="req-123",
+            ),
+            patch(
+                "app.core.observability.request_context.get_trace_id",
+                return_value="trace-123",
+            ),
         ):
             import asyncio
 
@@ -107,18 +116,27 @@ class TestTaskServiceCreateTask(unittest.TestCase):
             updated_at=datetime.now(),
         )
 
-        with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
-        ), patch(
-            "app.services.task_service.scheduler", mock_scheduler
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher
-        ), patch(
-            "app.core.observability.request_context.get_request_id", return_value="req-123"
-        ), patch(
-            "app.core.observability.request_context.get_trace_id", return_value="trace-123"
-        ), patch.object(
-            service, "get_session_status", new_callable=AsyncMock, return_value=mock_session_status
+        with (
+            patch(
+                "app.services.backend_client.BackendClient",
+                return_value=mock_backend_client,
+            ),
+            patch("app.services.task_service.scheduler", mock_scheduler),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch(
+                "app.core.observability.request_context.get_request_id",
+                return_value="req-123",
+            ),
+            patch(
+                "app.core.observability.request_context.get_trace_id",
+                return_value="trace-123",
+            ),
+            patch.object(
+                service,
+                "get_session_status",
+                new_callable=AsyncMock,
+                return_value=mock_session_status,
+            ),
         ):
             import asyncio
 
@@ -151,18 +169,25 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         mock_job = MagicMock()
         mock_scheduler.add_job = MagicMock(return_value=mock_job)
 
-        with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
-        ), patch(
-            "app.services.task_service.scheduler", mock_scheduler
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
-            new_callable=AsyncMock,
-            return_value=("container-123", "container-123"),
-        ), patch(
-            "app.core.observability.request_context.get_request_id", return_value="req-123"
-        ), patch(
-            "app.core.observability.request_context.get_trace_id", return_value="trace-123"
+        with (
+            patch(
+                "app.services.backend_client.BackendClient",
+                return_value=mock_backend_client,
+            ),
+            patch("app.services.task_service.scheduler", mock_scheduler),
+            patch(
+                "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
+                new_callable=AsyncMock,
+                return_value=("container-123", "container-123"),
+            ),
+            patch(
+                "app.core.observability.request_context.get_request_id",
+                return_value="req-123",
+            ),
+            patch(
+                "app.core.observability.request_context.get_trace_id",
+                return_value="trace-123",
+            ),
         ):
             import asyncio
 
@@ -193,18 +218,25 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         mock_job = MagicMock()
         mock_scheduler.add_job = MagicMock(return_value=mock_job)
 
-        with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
-        ), patch(
-            "app.services.task_service.scheduler", mock_scheduler
-        ), patch(
-            "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
-            new_callable=AsyncMock,
-            return_value=("existing-container", "existing-container"),
-        ), patch(
-            "app.core.observability.request_context.get_request_id", return_value="req-123"
-        ), patch(
-            "app.core.observability.request_context.get_trace_id", return_value="trace-123"
+        with (
+            patch(
+                "app.services.backend_client.BackendClient",
+                return_value=mock_backend_client,
+            ),
+            patch("app.services.task_service.scheduler", mock_scheduler),
+            patch(
+                "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
+                new_callable=AsyncMock,
+                return_value=("existing-container", "existing-container"),
+            ),
+            patch(
+                "app.core.observability.request_context.get_request_id",
+                return_value="req-123",
+            ),
+            patch(
+                "app.core.observability.request_context.get_trace_id",
+                return_value="trace-123",
+            ),
         ):
             import asyncio
 
@@ -235,7 +267,8 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         )
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
@@ -261,7 +294,8 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         )
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
@@ -376,7 +410,8 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
@@ -386,7 +421,9 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
                 mock_client.get = AsyncMock(return_value=mock_response)
                 return mock_client
 
-            with patch("app.services.task_service.httpx.AsyncClient") as mock_client_cls:
+            with patch(
+                "app.services.task_service.httpx.AsyncClient"
+            ) as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -417,11 +454,14 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
-            with patch("app.services.task_service.httpx.AsyncClient") as mock_client_cls:
+            with patch(
+                "app.services.task_service.httpx.AsyncClient"
+            ) as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -452,11 +492,14 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
-            with patch("app.services.task_service.httpx.AsyncClient") as mock_client_cls:
+            with patch(
+                "app.services.task_service.httpx.AsyncClient"
+            ) as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -478,11 +521,14 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
-            with patch("app.services.task_service.httpx.AsyncClient") as mock_client_cls:
+            with patch(
+                "app.services.task_service.httpx.AsyncClient"
+            ) as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -516,11 +562,14 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
-            "app.services.backend_client.BackendClient", return_value=mock_backend_client
+            "app.services.backend_client.BackendClient",
+            return_value=mock_backend_client,
         ):
             import asyncio
 
-            with patch("app.services.task_service.httpx.AsyncClient") as mock_client_cls:
+            with patch(
+                "app.services.task_service.httpx.AsyncClient"
+            ) as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)

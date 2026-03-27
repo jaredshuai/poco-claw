@@ -11,12 +11,8 @@ class TestBackendClientTraceHeaders(unittest.TestCase):
     """Test BackendClient._trace_headers."""
 
     def test_trace_headers_with_existing_ids(self) -> None:
-        with patch(
-            "app.services.backend_client.get_request_id"
-        ) as mock_get_req:
-            with patch(
-                "app.services.backend_client.get_trace_id"
-            ) as mock_get_trace:
+        with patch("app.services.backend_client.get_request_id") as mock_get_req:
+            with patch("app.services.backend_client.get_trace_id") as mock_get_trace:
                 mock_get_req.return_value = "req-123"
                 mock_get_trace.return_value = "trace-456"
 
@@ -26,12 +22,8 @@ class TestBackendClientTraceHeaders(unittest.TestCase):
                 assert headers["X-Trace-ID"] == "trace-456"
 
     def test_trace_headers_generates_ids(self) -> None:
-        with patch(
-            "app.services.backend_client.get_request_id"
-        ) as mock_get_req:
-            with patch(
-                "app.services.backend_client.get_trace_id"
-            ) as mock_get_trace:
+        with patch("app.services.backend_client.get_request_id") as mock_get_req:
+            with patch("app.services.backend_client.get_trace_id") as mock_get_trace:
                 with patch(
                     "app.services.backend_client.generate_request_id"
                 ) as mock_gen_req:
@@ -87,12 +79,8 @@ class TestBackendClientRequest:
                     raise httpx.ConnectError("connection error")
                 return mock_response
 
-            with patch.object(
-                client._client, "request", side_effect=side_effect
-            ):
-                result = await client._request(
-                    "GET", "/test", retry_connect_errors=2
-                )
+            with patch.object(client._client, "request", side_effect=side_effect):
+                result = await client._request("GET", "/test", retry_connect_errors=2)
 
                 assert result == mock_response
                 assert call_count == 3
@@ -106,9 +94,7 @@ class TestBackendClientRequest:
             async def always_fail(*args, **kwargs):
                 raise httpx.ConnectError("connection error")
 
-            with patch.object(
-                client._client, "request", side_effect=always_fail
-            ):
+            with patch.object(client._client, "request", side_effect=always_fail):
                 with pytest.raises(httpx.ConnectError):
                     await client._request("GET", "/test", retry_connect_errors=2)
 
@@ -121,9 +107,7 @@ class TestBackendClientRequest:
             async def timeout_error(*args, **kwargs):
                 raise httpx.ConnectTimeout("timeout")
 
-            with patch.object(
-                client._client, "request", side_effect=timeout_error
-            ):
+            with patch.object(client._client, "request", side_effect=timeout_error):
                 with pytest.raises(httpx.ConnectTimeout):
                     await client._request("GET", "/test")
 
@@ -142,9 +126,7 @@ class TestBackendClientRequest:
                 )
                 return mock_response
 
-            with patch.object(
-                client._client, "request", side_effect=raise_404
-            ):
+            with patch.object(client._client, "request", side_effect=raise_404):
                 with pytest.raises(httpx.HTTPStatusError):
                     await client._request("GET", "/test")
 
@@ -552,9 +534,7 @@ class TestBackendClientResolvePluginConfig:
             client = BackendClient()
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "data": {"plugin1": {"enabled": True}}
-            }
+            mock_response.json.return_value = {"data": {"plugin1": {"enabled": True}}}
             mock_response.raise_for_status = MagicMock()
 
             with patch.object(
@@ -582,7 +562,9 @@ class TestBackendClientGetClaudeMd:
             mock_response.json.return_value = {"data": {"content": "# Claude MD"}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
                 mock_instance = AsyncMock()
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock(return_value=None)
@@ -606,7 +588,9 @@ class TestBackendClientGetClaudeMd:
             mock_response.json.return_value = {"data": "not a dict"}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
                 mock_instance = AsyncMock()
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock(return_value=None)
@@ -635,7 +619,9 @@ class TestBackendClientUserInputRequests:
             mock_response.json.return_value = {"data": {"id": "req-123"}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
                 mock_instance = AsyncMock()
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock(return_value=None)
@@ -659,7 +645,9 @@ class TestBackendClientUserInputRequests:
             mock_response.json.return_value = {"data": {"status": "pending"}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
                 mock_instance = AsyncMock()
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock(return_value=None)
@@ -699,8 +687,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": {"id": "mem-123"}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.create_memory("sess-123", {"content": "test"})
 
@@ -719,8 +711,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": {"status": "completed"}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.get_memory_create_job("sess-123", "job-456")
 
@@ -736,11 +732,17 @@ class TestBackendClientMemoryOperations:
             client = BackendClient()
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {"data": [{"id": "mem-1"}, {"id": "mem-2"}]}
+            mock_response.json.return_value = {
+                "data": [{"id": "mem-1"}, {"id": "mem-2"}]
+            }
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.list_memories("sess-123")
 
@@ -759,8 +761,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": [{"id": "mem-1"}]}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.search_memories("sess-123", {"query": "test"})
 
@@ -776,11 +782,17 @@ class TestBackendClientMemoryOperations:
             client = BackendClient()
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {"data": {"id": "mem-123", "content": "test"}}
+            mock_response.json.return_value = {
+                "data": {"id": "mem-123", "content": "test"}
+            }
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.get_memory("sess-123", "mem-123")
 
@@ -796,11 +808,17 @@ class TestBackendClientMemoryOperations:
             client = BackendClient()
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {"data": {"id": "mem-123", "updated": True}}
+            mock_response.json.return_value = {
+                "data": {"id": "mem-123", "updated": True}
+            }
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.update_memory(
                     "sess-123", "mem-123", {"content": "updated"}
@@ -821,8 +839,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": [{"version": 1}, {"version": 2}]}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.get_memory_history("sess-123", "mem-123")
 
@@ -841,8 +863,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": {"deleted": True}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.delete_memory("sess-123", "mem-123")
 
@@ -861,8 +887,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": None}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.delete_memory("sess-123", "mem-123")
 
@@ -881,8 +911,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": {"count": 5}}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.delete_all_memories("sess-123")
 
@@ -901,8 +935,12 @@ class TestBackendClientMemoryOperations:
             mock_response.json.return_value = {"data": "deleted"}
             mock_response.raise_for_status = MagicMock()
 
-            with patch("app.services.backend_client.httpx.AsyncClient") as mock_async_client_cls:
-                mock_async_client_cls.return_value = self._make_async_client_mock(mock_response)
+            with patch(
+                "app.services.backend_client.httpx.AsyncClient"
+            ) as mock_async_client_cls:
+                mock_async_client_cls.return_value = self._make_async_client_mock(
+                    mock_response
+                )
 
                 result = await client.delete_all_memories("sess-123")
 
@@ -923,9 +961,7 @@ class TestBackendClientResolveSlashCommandsWithSkillNames:
             client = BackendClient()
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "data": {"/skill1": "Skill content"}
-            }
+            mock_response.json.return_value = {"data": {"/skill1": "Skill content"}}
             mock_response.raise_for_status = MagicMock()
 
             with patch.object(

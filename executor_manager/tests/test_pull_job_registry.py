@@ -1,4 +1,5 @@
 """Tests for app/scheduler/pull_job_registry.py."""
+
 import unittest
 from unittest.mock import MagicMock
 
@@ -41,7 +42,10 @@ class TestRegisterPullJobs(unittest.TestCase):
     def test_register_interval_rule(self) -> None:
         """Test registering an interval pull rule."""
         from app.scheduler.pull_job_registry import register_pull_jobs
-        from app.scheduler.pull_schedule_config import IntervalPullRule, PullScheduleConfig
+        from app.scheduler.pull_schedule_config import (
+            IntervalPullRule,
+            PullScheduleConfig,
+        )
 
         mock_scheduler = self._create_mock_scheduler()
         mock_service = self._create_mock_pull_service()
@@ -73,7 +77,10 @@ class TestRegisterPullJobs(unittest.TestCase):
     def test_register_interval_rule_clamps_seconds_to_min_1(self) -> None:
         """Test that interval seconds is clamped to min 1."""
         from app.scheduler.pull_job_registry import register_pull_jobs
-        from app.scheduler.pull_schedule_config import IntervalPullRule, PullScheduleConfig
+        from app.scheduler.pull_schedule_config import (
+            IntervalPullRule,
+            PullScheduleConfig,
+        )
 
         mock_scheduler = self._create_mock_scheduler()
         mock_service = self._create_mock_pull_service()
@@ -98,7 +105,10 @@ class TestRegisterPullJobs(unittest.TestCase):
     def test_register_interval_rule_without_start_immediately(self) -> None:
         """Test interval rule without start_immediately."""
         from app.scheduler.pull_job_registry import register_pull_jobs
-        from app.scheduler.pull_schedule_config import IntervalPullRule, PullScheduleConfig
+        from app.scheduler.pull_schedule_config import (
+            IntervalPullRule,
+            PullScheduleConfig,
+        )
 
         mock_scheduler = self._create_mock_scheduler()
         mock_service = self._create_mock_pull_service()
@@ -124,7 +134,10 @@ class TestRegisterPullJobs(unittest.TestCase):
     def test_register_skips_disabled_rule(self) -> None:
         """Test that disabled rules are skipped."""
         from app.scheduler.pull_job_registry import register_pull_jobs
-        from app.scheduler.pull_schedule_config import IntervalPullRule, PullScheduleConfig
+        from app.scheduler.pull_schedule_config import (
+            IntervalPullRule,
+            PullScheduleConfig,
+        )
 
         mock_scheduler = self._create_mock_scheduler()
         mock_service = self._create_mock_pull_service()
@@ -148,7 +161,10 @@ class TestRegisterPullJobs(unittest.TestCase):
     def test_register_window_rule(self) -> None:
         """Test registering a window pull rule."""
         from app.scheduler.pull_job_registry import register_pull_jobs
-        from app.scheduler.pull_schedule_config import PullScheduleConfig, WindowPullRule
+        from app.scheduler.pull_schedule_config import (
+            PullScheduleConfig,
+            WindowPullRule,
+        )
 
         mock_scheduler = self._create_mock_scheduler()
         mock_service = self._create_mock_pull_service()
@@ -177,7 +193,10 @@ class TestRegisterPullJobs(unittest.TestCase):
     def test_register_window_rule_with_bootstrap(self) -> None:
         """Test window rule with bootstrap window."""
         from app.scheduler.pull_job_registry import register_pull_jobs
-        from app.scheduler.pull_schedule_config import PullScheduleConfig, WindowPullRule
+        from app.scheduler.pull_schedule_config import (
+            PullScheduleConfig,
+            WindowPullRule,
+        )
 
         mock_scheduler = self._create_mock_scheduler()
         mock_service = self._create_mock_pull_service()

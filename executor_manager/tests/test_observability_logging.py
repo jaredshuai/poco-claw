@@ -1,10 +1,10 @@
 """Tests for app/core/observability/logging.py."""
+
 import logging
 import os
 import tempfile
 import unittest
 from unittest.mock import patch
-
 
 
 class TestEnvBool(unittest.TestCase):
@@ -28,7 +28,19 @@ class TestEnvBool(unittest.TestCase):
         """Test returns True for truthy string values."""
         from app.core.observability.logging import _env_bool
 
-        truthy_values = ["1", "true", "True", "TRUE", "yes", "Yes", "YES", "y", "Y", "on", "ON"]
+        truthy_values = [
+            "1",
+            "true",
+            "True",
+            "TRUE",
+            "yes",
+            "Yes",
+            "YES",
+            "y",
+            "Y",
+            "on",
+            "ON",
+        ]
         for val in truthy_values:
             os.environ["TEST_BOOL_VAR"] = val
             assert _env_bool("TEST_BOOL_VAR", False) is True, f"Failed for {val}"
@@ -316,16 +328,20 @@ class TestBuildFileHandler(unittest.TestCase):
         # Reset logging to avoid record factory conflicts
         logging.setLogRecordFactory(logging.LogRecord)
 
-        with patch.dict(
-            os.environ,
-            {"LOG_TO_FILE": "true", "LOG_DIR": "/nonexistent/path"},
-            clear=False,
-        ), patch(
-            "app.core.observability.logging.TimedRotatingFileHandler",
-            side_effect=OSError("Permission denied"),
-        ), patch(
-            "app.core.observability.logging.Path.mkdir",
-            side_effect=OSError("Cannot create directory"),
+        with (
+            patch.dict(
+                os.environ,
+                {"LOG_TO_FILE": "true", "LOG_DIR": "/nonexistent/path"},
+                clear=False,
+            ),
+            patch(
+                "app.core.observability.logging.TimedRotatingFileHandler",
+                side_effect=OSError("Permission denied"),
+            ),
+            patch(
+                "app.core.observability.logging.Path.mkdir",
+                side_effect=OSError("Cannot create directory"),
+            ),
         ):
             result = _build_file_handler(
                 service_name="test",
@@ -343,6 +359,7 @@ class TestConfigureLogging(unittest.TestCase):
 
         # Reset the factory flag
         import app.core.observability.logging as log_module
+
         log_module._installed_record_factory = False
 
         configure_logging(debug=False, service_name="test-service", access_log=False)
@@ -356,6 +373,7 @@ class TestConfigureLogging(unittest.TestCase):
         from app.core.observability.logging import configure_logging
 
         import app.core.observability.logging as log_module
+
         log_module._installed_record_factory = False
 
         with patch.dict(os.environ, {"LOG_LEVEL": ""}, clear=False):
@@ -369,6 +387,7 @@ class TestConfigureLogging(unittest.TestCase):
         from app.core.observability.logging import configure_logging
 
         import app.core.observability.logging as log_module
+
         log_module._installed_record_factory = False
 
         with patch.dict(os.environ, {"LOG_LEVEL": "WARNING"}, clear=False):
@@ -382,6 +401,7 @@ class TestConfigureLogging(unittest.TestCase):
         from app.core.observability.logging import configure_logging
 
         import app.core.observability.logging as log_module
+
         log_module._installed_record_factory = False
 
         with patch.dict(os.environ, {"UVICORN_ACCESS_LOG": "true"}, clear=False):
@@ -393,6 +413,7 @@ class TestConfigureLogging(unittest.TestCase):
         from app.core.observability.logging import configure_logging
 
         import app.core.observability.logging as log_module
+
         log_module._installed_record_factory = False
 
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -140,7 +140,9 @@ class TestRunServiceListRuns(unittest.TestCase):
         session_id = uuid.uuid4()
         run_id = uuid.uuid4()
 
-        mock_run = create_mock_run(run_id=run_id, session_id=session_id, status="completed")
+        mock_run = create_mock_run(
+            run_id=run_id, session_id=session_id, status="completed"
+        )
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.list_by_session.return_value = [mock_run]
@@ -182,7 +184,9 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_run_repo:
             mock_run_repo.claim_next.return_value = mock_run
-            with patch("app.services.run_service.SessionRepository") as mock_session_repo:
+            with patch(
+                "app.services.run_service.SessionRepository"
+            ) as mock_session_repo:
                 mock_session_repo.get_by_id.return_value = None
                 service = RunService()
                 with self.assertRaises(AppException) as ctx:
@@ -195,16 +199,22 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
         session_id = uuid.uuid4()
         request = RunClaimRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, session_id=session_id, user_message_id=123)
+        mock_run = create_mock_run(
+            run_id=run_id, session_id=session_id, user_message_id=123
+        )
 
         mock_session = MagicMock()
         mock_session.id = session_id
 
         with patch("app.services.run_service.RunRepository") as mock_run_repo:
             mock_run_repo.claim_next.return_value = mock_run
-            with patch("app.services.run_service.SessionRepository") as mock_session_repo:
+            with patch(
+                "app.services.run_service.SessionRepository"
+            ) as mock_session_repo:
                 mock_session_repo.get_by_id.return_value = mock_session
-                with patch("app.services.run_service.MessageRepository") as mock_msg_repo:
+                with patch(
+                    "app.services.run_service.MessageRepository"
+                ) as mock_msg_repo:
                     mock_msg_repo.get_by_id.return_value = None
                     service = RunService()
                     with self.assertRaises(AppException) as ctx:
@@ -217,7 +227,9 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
         session_id = uuid.uuid4()
         request = RunClaimRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, session_id=session_id, user_message_id=456)
+        mock_run = create_mock_run(
+            run_id=run_id, session_id=session_id, user_message_id=456
+        )
 
         mock_session = MagicMock()
         mock_session.id = session_id
@@ -228,9 +240,13 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_run_repo:
             mock_run_repo.claim_next.return_value = mock_run
-            with patch("app.services.run_service.SessionRepository") as mock_session_repo:
+            with patch(
+                "app.services.run_service.SessionRepository"
+            ) as mock_session_repo:
                 mock_session_repo.get_by_id.return_value = mock_session
-                with patch("app.services.run_service.MessageRepository") as mock_msg_repo:
+                with patch(
+                    "app.services.run_service.MessageRepository"
+                ) as mock_msg_repo:
                     mock_msg_repo.get_by_id.return_value = mock_message
                     service = RunService()
                     with self.assertRaises(AppException) as ctx:
@@ -243,7 +259,9 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
         session_id = uuid.uuid4()
         request = RunClaimRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, session_id=session_id, status="claimed", user_message_id=789)
+        mock_run = create_mock_run(
+            run_id=run_id, session_id=session_id, status="claimed", user_message_id=789
+        )
 
         mock_session = MagicMock()
         mock_session.id = session_id
@@ -257,9 +275,13 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_run_repo:
             mock_run_repo.claim_next.return_value = mock_run
-            with patch("app.services.run_service.SessionRepository") as mock_session_repo:
+            with patch(
+                "app.services.run_service.SessionRepository"
+            ) as mock_session_repo:
                 mock_session_repo.get_by_id.return_value = mock_session
-                with patch("app.services.run_service.MessageRepository") as mock_msg_repo:
+                with patch(
+                    "app.services.run_service.MessageRepository"
+                ) as mock_msg_repo:
                     mock_msg_repo.get_by_id.return_value = mock_message
                     service = RunService()
                     result = service.claim_next_run(db, request)
@@ -280,7 +302,9 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
             self.assertIsNone(result)
             # Verify schedule_modes was passed correctly
             call_args = mock_repo.claim_next.call_args
-            self.assertEqual(call_args.kwargs["schedule_modes"], ["immediate", "nightly"])
+            self.assertEqual(
+                call_args.kwargs["schedule_modes"], ["immediate", "nightly"]
+            )
 
     def test_uses_text_preview_as_fallback(self) -> None:
         db = MagicMock()
@@ -288,7 +312,9 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
         session_id = uuid.uuid4()
         request = RunClaimRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, session_id=session_id, status="claimed", user_message_id=999)
+        mock_run = create_mock_run(
+            run_id=run_id, session_id=session_id, status="claimed", user_message_id=999
+        )
 
         mock_session = MagicMock()
         mock_session.id = session_id
@@ -302,9 +328,13 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_run_repo:
             mock_run_repo.claim_next.return_value = mock_run
-            with patch("app.services.run_service.SessionRepository") as mock_session_repo:
+            with patch(
+                "app.services.run_service.SessionRepository"
+            ) as mock_session_repo:
                 mock_session_repo.get_by_id.return_value = mock_session
-                with patch("app.services.run_service.MessageRepository") as mock_msg_repo:
+                with patch(
+                    "app.services.run_service.MessageRepository"
+                ) as mock_msg_repo:
                     mock_msg_repo.get_by_id.return_value = mock_message
                     service = RunService()
                     result = service.claim_next_run(db, request)
@@ -380,7 +410,9 @@ class TestRunServiceStartRun(unittest.TestCase):
         run_id = uuid.uuid4()
         request = RunStartRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, status="running", claimed_by="worker-1")
+        mock_run = create_mock_run(
+            run_id=run_id, status="running", claimed_by="worker-1"
+        )
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
@@ -393,7 +425,9 @@ class TestRunServiceStartRun(unittest.TestCase):
         run_id = uuid.uuid4()
         request = RunStartRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, status="running", claimed_by="worker-2")
+        mock_run = create_mock_run(
+            run_id=run_id, status="running", claimed_by="worker-2"
+        )
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
@@ -421,7 +455,9 @@ class TestRunServiceStartRun(unittest.TestCase):
         run_id = uuid.uuid4()
         request = RunStartRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, status="claimed", claimed_by="worker-2")
+        mock_run = create_mock_run(
+            run_id=run_id, status="claimed", claimed_by="worker-2"
+        )
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
@@ -435,12 +471,16 @@ class TestRunServiceStartRun(unittest.TestCase):
         run_id = uuid.uuid4()
         request = RunStartRequest(worker_id="worker-1")
 
-        mock_run = create_mock_run(run_id=run_id, status="claimed", claimed_by="worker-1")
+        mock_run = create_mock_run(
+            run_id=run_id, status="claimed", claimed_by="worker-1"
+        )
         mock_run.attempts = 0
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
-            with patch("app.services.run_service.run_lifecycle_service") as mock_lifecycle:
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
                 service = RunService()
                 result = service.start_run(db, run_id, request)
                 self.assertIsNotNone(result)
@@ -457,7 +497,9 @@ class TestRunServiceStartRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
-            with patch("app.services.run_service.run_lifecycle_service") as mock_lifecycle:
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
                 service = RunService()
                 result = service.start_run(db, run_id, request)
                 self.assertIsNotNone(result)
@@ -506,7 +548,9 @@ class TestRunServiceFailRun(unittest.TestCase):
         run_id = uuid.uuid4()
         request = RunFailRequest(worker_id="worker-1", error_message="Error")
 
-        mock_run = create_mock_run(run_id=run_id, status="running", claimed_by="worker-2")
+        mock_run = create_mock_run(
+            run_id=run_id, status="running", claimed_by="worker-2"
+        )
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
@@ -529,7 +573,9 @@ class TestRunServiceFailRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
-            with patch("app.services.run_service.run_lifecycle_service") as mock_lifecycle:
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
                 service = RunService()
                 result = service.fail_run(db, run_id, request)
                 self.assertIsNotNone(result)
@@ -549,7 +595,9 @@ class TestRunServiceFailRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
-            with patch("app.services.run_service.run_lifecycle_service") as mock_lifecycle:
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
                 service = RunService()
                 result = service.fail_run(db, run_id, request)
                 self.assertIsNotNone(result)

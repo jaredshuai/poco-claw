@@ -1,4 +1,5 @@
 """Tests for app/services/im_providers.py - TelegramClient, DingTalkClient, FeishuClient and helpers."""
+
 import asyncio
 import time
 import unittest
@@ -92,6 +93,7 @@ class TestTelegramClientSendText(unittest.TestCase):
         client = TelegramClient()
 
         import asyncio
+
         result = asyncio.run(client.send_text(destination="chat-123", text="Hello"))
         self.assertFalse(result)
 
@@ -118,7 +120,9 @@ class TestTelegramClientSendText(unittest.TestCase):
                 mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_client_class.return_value = mock_client
 
-                return await client.send_text(destination="chat-123", text="Hello World")
+                return await client.send_text(
+                    destination="chat-123", text="Hello World"
+                )
 
         result = asyncio.run(run_test())
         self.assertTrue(result)
@@ -167,7 +171,9 @@ class TestTelegramClientSendText(unittest.TestCase):
         async def run_test() -> None:
             with patch("httpx.AsyncClient") as mock_client_class:
                 mock_client = AsyncMock()
-                mock_client.post = AsyncMock(side_effect=httpx.RequestError("Network error"))
+                mock_client.post = AsyncMock(
+                    side_effect=httpx.RequestError("Network error")
+                )
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_client_class.return_value = mock_client
@@ -284,9 +290,7 @@ class TestParseTelegramUpdate(unittest.TestCase):
 
     def test_text_not_string(self) -> None:
         """Test message with non-string text."""
-        result = parse_telegram_update({
-            "message": {"chat": {"id": 123}, "text": 123}
-        })
+        result = parse_telegram_update({"message": {"chat": {"id": 123}, "text": 123}})
         self.assertIsNone(result)
 
     def test_no_sender(self) -> None:
@@ -329,7 +333,7 @@ class TestParseTelegramUpdate(unittest.TestCase):
             "message": {
                 "chat": {"id": 789},
                 "text": "Hello",
-            }
+            },
         }
 
         result = parse_telegram_update(payload)
@@ -451,24 +455,28 @@ class TestReadField(unittest.TestCase):
     def test_dict_value(self) -> None:
         """Test reading from dict."""
         from app.services.im_providers import _read_field
+
         result = _read_field({"key": "value"}, "key")
         self.assertEqual(result, "value")
 
     def test_dict_missing_key(self) -> None:
         """Test reading missing key from dict."""
         from app.services.im_providers import _read_field
+
         result = _read_field({"key": "value"}, "other")
         self.assertIsNone(result)
 
     def test_none_value(self) -> None:
         """Test reading from None."""
         from app.services.im_providers import _read_field
+
         result = _read_field(None, "key")
         self.assertIsNone(result)
 
     def test_object_with_attribute(self) -> None:
         """Test reading attribute from object."""
         from app.services.im_providers import _read_field
+
         obj = MagicMock()
         obj.my_attr = "attr_value"
         result = _read_field(obj, "my_attr")
@@ -481,6 +489,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_chat_id_prefix(self) -> None:
         """Test chat_id prefix."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("chat_id:12345")
         self.assertEqual(prefix, "chat_id")
         self.assertEqual(value, "12345")
@@ -488,6 +497,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_open_id_prefix(self) -> None:
         """Test open_id prefix."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("open_id:abc123")
         self.assertEqual(prefix, "open_id")
         self.assertEqual(value, "abc123")
@@ -495,6 +505,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_user_id_prefix(self) -> None:
         """Test user_id prefix."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("user_id:xyz")
         self.assertEqual(prefix, "user_id")
         self.assertEqual(value, "xyz")
@@ -502,6 +513,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_no_prefix(self) -> None:
         """Test value without prefix."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("12345")
         self.assertEqual(prefix, "chat_id")
         self.assertEqual(value, "12345")
@@ -509,6 +521,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_empty_string(self) -> None:
         """Test empty string."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("")
         self.assertEqual(prefix, "chat_id")
         self.assertEqual(value, "")
@@ -516,6 +529,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_unknown_prefix(self) -> None:
         """Test unknown prefix treated as no prefix."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("unknown:value")
         self.assertEqual(prefix, "chat_id")
         self.assertEqual(value, "unknown:value")
@@ -523,6 +537,7 @@ class TestParseReceiveTarget(unittest.TestCase):
     def test_strips_whitespace(self) -> None:
         """Test strips whitespace."""
         from app.services.im_providers import _parse_receive_target
+
         prefix, value = _parse_receive_target("  chat_id:123  ")
         self.assertEqual(prefix, "chat_id")
         self.assertEqual(value, "123")
@@ -534,36 +549,42 @@ class TestParsePositiveInt(unittest.TestCase):
     def test_positive_int(self) -> None:
         """Test positive integer."""
         from app.services.im_providers import _parse_positive_int
+
         result = _parse_positive_int(42, default=0)
         self.assertEqual(result, 42)
 
     def test_zero_returns_default(self) -> None:
         """Test zero returns default."""
         from app.services.im_providers import _parse_positive_int
+
         result = _parse_positive_int(0, default=10)
         self.assertEqual(result, 10)
 
     def test_negative_returns_default(self) -> None:
         """Test negative returns default."""
         from app.services.im_providers import _parse_positive_int
+
         result = _parse_positive_int(-5, default=10)
         self.assertEqual(result, 10)
 
     def test_string_positive(self) -> None:
         """Test positive string."""
         from app.services.im_providers import _parse_positive_int
+
         result = _parse_positive_int("42", default=0)
         self.assertEqual(result, 42)
 
     def test_invalid_string_returns_default(self) -> None:
         """Test invalid string returns default."""
         from app.services.im_providers import _parse_positive_int
+
         result = _parse_positive_int("not a number", default=10)
         self.assertEqual(result, 10)
 
     def test_none_returns_default(self) -> None:
         """Test None returns default."""
         from app.services.im_providers import _parse_positive_int
+
         result = _parse_positive_int(None, default=10)
         self.assertEqual(result, 10)
 
@@ -574,12 +595,14 @@ class TestTryDumpDict(unittest.TestCase):
     def test_dict_input(self) -> None:
         """Test dict input returns itself."""
         from app.services.im_providers import _try_dump_dict
+
         result = _try_dump_dict({"key": "value"})
         self.assertEqual(result, {"key": "value"})
 
     def test_object_with_model_dump(self) -> None:
         """Test object with model_dump method."""
         from app.services.im_providers import _try_dump_dict
+
         obj = MagicMock()
         obj.model_dump = MagicMock(return_value={"dumped": "value"})
         result = _try_dump_dict(obj)
@@ -588,6 +611,7 @@ class TestTryDumpDict(unittest.TestCase):
     def test_object_with_model_dump_exception(self) -> None:
         """Test object with model_dump that raises exception."""
         from app.services.im_providers import _try_dump_dict
+
         obj = MagicMock()
         obj.model_dump = MagicMock(side_effect=RuntimeError("error"))
         result = _try_dump_dict(obj)
@@ -596,6 +620,7 @@ class TestTryDumpDict(unittest.TestCase):
     def test_object_with_model_dump_non_dict(self) -> None:
         """Test object with model_dump returning non-dict."""
         from app.services.im_providers import _try_dump_dict
+
         obj = MagicMock()
         obj.model_dump = MagicMock(return_value="not a dict")
         # No to_dict method
@@ -606,6 +631,7 @@ class TestTryDumpDict(unittest.TestCase):
     def test_object_with_to_dict(self) -> None:
         """Test object with to_dict method."""
         from app.services.im_providers import _try_dump_dict
+
         obj = MagicMock()
         delattr(obj, "model_dump")
         obj.to_dict = MagicMock(return_value={"to": "dict"})
@@ -615,6 +641,7 @@ class TestTryDumpDict(unittest.TestCase):
     def test_object_with_to_dict_exception(self) -> None:
         """Test object with to_dict that raises exception."""
         from app.services.im_providers import _try_dump_dict
+
         obj = MagicMock()
         delattr(obj, "model_dump")
         obj.to_dict = MagicMock(side_effect=RuntimeError("error"))
@@ -624,6 +651,7 @@ class TestTryDumpDict(unittest.TestCase):
     def test_object_without_methods(self) -> None:
         """Test object without dump methods."""
         from app.services.im_providers import _try_dump_dict
+
         obj = object()
         result = _try_dump_dict(obj)
         self.assertIsNone(result)
@@ -691,7 +719,9 @@ class TestDingTalkClientInit(unittest.TestCase):
         settings = MagicMock()
         settings.dingtalk_enabled = True
         settings.dingtalk_webhook_url = "  https://webhook.example.com  "
-        settings.dingtalk_open_base_url = "https://api.dingtalk.com/"  # rstrip only, not strip
+        settings.dingtalk_open_base_url = (
+            "https://api.dingtalk.com/"  # rstrip only, not strip
+        )
         settings.dingtalk_client_id = "  client-id  "
         settings.dingtalk_client_secret = "  client-secret  "
         settings.dingtalk_robot_code = "  robot-code  "
@@ -1193,7 +1223,10 @@ class TestDingTalkClientSendText(unittest.TestCase):
                 # third call (private message fail), fourth call (fallback webhook)
                 mock_client.post = AsyncMock(
                     side_effect=[
-                        MagicMock(is_success=True, json=lambda: {"accessToken": "token", "expireIn": 7200}),
+                        MagicMock(
+                            is_success=True,
+                            json=lambda: {"accessToken": "token", "expireIn": 7200},
+                        ),
                         mock_response_fail,
                         mock_response_fail,
                         mock_response_ok,
@@ -1243,7 +1276,9 @@ class TestDingTalkClientSendViaOpenapi(unittest.TestCase):
 
         client = DingTalkClient()
 
-        result = asyncio.run(client._send_via_openapi(conversation_id="chat-123", text="Hello"))
+        result = asyncio.run(
+            client._send_via_openapi(conversation_id="chat-123", text="Hello")
+        )
         self.assertFalse(result)
 
     @patch("app.services.im_providers.get_settings")
@@ -1265,7 +1300,9 @@ class TestDingTalkClientSendViaOpenapi(unittest.TestCase):
             with patch.object(
                 client, "_get_access_token", side_effect=RuntimeError("Auth failed")
             ):
-                return await client._send_via_openapi(conversation_id="chat-123", text="Hello")
+                return await client._send_via_openapi(
+                    conversation_id="chat-123", text="Hello"
+                )
 
         result = asyncio.run(run_test())
         self.assertFalse(result)
@@ -1297,13 +1334,17 @@ class TestDingTalkClientSendViaOpenapi(unittest.TestCase):
                 mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_client_class.return_value = mock_client
 
-                return await client._send_via_openapi(conversation_id="chat-123", text="Hello")
+                return await client._send_via_openapi(
+                    conversation_id="chat-123", text="Hello"
+                )
 
         result = asyncio.run(run_test())
         self.assertTrue(result)
 
     @patch("app.services.im_providers.get_settings")
-    def test_openapi_private_message_success(self, mock_get_settings: MagicMock) -> None:
+    def test_openapi_private_message_success(
+        self, mock_get_settings: MagicMock
+    ) -> None:
         """Test OpenAPI private message send success after group fails."""
         settings = MagicMock()
         settings.dingtalk_enabled = True
@@ -1336,7 +1377,9 @@ class TestDingTalkClientSendViaOpenapi(unittest.TestCase):
                 mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_client_class.return_value = mock_client
 
-                return await client._send_via_openapi(conversation_id="chat-123", text="Hello")
+                return await client._send_via_openapi(
+                    conversation_id="chat-123", text="Hello"
+                )
 
         result = asyncio.run(run_test())
         self.assertTrue(result)
@@ -1372,7 +1415,9 @@ class TestDingTalkClientSendViaOpenapi(unittest.TestCase):
                 mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_client_class.return_value = mock_client
 
-                return await client._send_via_openapi(conversation_id="chat-123", text="Hello")
+                return await client._send_via_openapi(
+                    conversation_id="chat-123", text="Hello"
+                )
 
         result = asyncio.run(run_test())
         self.assertFalse(result)
@@ -1462,7 +1507,9 @@ class TestFeishuClientInit(unittest.TestCase):
         self.assertFalse(client.enabled)
 
     @patch("app.services.im_providers.get_settings")
-    def test_enabled_property_checks_all_config(self, mock_get_settings: MagicMock) -> None:
+    def test_enabled_property_checks_all_config(
+        self, mock_get_settings: MagicMock
+    ) -> None:
         """Test enabled property requires all config."""
         settings = MagicMock()
         settings.feishu_enabled = True
@@ -1874,7 +1921,10 @@ class TestFeishuClientSendTextOnce(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.is_success = True
-        mock_response.json.return_value = {"code": 99991663, "msg": "invalid receive_id"}
+        mock_response.json.return_value = {
+            "code": 99991663,
+            "msg": "invalid receive_id",
+        }
 
         async def run_test() -> bool:
             with patch("httpx.AsyncClient") as mock_client_class:
@@ -2067,9 +2117,7 @@ class TestFeishuClientSendText(unittest.TestCase):
                     return "token"
                 raise RuntimeError("Auth failed on retry")
 
-            with patch.object(
-                client, "_get_tenant_access_token", mock_get_token
-            ):
+            with patch.object(client, "_get_tenant_access_token", mock_get_token):
                 with patch.object(
                     client, "_send_text_once", AsyncMock(return_value=False)
                 ):
@@ -2137,13 +2185,11 @@ class TestNotificationGateway(unittest.TestCase):
         """Test __init__ creates provider instances."""
         from app.services.im_providers import NotificationGateway
 
-        with patch(
-            "app.services.im_providers.TelegramClient"
-        ) as mock_telegram, patch(
-            "app.services.im_providers.DingTalkClient"
-        ) as mock_dingtalk, patch(
-            "app.services.im_providers.FeishuClient"
-        ) as mock_feishu:
+        with (
+            patch("app.services.im_providers.TelegramClient") as mock_telegram,
+            patch("app.services.im_providers.DingTalkClient") as mock_dingtalk,
+            patch("app.services.im_providers.FeishuClient") as mock_feishu,
+        ):
             mock_telegram.return_value = MagicMock()
             mock_dingtalk.return_value = MagicMock()
             mock_feishu.return_value = MagicMock()
@@ -2165,12 +2211,14 @@ class TestNotificationGateway(unittest.TestCase):
         mock_dingtalk = MagicMock()
         mock_feishu = MagicMock()
 
-        with patch(
-            "app.services.im_providers.TelegramClient", return_value=mock_telegram
-        ), patch(
-            "app.services.im_providers.DingTalkClient", return_value=mock_dingtalk
-        ), patch(
-            "app.services.im_providers.FeishuClient", return_value=mock_feishu
+        with (
+            patch(
+                "app.services.im_providers.TelegramClient", return_value=mock_telegram
+            ),
+            patch(
+                "app.services.im_providers.DingTalkClient", return_value=mock_dingtalk
+            ),
+            patch("app.services.im_providers.FeishuClient", return_value=mock_feishu),
         ):
             gateway = NotificationGateway()
 
@@ -2182,26 +2230,24 @@ class TestNotificationGateway(unittest.TestCase):
         """Test get_provider returns None for unknown provider."""
         from app.services.im_providers import NotificationGateway
 
-        with patch(
-            "app.services.im_providers.TelegramClient"
-        ), patch("app.services.im_providers.DingTalkClient"), patch(
-            "app.services.im_providers.FeishuClient"
+        with (
+            patch("app.services.im_providers.TelegramClient"),
+            patch("app.services.im_providers.DingTalkClient"),
+            patch("app.services.im_providers.FeishuClient"),
         ):
             gateway = NotificationGateway()
 
             assert gateway.get_provider("unknown") is None
 
     @patch("app.services.im_providers.logger")
-    def test_send_text_unknown_provider(
-        self, mock_logger: MagicMock
-    ) -> None:
+    def test_send_text_unknown_provider(self, mock_logger: MagicMock) -> None:
         """Test send_text returns False for unknown provider."""
         from app.services.im_providers import NotificationGateway
 
-        with patch(
-            "app.services.im_providers.TelegramClient"
-        ), patch("app.services.im_providers.DingTalkClient"), patch(
-            "app.services.im_providers.FeishuClient"
+        with (
+            patch("app.services.im_providers.TelegramClient"),
+            patch("app.services.im_providers.DingTalkClient"),
+            patch("app.services.im_providers.FeishuClient"),
         ):
             gateway = NotificationGateway()
 
@@ -2213,19 +2259,17 @@ class TestNotificationGateway(unittest.TestCase):
             mock_logger.warning.assert_called_once()
 
     @patch("app.services.im_providers.logger")
-    def test_send_text_disabled_provider(
-        self, mock_logger: MagicMock
-    ) -> None:
+    def test_send_text_disabled_provider(self, mock_logger: MagicMock) -> None:
         """Test send_text returns False for disabled provider."""
         from app.services.im_providers import NotificationGateway
 
         mock_client = MagicMock()
         mock_client.enabled = False
 
-        with patch(
-            "app.services.im_providers.TelegramClient", return_value=mock_client
-        ), patch("app.services.im_providers.DingTalkClient"), patch(
-            "app.services.im_providers.FeishuClient"
+        with (
+            patch("app.services.im_providers.TelegramClient", return_value=mock_client),
+            patch("app.services.im_providers.DingTalkClient"),
+            patch("app.services.im_providers.FeishuClient"),
         ):
             gateway = NotificationGateway()
 
@@ -2245,10 +2289,10 @@ class TestNotificationGateway(unittest.TestCase):
         mock_client.max_text_length = 4096
         mock_client.send_text = AsyncMock(return_value=True)
 
-        with patch(
-            "app.services.im_providers.TelegramClient", return_value=mock_client
-        ), patch("app.services.im_providers.DingTalkClient"), patch(
-            "app.services.im_providers.FeishuClient"
+        with (
+            patch("app.services.im_providers.TelegramClient", return_value=mock_client),
+            patch("app.services.im_providers.DingTalkClient"),
+            patch("app.services.im_providers.FeishuClient"),
         ):
             gateway = NotificationGateway()
 
@@ -2270,10 +2314,10 @@ class TestNotificationGateway(unittest.TestCase):
         mock_client.max_text_length = 10
         mock_client.send_text = AsyncMock(return_value=True)
 
-        with patch(
-            "app.services.im_providers.TelegramClient", return_value=mock_client
-        ), patch("app.services.im_providers.DingTalkClient"), patch(
-            "app.services.im_providers.FeishuClient"
+        with (
+            patch("app.services.im_providers.TelegramClient", return_value=mock_client),
+            patch("app.services.im_providers.DingTalkClient"),
+            patch("app.services.im_providers.FeishuClient"),
         ):
             gateway = NotificationGateway()
 
@@ -2297,10 +2341,10 @@ class TestNotificationGateway(unittest.TestCase):
         mock_client.max_text_length = 5  # Small to force multiple chunks
         mock_client.send_text = AsyncMock(side_effect=[True, False])
 
-        with patch(
-            "app.services.im_providers.TelegramClient", return_value=mock_client
-        ), patch("app.services.im_providers.DingTalkClient"), patch(
-            "app.services.im_providers.FeishuClient"
+        with (
+            patch("app.services.im_providers.TelegramClient", return_value=mock_client),
+            patch("app.services.im_providers.DingTalkClient"),
+            patch("app.services.im_providers.FeishuClient"),
         ):
             gateway = NotificationGateway()
 
@@ -2748,7 +2792,7 @@ class TestParseFeishuWebhookEvent(unittest.TestCase):
                             "chat_id": "oc_xxx",
                             "message_type": "text",
                             "chat_type": "group",
-                            "content": "<at user_id=\"ou_bot\">@Bot</at> hello",
+                            "content": '<at user_id="ou_bot">@Bot</at> hello',
                             "message_id": "msg_456",
                         },
                         "sender": {"sender_type": "user"},
@@ -2964,23 +3008,17 @@ class TestExtractFeishuSenderId(unittest.TestCase):
 
     def test_returns_sender_id_open_id(self) -> None:
         """Test returns open_id from sender_id dict."""
-        result = _extract_feishu_sender_id(
-            {"sender_id": {"open_id": "ou_123"}}
-        )
+        result = _extract_feishu_sender_id({"sender_id": {"open_id": "ou_123"}})
         self.assertEqual(result, "ou_123")
 
     def test_returns_sender_id_user_id(self) -> None:
         """Test returns user_id from sender_id dict."""
-        result = _extract_feishu_sender_id(
-            {"sender_id": {"user_id": "user_456"}}
-        )
+        result = _extract_feishu_sender_id({"sender_id": {"user_id": "user_456"}})
         self.assertEqual(result, "user_456")
 
     def test_returns_sender_id_union_id(self) -> None:
         """Test returns union_id from sender_id dict."""
-        result = _extract_feishu_sender_id(
-            {"sender_id": {"union_id": "on_789"}}
-        )
+        result = _extract_feishu_sender_id({"sender_id": {"union_id": "on_789"}})
         self.assertEqual(result, "on_789")
 
     def test_returns_sender_open_id_when_sender_id_missing(self) -> None:
@@ -2990,9 +3028,7 @@ class TestExtractFeishuSenderId(unittest.TestCase):
 
     def test_returns_sender_user_id_when_sender_id_empty(self) -> None:
         """Test returns user_id from sender when sender_id has no valid fields (L667)."""
-        result = _extract_feishu_sender_id(
-            {"sender_id": {}, "user_id": "user_direct"}
-        )
+        result = _extract_feishu_sender_id({"sender_id": {}, "user_id": "user_direct"})
         self.assertEqual(result, "user_direct")
 
     def test_returns_sender_union_id_fallback(self) -> None:

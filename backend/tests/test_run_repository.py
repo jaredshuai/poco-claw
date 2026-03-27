@@ -284,9 +284,7 @@ class TestRunRepositoryListBySession(unittest.TestCase):
         mock_query = MagicMock()
 
         db.query.return_value = mock_query
-        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = (
-            mock_runs
-        )
+        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = mock_runs
 
         result = RunRepository.list_by_session(db, session_id)
 
@@ -298,9 +296,7 @@ class TestRunRepositoryListBySession(unittest.TestCase):
         mock_query = MagicMock()
 
         db.query.return_value = mock_query
-        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = (
-            []
-        )
+        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = []
 
         RunRepository.list_by_session(db, session_id, limit=50, offset=10)
 
@@ -315,9 +311,7 @@ class TestRunRepositoryListBySessionAndUserMessageIds(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        result = RunRepository.list_by_session_and_user_message_ids(
-            db, session_id, []
-        )
+        result = RunRepository.list_by_session_and_user_message_ids(db, session_id, [])
 
         self.assertEqual(result, [])
 
@@ -329,9 +323,7 @@ class TestRunRepositoryListBySessionAndUserMessageIds(unittest.TestCase):
         mock_query = MagicMock()
 
         db.query.return_value = mock_query
-        mock_query.filter.return_value.filter.return_value.order_by.return_value.all.return_value = (
-            mock_runs
-        )
+        mock_query.filter.return_value.filter.return_value.order_by.return_value.all.return_value = mock_runs
 
         result = RunRepository.list_by_session_and_user_message_ids(
             db, session_id, message_ids
@@ -350,9 +342,7 @@ class TestRunRepositoryListByScheduledTask(unittest.TestCase):
         mock_query = MagicMock()
 
         db.query.return_value = mock_query
-        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = (
-            mock_runs
-        )
+        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = mock_runs
 
         result = RunRepository.list_by_scheduled_task(db, scheduled_task_id)
 

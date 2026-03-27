@@ -1,4 +1,5 @@
 """Tests for app/core/middleware/request_logging.py."""
+
 import logging
 import unittest
 from unittest.mock import patch
@@ -51,7 +52,9 @@ class TestRequestLoggingMiddleware(unittest.TestCase):
         )
 
         with patch.object(
-            RequestLoggingMiddleware, "__init__", lambda self, app, **kw: object.__init__(self)
+            RequestLoggingMiddleware,
+            "__init__",
+            lambda self, app, **kw: object.__init__(self),
         ):
             client = TestClient(app)
             response = client.get("/health")
@@ -127,6 +130,7 @@ class TestRequestLoggingMiddleware(unittest.TestCase):
         @app.get("/error")
         def error_endpoint():
             from fastapi import HTTPException
+
             raise HTTPException(status_code=500, detail="Server error")
 
         middleware = RequestLoggingMiddleware(app)

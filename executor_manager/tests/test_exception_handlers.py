@@ -1,4 +1,5 @@
 """Tests for app/core/errors/exception_handlers.py."""
+
 import unittest
 
 from fastapi import FastAPI, HTTPException

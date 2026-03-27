@@ -45,7 +45,11 @@ class TestToolExecutionRepositoryCreate(unittest.TestCase):
         session_id = uuid.uuid4()
 
         result = ToolExecutionRepository.create(
-            mock_db, session_id, message_id=1, tool_use_id="tool-1", tool_name="read_file"
+            mock_db,
+            session_id,
+            message_id=1,
+            tool_use_id="tool-1",
+            tool_name="read_file",
         )
 
         assert result.session_id == session_id
@@ -167,12 +171,16 @@ class TestToolExecutionRepositoryListBySession(unittest.TestCase):
     def test_list_by_session_default_params(self) -> None:
         mock_db = MagicMock()
         session_id = uuid.uuid4()
-        mock_executions = [create_mock_tool_execution(session_id=session_id) for _ in range(3)]
+        mock_executions = [
+            create_mock_tool_execution(session_id=session_id) for _ in range(3)
+        ]
 
         mock_query = MagicMock()
         mock_filter = MagicMock()
         mock_order = MagicMock()
-        mock_order.limit.return_value.offset.return_value.all.return_value = mock_executions
+        mock_order.limit.return_value.offset.return_value.all.return_value = (
+            mock_executions
+        )
         mock_filter.order_by.return_value = mock_order
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
@@ -185,17 +193,23 @@ class TestToolExecutionRepositoryListBySession(unittest.TestCase):
     def test_list_by_session_with_pagination(self) -> None:
         mock_db = MagicMock()
         session_id = uuid.uuid4()
-        mock_executions = [create_mock_tool_execution(session_id=session_id) for _ in range(5)]
+        mock_executions = [
+            create_mock_tool_execution(session_id=session_id) for _ in range(5)
+        ]
 
         mock_query = MagicMock()
         mock_filter = MagicMock()
         mock_order = MagicMock()
-        mock_order.limit.return_value.offset.return_value.all.return_value = mock_executions
+        mock_order.limit.return_value.offset.return_value.all.return_value = (
+            mock_executions
+        )
         mock_filter.order_by.return_value = mock_order
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
 
-        result = ToolExecutionRepository.list_by_session(mock_db, session_id, limit=10, offset=5)
+        result = ToolExecutionRepository.list_by_session(
+            mock_db, session_id, limit=10, offset=5
+        )
 
         assert result == mock_executions
         mock_order.limit.assert_called_once_with(10)
@@ -207,7 +221,9 @@ class TestToolExecutionRepositoryListBySessionAndToolName(unittest.TestCase):
     def test_list_by_session_and_tool_name(self) -> None:
         mock_db = MagicMock()
         session_id = uuid.uuid4()
-        mock_executions = [create_mock_tool_execution(session_id=session_id, tool_name="read_file")]
+        mock_executions = [
+            create_mock_tool_execution(session_id=session_id, tool_name="read_file")
+        ]
 
         mock_query = MagicMock()
         mock_filter = MagicMock()
@@ -242,7 +258,9 @@ class TestToolExecutionRepositoryListBySessionAfterCursor(unittest.TestCase):
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
 
-        result = ToolExecutionRepository.list_by_session_after_cursor(mock_db, session_id)
+        result = ToolExecutionRepository.list_by_session_after_cursor(
+            mock_db, session_id
+        )
 
         assert result == mock_executions
 
@@ -373,7 +391,8 @@ class TestToolExecutionRepositoryListByIds(unittest.TestCase):
         mock_db = MagicMock()
         ids = [uuid.uuid4() for _ in range(3)]
         mock_executions = [
-            create_mock_tool_execution(execution_id=execution_id) for execution_id in ids
+            create_mock_tool_execution(execution_id=execution_id)
+            for execution_id in ids
         ]
 
         mock_query = MagicMock()

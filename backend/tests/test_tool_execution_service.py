@@ -92,9 +92,7 @@ class TestToolExecutionServiceGetToolExecutionsDelta(unittest.TestCase):
     def _make_execution(self, **kwargs) -> MagicMock:
         mock = MagicMock()
         mock.id = kwargs.get("id", uuid.uuid4())
-        mock.updated_at = kwargs.get(
-            "updated_at", datetime.now(timezone.utc)
-        )
+        mock.updated_at = kwargs.get("updated_at", datetime.now(timezone.utc))
         mock.tool_input = kwargs.get("tool_input", {})
         mock.tool_output = kwargs.get("tool_output", {})
         mock.session_id = kwargs.get("session_id", uuid.uuid4())

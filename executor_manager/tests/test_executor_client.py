@@ -11,9 +11,7 @@ class TestExecutorClientInit(unittest.TestCase):
     """Test ExecutorClient.__init__."""
 
     def test_init_loads_settings(self) -> None:
-        with patch(
-            "app.services.executor_client.get_settings"
-        ) as mock_settings:
+        with patch("app.services.executor_client.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock()
             client = ExecutorClient()
             assert client.settings is not None
@@ -23,12 +21,8 @@ class TestExecutorClientTraceHeaders(unittest.TestCase):
     """Test ExecutorClient._trace_headers."""
 
     def test_trace_headers_with_existing_ids(self) -> None:
-        with patch(
-            "app.services.executor_client.get_request_id"
-        ) as mock_get_req:
-            with patch(
-                "app.services.executor_client.get_trace_id"
-            ) as mock_get_trace:
+        with patch("app.services.executor_client.get_request_id") as mock_get_req:
+            with patch("app.services.executor_client.get_trace_id") as mock_get_trace:
                 mock_get_req.return_value = "req-123"
                 mock_get_trace.return_value = "trace-456"
 
@@ -38,12 +32,8 @@ class TestExecutorClientTraceHeaders(unittest.TestCase):
                 assert headers["X-Trace-ID"] == "trace-456"
 
     def test_trace_headers_generates_ids(self) -> None:
-        with patch(
-            "app.services.executor_client.get_request_id"
-        ) as mock_get_req:
-            with patch(
-                "app.services.executor_client.get_trace_id"
-            ) as mock_get_trace:
+        with patch("app.services.executor_client.get_request_id") as mock_get_req:
+            with patch("app.services.executor_client.get_trace_id") as mock_get_trace:
                 with patch(
                     "app.services.executor_client.generate_request_id"
                 ) as mock_gen_req:

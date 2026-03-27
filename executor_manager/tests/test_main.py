@@ -1,4 +1,5 @@
 """Tests for app/main.py."""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -10,11 +11,10 @@ class TestCreateApp(unittest.TestCase):
 
     def test_create_app_returns_fastapi_instance(self) -> None:
         """Test that create_app returns a FastAPI instance."""
-        with patch(
-            "app.main.configure_logging"
-        ) as mock_logging, patch(
-            "app.main.get_settings"
-        ) as mock_get_settings:
+        with (
+            patch("app.main.configure_logging") as mock_logging,
+            patch("app.main.get_settings") as mock_get_settings,
+        ):
             mock_settings = MagicMock()
             mock_settings.app_name = "test-app"
             mock_settings.app_version = "1.0.0"
@@ -34,11 +34,10 @@ class TestCreateApp(unittest.TestCase):
 
     def test_create_app_sets_debug_mode(self) -> None:
         """Test that create_app sets debug mode from settings."""
-        with patch(
-            "app.main.configure_logging"
-        ) as _mock_logging, patch(
-            "app.main.get_settings"
-        ) as mock_get_settings:
+        with (
+            patch("app.main.configure_logging") as _mock_logging,
+            patch("app.main.get_settings") as mock_get_settings,
+        ):
             mock_settings = MagicMock()
             mock_settings.app_name = "test-app"
             mock_settings.app_version = "1.0.0"

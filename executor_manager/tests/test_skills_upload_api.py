@@ -1,4 +1,5 @@
 """Tests for app/api/v1/skills_upload.py."""
+
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -40,18 +41,23 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
-        with patch(
-            "app.api.v1.skills_upload.workspace_export_service",
-            mock_export_service,
-        ), patch(
-            "app.api.v1.skills_upload.backend_client",
-            mock_client,
-        ), patch(
-            "app.api.v1.skills_upload.get_settings",
-            return_value=mock_settings,
-        ), patch(
-            "app.core.deps.get_settings",
-            return_value=mock_settings,
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.api.v1.skills_upload.backend_client",
+                mock_client,
+            ),
+            patch(
+                "app.api.v1.skills_upload.get_settings",
+                return_value=mock_settings,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
         ):
             client = TestClient(app)
             response = client.post(
@@ -89,12 +95,15 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings = MagicMock()
         mock_settings.callback_token = "callback-token"
 
-        with patch(
-            "app.api.v1.skills_upload.workspace_export_service",
-            mock_export_service,
-        ), patch(
-            "app.core.deps.get_settings",
-            return_value=mock_settings,
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
@@ -130,12 +139,15 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings = MagicMock()
         mock_settings.callback_token = "callback-token"
 
-        with patch(
-            "app.api.v1.skills_upload.workspace_export_service",
-            mock_export_service,
-        ), patch(
-            "app.core.deps.get_settings",
-            return_value=mock_settings,
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
@@ -172,9 +184,7 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_http_response = MagicMock()
         mock_http_response.status_code = 500
         mock_http_response.text = "Internal Server Error"
-        mock_http_response.json.return_value = {
-            "message": "Backend service error"
-        }
+        mock_http_response.json.return_value = {"message": "Backend service error"}
 
         mock_client = MagicMock()
         mock_client._request = AsyncMock(
@@ -190,18 +200,23 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
-        with patch(
-            "app.api.v1.skills_upload.workspace_export_service",
-            mock_export_service,
-        ), patch(
-            "app.api.v1.skills_upload.backend_client",
-            mock_client,
-        ), patch(
-            "app.api.v1.skills_upload.get_settings",
-            return_value=mock_settings,
-        ), patch(
-            "app.core.deps.get_settings",
-            return_value=mock_settings,
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.api.v1.skills_upload.backend_client",
+                mock_client,
+            ),
+            patch(
+                "app.api.v1.skills_upload.get_settings",
+                return_value=mock_settings,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
@@ -254,18 +269,23 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
-        with patch(
-            "app.api.v1.skills_upload.workspace_export_service",
-            mock_export_service,
-        ), patch(
-            "app.api.v1.skills_upload.backend_client",
-            mock_client,
-        ), patch(
-            "app.api.v1.skills_upload.get_settings",
-            return_value=mock_settings,
-        ), patch(
-            "app.core.deps.get_settings",
-            return_value=mock_settings,
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.api.v1.skills_upload.backend_client",
+                mock_client,
+            ),
+            patch(
+                "app.api.v1.skills_upload.get_settings",
+                return_value=mock_settings,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
@@ -302,9 +322,7 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_http_response = MagicMock()
         mock_http_response.status_code = 400
         mock_http_response.text = "Bad Request"
-        mock_http_response.json.return_value = {
-            "detail": "Invalid skill configuration"
-        }
+        mock_http_response.json.return_value = {"detail": "Invalid skill configuration"}
 
         mock_client = MagicMock()
         mock_client._request = AsyncMock(
@@ -320,18 +338,23 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
-        with patch(
-            "app.api.v1.skills_upload.workspace_export_service",
-            mock_export_service,
-        ), patch(
-            "app.api.v1.skills_upload.backend_client",
-            mock_client,
-        ), patch(
-            "app.api.v1.skills_upload.get_settings",
-            return_value=mock_settings,
-        ), patch(
-            "app.core.deps.get_settings",
-            return_value=mock_settings,
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.api.v1.skills_upload.backend_client",
+                mock_client,
+            ),
+            patch(
+                "app.api.v1.skills_upload.get_settings",
+                return_value=mock_settings,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(

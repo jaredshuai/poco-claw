@@ -103,9 +103,7 @@ class TestUsageServiceGetUsageSummary(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_session.return_value = []
             service = UsageService()
             result = service.get_usage_summary(db, session_id)
@@ -121,9 +119,7 @@ class TestUsageServiceGetUsageSummary(unittest.TestCase):
             create_mock_usage_log(total_cost_usd=1.0, duration_ms=500),
         ]
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_session.return_value = logs
             service = UsageService()
             result = service.get_usage_summary(db, session_id)
@@ -139,9 +135,7 @@ class TestUsageServiceGetUsageSummaryByRun(unittest.TestCase):
         db = MagicMock()
         run_id = uuid.uuid4()
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_run.return_value = []
             service = UsageService()
             result = service.get_usage_summary_by_run(db, run_id)
@@ -156,9 +150,7 @@ class TestUsageServiceGetUsageSummaryByRun(unittest.TestCase):
             create_mock_usage_log(total_cost_usd=2.0, duration_ms=1000, run_id=run_id),
         ]
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_run.return_value = logs
             service = UsageService()
             result = service.get_usage_summary_by_run(db, run_id)
@@ -173,9 +165,7 @@ class TestUsageServiceGetUsageSummariesByRunIds(unittest.TestCase):
     def test_get_usage_summaries_empty_ids(self) -> None:
         db = MagicMock()
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_run_ids.return_value = []
             service = UsageService()
             result = service.get_usage_summaries_by_run_ids(db, [])
@@ -186,9 +176,7 @@ class TestUsageServiceGetUsageSummariesByRunIds(unittest.TestCase):
         db = MagicMock()
         run_ids = [uuid.uuid4(), uuid.uuid4()]
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_run_ids.return_value = []
             service = UsageService()
             result = service.get_usage_summaries_by_run_ids(db, run_ids)
@@ -207,9 +195,7 @@ class TestUsageServiceGetUsageSummariesByRunIds(unittest.TestCase):
             create_mock_usage_log(total_cost_usd=3.0, duration_ms=1500, run_id=run_id2),
         ]
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_run_ids.return_value = logs
             service = UsageService()
             result = service.get_usage_summaries_by_run_ids(db, run_ids)
@@ -228,9 +214,7 @@ class TestUsageServiceGetUsageSummariesByRunIds(unittest.TestCase):
             create_mock_usage_log(total_cost_usd=2.0, duration_ms=1000, run_id=run_id),
         ]
 
-        with patch(
-            "app.services.usage_service.UsageLogRepository"
-        ) as mock_repo:
+        with patch("app.services.usage_service.UsageLogRepository") as mock_repo:
             mock_repo.list_by_run_ids.return_value = logs
             service = UsageService()
             result = service.get_usage_summaries_by_run_ids(db, [run_id])

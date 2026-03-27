@@ -1,4 +1,5 @@
 """Tests for app/api/v1/user_input_requests.py."""
+
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -97,9 +98,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         from app.main import app
 
         mock_client = MagicMock()
-        mock_client.get_user_input_request = AsyncMock(
-            return_value=None
-        )
+        mock_client.get_user_input_request = AsyncMock(return_value=None)
 
         with patch(
             "app.api.v1.user_input_requests.backend_client",

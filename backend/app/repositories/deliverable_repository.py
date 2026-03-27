@@ -55,7 +55,9 @@ class DeliverableRepository:
         )
 
     @staticmethod
-    def list_by_session(session_db: Session, session_id: uuid.UUID) -> list[Deliverable]:
+    def list_by_session(
+        session_db: Session, session_id: uuid.UUID
+    ) -> list[Deliverable]:
         """Lists all deliverables for a session."""
         return (
             session_db.query(Deliverable)

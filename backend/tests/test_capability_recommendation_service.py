@@ -149,7 +149,9 @@ class TestCapabilityRecommendationServiceExtractUpstreamErrorMessage(unittest.Te
         response.json.return_value = {"message": "Error message"}
         response.text = ""
 
-        result = CapabilityRecommendationService._extract_upstream_error_message(response)
+        result = CapabilityRecommendationService._extract_upstream_error_message(
+            response
+        )
         self.assertEqual(result, "Error message")
 
     def test_error_dict_in_payload(self) -> None:
@@ -157,7 +159,9 @@ class TestCapabilityRecommendationServiceExtractUpstreamErrorMessage(unittest.Te
         response.json.return_value = {"error": {"message": "Error detail"}}
         response.text = ""
 
-        result = CapabilityRecommendationService._extract_upstream_error_message(response)
+        result = CapabilityRecommendationService._extract_upstream_error_message(
+            response
+        )
         self.assertEqual(result, "Error detail")
 
     def test_no_json_response(self) -> None:
@@ -165,7 +169,9 @@ class TestCapabilityRecommendationServiceExtractUpstreamErrorMessage(unittest.Te
         response.json.side_effect = ValueError("not json")
         response.text = "Plain text error"
 
-        result = CapabilityRecommendationService._extract_upstream_error_message(response)
+        result = CapabilityRecommendationService._extract_upstream_error_message(
+            response
+        )
         self.assertEqual(result, "Plain text error")
 
     def test_empty_response(self) -> None:
@@ -173,7 +179,9 @@ class TestCapabilityRecommendationServiceExtractUpstreamErrorMessage(unittest.Te
         response.json.side_effect = ValueError("not json")
         response.text = ""
 
-        result = CapabilityRecommendationService._extract_upstream_error_message(response)
+        result = CapabilityRecommendationService._extract_upstream_error_message(
+            response
+        )
         self.assertEqual(result, "Capability rerank request failed")
 
     def test_empty_message_in_payload(self) -> None:
@@ -181,7 +189,9 @@ class TestCapabilityRecommendationServiceExtractUpstreamErrorMessage(unittest.Te
         response.json.return_value = {"message": "   "}
         response.text = "Fallback text"
 
-        result = CapabilityRecommendationService._extract_upstream_error_message(response)
+        result = CapabilityRecommendationService._extract_upstream_error_message(
+            response
+        )
         self.assertEqual(result, "Fallback text")
 
     def test_non_dict_payload(self) -> None:
@@ -189,7 +199,9 @@ class TestCapabilityRecommendationServiceExtractUpstreamErrorMessage(unittest.Te
         response.json.return_value = ["not", "a", "dict"]
         response.text = "Text response"
 
-        result = CapabilityRecommendationService._extract_upstream_error_message(response)
+        result = CapabilityRecommendationService._extract_upstream_error_message(
+            response
+        )
         self.assertEqual(result, "Text response")
 
 
@@ -446,7 +458,9 @@ class TestCapabilityRecommendationServiceBuildCandidates(unittest.TestCase):
                             skill_install = MagicMock()
                             skill_install.skill_id = 1
                             skill_install.enabled = False
-                            mock_skill_install.list_by_user.return_value = [skill_install]
+                            mock_skill_install.list_by_user.return_value = [
+                                skill_install
+                            ]
 
                             # Mock skill
                             skill = MagicMock()
@@ -517,7 +531,9 @@ class TestCapabilityRecommendationServiceRecommend(unittest.IsolatedAsyncioTestC
                 self.assertEqual(result.items, [])
 
 
-class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncioTestCase):
+class TestCapabilityRecommendationServiceRecommendAsync(
+    unittest.IsolatedAsyncioTestCase
+):
     """Test recommend method async scenarios."""
 
     def setUp(self) -> None:
@@ -547,7 +563,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -558,12 +576,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(result.query, "test query")
                     self.assertEqual(len(result.items), 1)
@@ -591,23 +613,31 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(
                         side_effect=httpx.TimeoutException("timeout")
                     )
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
 
                     with self.assertRaises(AppException) as ctx:
-                        await service.recommend(self.db, user_id=self.user_id, query="test query")
+                        await service.recommend(
+                            self.db, user_id=self.user_id, query="test query"
+                        )
 
-                    self.assertEqual(ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR)
+                    self.assertEqual(
+                        ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR
+                    )
 
     async def test_recommend_http_error(self) -> None:
         """Test recommendation HTTP error."""
@@ -631,23 +661,31 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(
                         side_effect=httpx.HTTPError("connection error")
                     )
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
 
                     with self.assertRaises(AppException) as ctx:
-                        await service.recommend(self.db, user_id=self.user_id, query="test query")
+                        await service.recommend(
+                            self.db, user_id=self.user_id, query="test query"
+                        )
 
-                    self.assertEqual(ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR)
+                    self.assertEqual(
+                        ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR
+                    )
 
     async def test_recommend_api_error(self) -> None:
         """Test recommendation API error response."""
@@ -671,7 +709,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -681,16 +721,22 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
 
                     with self.assertRaises(AppException) as ctx:
-                        await service.recommend(self.db, user_id=self.user_id, query="test query")
+                        await service.recommend(
+                            self.db, user_id=self.user_id, query="test query"
+                        )
 
-                    self.assertEqual(ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR)
+                    self.assertEqual(
+                        ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR
+                    )
 
     async def test_recommend_invalid_json(self) -> None:
         """Test recommendation invalid JSON response."""
@@ -714,7 +760,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -723,16 +771,22 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
 
                     with self.assertRaises(AppException) as ctx:
-                        await service.recommend(self.db, user_id=self.user_id, query="test query")
+                        await service.recommend(
+                            self.db, user_id=self.user_id, query="test query"
+                        )
 
-                    self.assertEqual(ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR)
+                    self.assertEqual(
+                        ctx.exception.error_code, ErrorCode.EXTERNAL_SERVICE_ERROR
+                    )
 
     async def test_recommend_no_results(self) -> None:
         """Test recommendation with no results in response."""
@@ -756,7 +810,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -765,12 +821,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(result.items, [])
 
@@ -799,23 +859,32 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             ]
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=candidates
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=candidates,
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
                     mock_response.status_code = 200
                     mock_response.json.return_value = {
-                        "results": [{"index": i, "relevance_score": 0.9 - i * 0.1} for i in range(5)]
+                        "results": [
+                            {"index": i, "relevance_score": 0.9 - i * 0.1}
+                            for i in range(5)
+                        ]
                     }
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query", limit=2)
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query", limit=2
+                    )
 
                     self.assertEqual(len(result.items), 2)
 
@@ -841,7 +910,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -852,12 +923,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(result.items, [])
 
@@ -883,7 +958,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -894,12 +971,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(result.items[0].score, 1.0)
                     self.assertIsInstance(result.items[0].score, float)
@@ -926,7 +1007,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -937,12 +1020,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(result.items[0].score, 0.0)
 
@@ -968,7 +1055,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -979,12 +1068,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(len(result.items), 1)
 
@@ -1010,7 +1103,9 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
             )
 
             with patch.object(
-                CapabilityRecommendationService, "_build_candidates", return_value=[candidate]
+                CapabilityRecommendationService,
+                "_build_candidates",
+                return_value=[candidate],
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_response = MagicMock()
@@ -1021,12 +1116,16 @@ class TestCapabilityRecommendationServiceRecommendAsync(unittest.IsolatedAsyncio
 
                     mock_client_instance = MagicMock()
                     mock_client_instance.post = AsyncMock(return_value=mock_response)
-                    mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+                    mock_client_instance.__aenter__ = AsyncMock(
+                        return_value=mock_client_instance
+                    )
                     mock_client_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_client.return_value = mock_client_instance
 
                     service = CapabilityRecommendationService()
-                    result = await service.recommend(self.db, user_id=self.user_id, query="test query")
+                    result = await service.recommend(
+                        self.db, user_id=self.user_id, query="test query"
+                    )
 
                     self.assertEqual(result.items, [])
 

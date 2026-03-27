@@ -13,11 +13,10 @@ class TestPluginStagerInit(unittest.TestCase):
     """Test PluginStager.__init__."""
 
     def test_init_with_defaults(self) -> None:
-        with patch(
-            "app.services.plugin_stager.S3StorageService"
-        ) as mock_storage_cls, patch(
-            "app.services.plugin_stager.WorkspaceManager"
-        ) as mock_workspace_cls:
+        with (
+            patch("app.services.plugin_stager.S3StorageService") as mock_storage_cls,
+            patch("app.services.plugin_stager.WorkspaceManager") as mock_workspace_cls,
+        ):
             mock_storage_cls.return_value = MagicMock()
             mock_workspace_cls.return_value = MagicMock()
 
@@ -381,7 +380,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
             )
 
             plugins = {
-                "my-plugin": {"s3_key": "plugins/my-plugin/"},  # Trailing slash triggers prefix
+                "my-plugin": {
+                    "s3_key": "plugins/my-plugin/"
+                },  # Trailing slash triggers prefix
             }
 
             result = stager.stage_plugins("user-123", "session-456", plugins)
@@ -450,9 +451,7 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
             )
 
             # Create the plugins directory structure first
-            plugins_root = (
-                workspace_path / "workspace" / ".claude_data" / "plugins"
-            )
+            plugins_root = workspace_path / "workspace" / ".claude_data" / "plugins"
             plugins_root.mkdir(parents=True, exist_ok=True)
 
             # Create a symlink inside plugins_root that points outside
@@ -512,9 +511,7 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
             )
 
             # Create pre-existing plugins directory with old plugin
-            plugins_root = (
-                workspace_path / "workspace" / ".claude_data" / "plugins"
-            )
+            plugins_root = workspace_path / "workspace" / ".claude_data" / "plugins"
             plugins_root.mkdir(parents=True, exist_ok=True)
             (plugins_root / "old-plugin").mkdir()
 

@@ -13,11 +13,14 @@ class TestAttachmentStagerInit(unittest.TestCase):
     """Test AttachmentStager.__init__."""
 
     def test_init_with_defaults(self) -> None:
-        with patch(
-            "app.services.attachment_stager.S3StorageService"
-        ) as mock_storage_cls, patch(
-            "app.services.attachment_stager.WorkspaceManager"
-        ) as mock_workspace_cls:
+        with (
+            patch(
+                "app.services.attachment_stager.S3StorageService"
+            ) as mock_storage_cls,
+            patch(
+                "app.services.attachment_stager.WorkspaceManager"
+            ) as mock_workspace_cls,
+        ):
             mock_storage_cls.return_value = MagicMock()
             mock_workspace_cls.return_value = MagicMock()
 
@@ -107,7 +110,11 @@ class TestAttachmentStagerBuildStaged(unittest.TestCase):
         assert result["source"] == "s3://bucket/key"
 
     def test_build_staged_preserves_other_fields(self) -> None:
-        item = {"type": "url", "source": "https://github.com/owner/repo", "custom": "value"}
+        item = {
+            "type": "url",
+            "source": "https://github.com/owner/repo",
+            "custom": "value",
+        }
         result = AttachmentStager._build_staged(item, "repo", "repo")
 
         assert result["custom"] == "value"
@@ -278,9 +285,7 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
             ]
 
             # Only the last item should be processed
-            with patch.object(
-                stager, "storage_service", mock_storage
-            ):
+            with patch.object(stager, "storage_service", mock_storage):
                 stager.stage_inputs("user-123", "session-456", inputs)
 
                 # Should only process the dict item
@@ -438,9 +443,7 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
                 }
             ]
 
-            with patch.object(
-                AttachmentStager, "_clone_repo"
-            ) as mock_clone:
+            with patch.object(AttachmentStager, "_clone_repo") as mock_clone:
                 result = stager.stage_inputs("user-123", "session-456", inputs)
 
                 assert len(result) == 1
@@ -473,9 +476,7 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
                 }
             ]
 
-            with patch.object(
-                AttachmentStager, "_clone_repo"
-            ):
+            with patch.object(AttachmentStager, "_clone_repo"):
                 stager.stage_inputs("user-123", "session-456", inputs)
 
                 # Old directory should be removed (old_file.txt should not exist)

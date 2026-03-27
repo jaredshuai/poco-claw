@@ -389,7 +389,12 @@ class TestCallbackServiceExtractToolExecutions(unittest.TestCase):
         service = CallbackService()
         message = {
             "content": [
-                {"_type": "ToolUseBlock", "id": "tool-1", "name": "read_file", "input": {"path": "/tmp"}},
+                {
+                    "_type": "ToolUseBlock",
+                    "id": "tool-1",
+                    "name": "read_file",
+                    "input": {"path": "/tmp"},
+                },
             ]
         }
         with patch(
@@ -405,7 +410,12 @@ class TestCallbackServiceExtractToolExecutions(unittest.TestCase):
         service = CallbackService()
         message = {
             "content": [
-                {"_type": "ToolUseBlock", "id": "tool-1", "name": "read_file", "input": {"path": "/tmp"}},
+                {
+                    "_type": "ToolUseBlock",
+                    "id": "tool-1",
+                    "name": "read_file",
+                    "input": {"path": "/tmp"},
+                },
             ]
         }
         with patch(
@@ -438,7 +448,12 @@ class TestCallbackServiceExtractToolExecutions(unittest.TestCase):
         service = CallbackService()
         message = {
             "content": [
-                {"_type": "ToolResultBlock", "tool_use_id": "tool-1", "content": "result", "is_error": False},
+                {
+                    "_type": "ToolResultBlock",
+                    "tool_use_id": "tool-1",
+                    "content": "result",
+                    "is_error": False,
+                },
             ]
         }
         with patch(
@@ -454,7 +469,12 @@ class TestCallbackServiceExtractToolExecutions(unittest.TestCase):
         service = CallbackService()
         message = {
             "content": [
-                {"_type": "ToolResultBlock", "tool_use_id": "tool-1", "content": "result", "is_error": True},
+                {
+                    "_type": "ToolResultBlock",
+                    "tool_use_id": "tool-1",
+                    "content": "result",
+                    "is_error": True,
+                },
             ]
         }
         with patch(
@@ -508,7 +528,9 @@ class TestCallbackServiceExtractAndPersistUsage(unittest.TestCase):
             "duration_ms": 1000,
         }
         with patch("app.services.callback_service.UsageLogRepository") as mock_repo:
-            with patch("app.services.callback_service.normalize_usage_payload") as mock_normalize:
+            with patch(
+                "app.services.callback_service.normalize_usage_payload"
+            ) as mock_normalize:
                 mock_normalize.return_value = {
                     "input_tokens": 100,
                     "output_tokens": 50,
@@ -531,7 +553,9 @@ class TestCallbackServiceExtractAndPersistUsage(unittest.TestCase):
             "usage": {"input_tokens": 100, "output_tokens": 50},
         }
         with patch("app.services.callback_service.UsageLogRepository") as mock_repo:
-            with patch("app.services.callback_service.normalize_usage_payload") as mock_normalize:
+            with patch(
+                "app.services.callback_service.normalize_usage_payload"
+            ) as mock_normalize:
                 mock_normalize.return_value = {
                     "input_tokens": 100,
                     "output_tokens": 50,
@@ -586,7 +610,9 @@ class TestCallbackServiceShouldSkipDuplicateResultMessage(unittest.TestCase):
         }
         with patch("app.services.callback_service.MessageRepository") as mock_repo:
             mock_repo.get_latest_by_session.return_value = None
-            result = service._should_skip_duplicate_result_message(db, session_id, message)
+            result = service._should_skip_duplicate_result_message(
+                db, session_id, message
+            )
             self.assertFalse(result)
 
     def test_latest_message_not_assistant(self) -> None:
@@ -601,7 +627,9 @@ class TestCallbackServiceShouldSkipDuplicateResultMessage(unittest.TestCase):
         latest.role = "user"
         with patch("app.services.callback_service.MessageRepository") as mock_repo:
             mock_repo.get_latest_by_session.return_value = latest
-            result = service._should_skip_duplicate_result_message(db, session_id, message)
+            result = service._should_skip_duplicate_result_message(
+                db, session_id, message
+            )
             self.assertFalse(result)
 
 
@@ -676,7 +704,9 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         callback = create_callback_request(workspace_files_prefix="files/")
         with patch("app.services.callback_service.RunRepository") as mock_repo:
             mock_repo.get_latest_terminal_by_session.return_value = None
-            result = service._should_apply_workspace_export(db, db_session, db_run, callback)
+            result = service._should_apply_workspace_export(
+                db, db_session, db_run, callback
+            )
             self.assertTrue(result)
 
     def test_with_run_same_as_terminal(self) -> None:
@@ -689,7 +719,9 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         callback = create_callback_request(workspace_files_prefix="files/")
         with patch("app.services.callback_service.RunRepository") as mock_repo:
             mock_repo.get_latest_terminal_by_session.return_value = db_run
-            result = service._should_apply_workspace_export(db, db_session, db_run, callback)
+            result = service._should_apply_workspace_export(
+                db, db_session, db_run, callback
+            )
             self.assertTrue(result)
 
     def test_ready_status_with_stale_run(self) -> None:
@@ -708,7 +740,9 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         )
         with patch("app.services.callback_service.RunRepository") as mock_repo:
             mock_repo.get_latest_terminal_by_session.return_value = terminal_run
-            result = service._should_apply_workspace_export(db, db_session, db_run, callback)
+            result = service._should_apply_workspace_export(
+                db, db_session, db_run, callback
+            )
             # Should return True because status is "ready" and session doesn't have "ready" yet
             self.assertTrue(result)
 
@@ -728,7 +762,9 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         )
         with patch("app.services.callback_service.RunRepository") as mock_repo:
             mock_repo.get_latest_terminal_by_session.return_value = terminal_run
-            result = service._should_apply_workspace_export(db, db_session, db_run, callback)
+            result = service._should_apply_workspace_export(
+                db, db_session, db_run, callback
+            )
             # Should return False - stale run and not a "ready" status upgrade
             self.assertFalse(result)
 
@@ -746,7 +782,9 @@ class TestCallbackServiceResolveSessionAndRun(unittest.TestCase):
         db_session = MagicMock()
 
         with patch("app.services.callback_service.RunRepository") as run_repo:
-            with patch("app.services.callback_service.SessionRepository") as session_repo:
+            with patch(
+                "app.services.callback_service.SessionRepository"
+            ) as session_repo:
                 run_repo.get_by_id.return_value = db_run
                 session_repo.get_by_id_for_update.return_value = db_session
 
@@ -789,7 +827,9 @@ class TestCallbackServiceResolveSessionAndRun(unittest.TestCase):
                 ) as mock_session_svc:
                     mock_session_ref = MagicMock()
                     mock_session_ref.id = session_id
-                    mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = mock_session_ref
+                    mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = (
+                        mock_session_ref
+                    )
 
                     callback = create_callback_request(session_id="sdk-123")
                     result = service._resolve_session_and_run(db, callback, None)
@@ -800,9 +840,7 @@ class TestCallbackServiceResolveSessionAndRun(unittest.TestCase):
         db = MagicMock()
         service = CallbackService()
 
-        with patch(
-            "app.services.callback_service.session_service"
-        ) as mock_session_svc:
+        with patch("app.services.callback_service.session_service") as mock_session_svc:
             mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = None
 
             callback = create_callback_request(session_id="sdk-123")
@@ -824,7 +862,9 @@ class TestCallbackServiceResolveSessionAndRun(unittest.TestCase):
             ) as mock_session_svc:
                 mock_session_ref = MagicMock()
                 mock_session_ref.id = session_id
-                mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = mock_session_ref
+                mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = (
+                    mock_session_ref
+                )
 
                 # Terminal status with ready workspace export and no new_message
                 callback = create_callback_request(
@@ -996,7 +1036,9 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                             "content": [{"_type": "TextBlock", "text": "Hello"}],
                         },
                     )
-                    with patch("app.services.deliverable_detection_service.S3StorageService"):
+                    with patch(
+                        "app.services.deliverable_detection_service.S3StorageService"
+                    ):
                         service.process_agent_callback(db, callback)
 
                         mock_persist.assert_called_once()
@@ -1017,7 +1059,9 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                 with patch.object(
                     service, "_persist_message_and_tools"
                 ) as mock_persist:
-                    with patch("app.services.deliverable_detection_service.S3StorageService"):
+                    with patch(
+                        "app.services.deliverable_detection_service.S3StorageService"
+                    ):
                         callback = create_callback_request(
                             new_message={"_type": "ResultMessage"}
                         )
@@ -1033,9 +1077,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
             mock_resolve.return_value = (db_session, None)
 
-            with patch.object(
-                service, "_should_apply_workspace_export"
-            ) as mock_apply:
+            with patch.object(service, "_should_apply_workspace_export") as mock_apply:
                 mock_apply.return_value = True
 
                 with patch.object(
@@ -1043,7 +1085,9 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                 ) as mock_preserve:
                     mock_preserve.return_value = False
 
-                    with patch("app.services.deliverable_detection_service.S3StorageService"):
+                    with patch(
+                        "app.services.deliverable_detection_service.S3StorageService"
+                    ):
                         callback = create_callback_request(
                             workspace_files_prefix="files/",
                             workspace_manifest_key="manifest.json",
@@ -1053,8 +1097,12 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                         service.process_agent_callback(db, callback)
 
                         self.assertEqual(db_session.workspace_files_prefix, "files/")
-                        self.assertEqual(db_session.workspace_manifest_key, "manifest.json")
-                        self.assertEqual(db_session.workspace_archive_key, "archive.zip")
+                        self.assertEqual(
+                            db_session.workspace_manifest_key, "manifest.json"
+                        )
+                        self.assertEqual(
+                            db_session.workspace_archive_key, "archive.zip"
+                        )
                         self.assertEqual(db_session.workspace_export_status, "ready")
 
     def test_run_completed(self) -> None:
@@ -1070,7 +1118,9 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
             with patch(
                 "app.services.callback_service.run_lifecycle_service"
             ) as mock_lifecycle:
-                with patch("app.services.deliverable_detection_service.S3StorageService"):
+                with patch(
+                    "app.services.deliverable_detection_service.S3StorageService"
+                ):
                     callback = create_callback_request(status=CallbackStatus.COMPLETED)
                     service.process_agent_callback(db, callback)
 
@@ -1090,14 +1140,20 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
             with patch(
                 "app.services.callback_service.run_lifecycle_service"
             ) as mock_lifecycle:
-                with patch("app.services.deliverable_detection_service.S3StorageService"):
+                with patch(
+                    "app.services.deliverable_detection_service.S3StorageService"
+                ):
                     callback = create_callback_request(
-                        status=CallbackStatus.FAILED, error_message="Something went wrong"
+                        status=CallbackStatus.FAILED,
+                        error_message="Something went wrong",
                     )
                     service.process_agent_callback(db, callback)
 
                     mock_lifecycle.finalize_terminal.assert_called_once_with(
-                        db, db_run, status="failed", error_message="Something went wrong"
+                        db,
+                        db_run,
+                        status="failed",
+                        error_message="Something went wrong",
                     )
 
 

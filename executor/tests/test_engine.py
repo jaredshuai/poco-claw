@@ -169,7 +169,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
                 executor.workspace.root_path = Path(tmpdir)
 
                 # Create a plugin directory without manifest
-                plugin_dir = Path(tmpdir) / ".claude_data" / "plugins" / "invalid-plugin"
+                plugin_dir = (
+                    Path(tmpdir) / ".claude_data" / "plugins" / "invalid-plugin"
+                )
                 plugin_dir.mkdir(parents=True)
 
                 result = executor._discover_plugins()

@@ -175,9 +175,7 @@ class TestProjectServiceListProjects(unittest.TestCase):
     def test_list_projects_empty(self) -> None:
         db = MagicMock()
         user_id = "user-123"
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.list_by_user.return_value = []
             service = ProjectService()
             result = service.list_projects(db, user_id)
@@ -188,9 +186,7 @@ class TestProjectServiceListProjects(unittest.TestCase):
         user_id = "user-123"
         mock_project = create_mock_project(user_id=user_id)
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.list_by_user.return_value = [mock_project]
             service = ProjectService()
             result = service.list_projects(db, user_id)
@@ -204,9 +200,7 @@ class TestProjectServiceGetProject(unittest.TestCase):
         db = MagicMock()
         user_id = "user-123"
         project_id = uuid.uuid4()
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = None
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -219,9 +213,7 @@ class TestProjectServiceGetProject(unittest.TestCase):
         project_id = uuid.uuid4()
         mock_project = create_mock_project(user_id="other-user")
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -234,9 +226,7 @@ class TestProjectServiceGetProject(unittest.TestCase):
         project_id = uuid.uuid4()
         mock_project = create_mock_project(project_id=project_id, user_id=user_id)
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             result = service.get_project(db, user_id, project_id)
@@ -251,9 +241,7 @@ class TestProjectServiceCreateProject(unittest.TestCase):
         user_id = "user-123"
         request = ProjectCreateRequest(name="Test Project")
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_project = create_mock_project(user_id=user_id, name="Test Project")
 
             def set_attrs(p: MagicMock) -> MagicMock:
@@ -281,9 +269,7 @@ class TestProjectServiceCreateProject(unittest.TestCase):
             git_token_env_key="GITHUB_TOKEN",
         )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_project = create_mock_project(
                 user_id=user_id,
                 name="Test Project",
@@ -316,9 +302,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
         project_id = uuid.uuid4()
         request = ProjectUpdateRequest(name="New Name")
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = None
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -332,9 +316,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
         request = ProjectUpdateRequest(name="New Name")
         mock_project = create_mock_project(user_id="other-user")
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -350,9 +332,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
             project_id=project_id, user_id=user_id, name="Old Name"
         )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             service.update_project(db, user_id, project_id, request)
@@ -371,15 +351,11 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
             git_branch="main",
         )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             service.update_project(db, user_id, project_id, request)
-            self.assertEqual(
-                mock_project.repo_url, "https://github.com/owner/new-repo"
-            )
+            self.assertEqual(mock_project.repo_url, "https://github.com/owner/new-repo")
             db.commit.assert_called_once()
 
     def test_update_git_branch_without_repo_fails(self) -> None:
@@ -387,11 +363,11 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
         user_id = "user-123"
         project_id = uuid.uuid4()
         request = ProjectUpdateRequest(git_branch="develop")
-        mock_project = create_mock_project(project_id=project_id, user_id=user_id, repo_url=None)
+        mock_project = create_mock_project(
+            project_id=project_id, user_id=user_id, repo_url=None
+        )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -403,11 +379,11 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
         user_id = "user-123"
         project_id = uuid.uuid4()
         request = ProjectUpdateRequest(git_token_env_key="TOKEN")
-        mock_project = create_mock_project(project_id=project_id, user_id=user_id, repo_url=None)
+        mock_project = create_mock_project(
+            project_id=project_id, user_id=user_id, repo_url=None
+        )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -426,9 +402,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
             git_branch="main",
         )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             service.update_project(db, user_id, project_id, request)
@@ -447,9 +421,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
             git_token_env_key=None,
         )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             service.update_project(db, user_id, project_id, request)
@@ -465,9 +437,7 @@ class TestProjectServiceDeleteProject(unittest.TestCase):
         user_id = "user-123"
         project_id = uuid.uuid4()
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = None
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -480,9 +450,7 @@ class TestProjectServiceDeleteProject(unittest.TestCase):
         project_id = uuid.uuid4()
         mock_project = create_mock_project(user_id="other-user")
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
             with self.assertRaises(AppException) as ctx:
@@ -493,11 +461,11 @@ class TestProjectServiceDeleteProject(unittest.TestCase):
         db = MagicMock()
         user_id = "user-123"
         project_id = uuid.uuid4()
-        mock_project = create_mock_project(project_id=project_id, user_id=user_id, is_deleted=False)
+        mock_project = create_mock_project(
+            project_id=project_id, user_id=user_id, is_deleted=False
+        )
 
-        with patch(
-            "app.services.project_service.ProjectRepository"
-        ) as mock_repo:
+        with patch("app.services.project_service.ProjectRepository") as mock_repo:
             with patch(
                 "app.services.project_service.SessionRepository"
             ) as mock_session_repo:

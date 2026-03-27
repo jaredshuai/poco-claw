@@ -25,9 +25,12 @@ class TestS3StorageServiceInit(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = False
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
 
@@ -48,9 +51,12 @@ class TestS3StorageServiceInit(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = True
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
 
@@ -124,9 +130,12 @@ class TestS3StorageServiceUploadFile(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = False
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
             return S3StorageService()
@@ -212,9 +221,12 @@ class TestS3StorageServicePutObject(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = False
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
             return S3StorageService()
@@ -270,9 +282,12 @@ class TestS3StorageServiceListObjects(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = False
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
             return S3StorageService()
@@ -349,9 +364,12 @@ class TestS3StorageServiceDownloadFile(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = False
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
             return S3StorageService()
@@ -399,9 +417,12 @@ class TestS3StorageServiceDownloadPrefix(unittest.TestCase):
         mock_settings.s3_max_attempts = 3
         mock_settings.s3_force_path_style = False
 
-        with patch(
-            "app.services.storage_service.get_settings", return_value=mock_settings
-        ), patch("app.services.storage_service.boto3") as mock_boto3:
+        with (
+            patch(
+                "app.services.storage_service.get_settings", return_value=mock_settings
+            ),
+            patch("app.services.storage_service.boto3") as mock_boto3,
+        ):
             mock_client = MagicMock()
             mock_boto3.client.return_value = mock_client
             return S3StorageService()

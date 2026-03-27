@@ -13,11 +13,10 @@ class TestSkillStagerInit(unittest.TestCase):
     """Test SkillStager.__init__."""
 
     def test_init_with_defaults(self) -> None:
-        with patch(
-            "app.services.skill_stager.S3StorageService"
-        ) as mock_storage_cls, patch(
-            "app.services.skill_stager.WorkspaceManager"
-        ) as mock_workspace_cls:
+        with (
+            patch("app.services.skill_stager.S3StorageService") as mock_storage_cls,
+            patch("app.services.skill_stager.WorkspaceManager") as mock_workspace_cls,
+        ):
             mock_storage_cls.return_value = MagicMock()
             mock_workspace_cls.return_value = MagicMock()
 
@@ -426,9 +425,7 @@ class TestSkillStagerStageSkills(unittest.TestCase):
                 storage_service=mock_storage, workspace_manager=mock_workspace
             )
 
-            skills_root = (
-                workspace_path / "workspace" / ".claude_data" / "skills"
-            )
+            skills_root = workspace_path / "workspace" / ".claude_data" / "skills"
             skills_root.mkdir(parents=True, exist_ok=True)
 
             try:
@@ -484,9 +481,7 @@ class TestSkillStagerStageSkills(unittest.TestCase):
                 storage_service=mock_storage, workspace_manager=mock_workspace
             )
 
-            skills_root = (
-                workspace_path / "workspace" / ".claude_data" / "skills"
-            )
+            skills_root = workspace_path / "workspace" / ".claude_data" / "skills"
             skills_root.mkdir(parents=True, exist_ok=True)
             (skills_root / "old-skill").mkdir()
 

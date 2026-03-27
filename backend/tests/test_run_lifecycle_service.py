@@ -79,7 +79,9 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
     @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_terminal_status_unchanged(self, mock_queue: MagicMock, mock_repo: MagicMock) -> None:
+    def test_terminal_status_unchanged(
+        self, mock_queue: MagicMock, mock_repo: MagicMock
+    ) -> None:
         db_session = MagicMock()
         mock_repo.get_by_id_for_update.return_value = db_session
 
@@ -93,7 +95,9 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
     @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_queued_to_running(self, mock_queue: MagicMock, mock_repo: MagicMock) -> None:
+    def test_queued_to_running(
+        self, mock_queue: MagicMock, mock_repo: MagicMock
+    ) -> None:
         db_session = MagicMock()
         db_session.status = "pending"
         mock_repo.get_by_id_for_update.return_value = db_session
@@ -129,7 +133,9 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
     @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_completed_status(self, mock_queue: MagicMock, mock_repo: MagicMock) -> None:
+    def test_completed_status(
+        self, mock_queue: MagicMock, mock_repo: MagicMock
+    ) -> None:
         db_session = MagicMock()
         mock_repo.get_by_id_for_update.return_value = db_session
 

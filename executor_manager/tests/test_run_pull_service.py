@@ -1,4 +1,5 @@
 """Tests for run_pull_service.py."""
+
 import asyncio
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -30,62 +31,76 @@ class TestExtractEnabledSkillNames(unittest.TestCase):
 
     def test_simple_skills(self) -> None:
         """Test with simple enabled skills."""
-        result = _extract_enabled_skill_names({
-            "skill1": {},
-            "skill2": {"enabled": True},
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "skill1": {},
+                "skill2": {"enabled": True},
+            }
+        )
         assert result == ["skill1", "skill2"]
 
     def test_disabled_skill_excluded(self) -> None:
         """Test that disabled skills are excluded."""
-        result = _extract_enabled_skill_names({
-            "skill1": {},
-            "skill2": {"enabled": False},
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "skill1": {},
+                "skill2": {"enabled": False},
+            }
+        )
         assert result == ["skill1"]
 
     def test_empty_name_skipped(self) -> None:
         """Test that empty names are skipped."""
-        result = _extract_enabled_skill_names({
-            "skill1": {},
-            "": {},
-            "  ": {},
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "skill1": {},
+                "": {},
+                "  ": {},
+            }
+        )
         assert result == ["skill1"]
 
     def test_non_string_name_skipped(self) -> None:
         """Test that non-string names are skipped."""
-        result = _extract_enabled_skill_names({
-            "skill1": {},
-            123: {},  # type: ignore
-            None: {},  # type: ignore
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "skill1": {},
+                123: {},  # type: ignore
+                None: {},  # type: ignore
+            }
+        )
         assert result == ["skill1"]
 
     def test_whitespace_trimmed(self) -> None:
         """Test that names are trimmed."""
-        result = _extract_enabled_skill_names({
-            "  skill1  ": {},
-            "skill2": {},
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "  skill1  ": {},
+                "skill2": {},
+            }
+        )
         assert "skill1" in result
         assert "skill2" in result
 
     def test_returns_sorted(self) -> None:
         """Test that result is sorted."""
-        result = _extract_enabled_skill_names({
-            "zebra": {},
-            "alpha": {},
-            "beta": {},
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "zebra": {},
+                "alpha": {},
+                "beta": {},
+            }
+        )
         assert result == ["alpha", "beta", "zebra"]
 
     def test_deduplication(self) -> None:
         """Test that duplicate names are deduplicated."""
-        result = _extract_enabled_skill_names({
-            "skill1": {},
-            "  skill1  ": {},  # Same after trim
-        })
+        result = _extract_enabled_skill_names(
+            {
+                "skill1": {},
+                "  skill1  ": {},  # Same after trim
+            }
+        )
         assert result == ["skill1"]
 
 
@@ -94,28 +109,18 @@ class TestGetWindowLock(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -154,28 +159,18 @@ class TestSetWindowUntil(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -219,28 +214,18 @@ class TestRegisterInflightRun(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -273,28 +258,18 @@ class TestReleaseInflightRun(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -325,28 +300,18 @@ class TestOpenWindow(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -398,28 +363,18 @@ class TestPollWindow(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -470,9 +425,9 @@ class TestPollWindow(unittest.TestCase):
     def test_poll_window_active(self) -> None:
         """Test poll_window with active window."""
         service = self._create_service()
-        service._windows_until["window-1"] = datetime.now(
-            timezone.utc
-        ) + timedelta(hours=1)
+        service._windows_until["window-1"] = datetime.now(timezone.utc) + timedelta(
+            hours=1
+        )
 
         asyncio.run(service.poll_window("window-1"))
 
@@ -484,28 +439,18 @@ class TestShutdown(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -536,28 +481,18 @@ class TestPoll(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ) as mock_backend, patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient") as mock_backend,
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -603,28 +538,18 @@ class TestOnTaskDone(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -678,28 +603,18 @@ class TestDrainTasks(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -744,28 +659,18 @@ class TestPollWithClaim(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ) as mock_backend, patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient") as mock_backend,
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -809,28 +714,18 @@ class TestHandleClaimDuplicateRun(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -864,28 +759,18 @@ class TestHandleClaimValidation(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -950,28 +835,18 @@ class TestPollCancelledError(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=1,  # Set to 1 so semaphore locks after one acquire
                 task_claim_lease_seconds=30,
@@ -1006,28 +881,18 @@ class TestOnTaskDoneExceptionHandling(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -1096,28 +961,18 @@ class TestHandleClaimEmptyCallbackUrl(unittest.TestCase):
 
     def _create_service_with_empty_callback(self) -> RunPullService:
         """Create service with empty callback_base_url."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -1150,28 +1005,18 @@ class TestHandleClaimEmptyCallbackUrl(unittest.TestCase):
 
     def test_handle_claim_none_callback_url_raises(self) -> None:
         """Test _handle_claim raises ValueError when callback_base_url is None."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ), patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ), patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ), patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient"),
+            patch("app.services.run_pull_service.ExecutorClient"),
+            patch("app.services.run_pull_service.ConfigResolver"),
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -1201,30 +1046,21 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
     def _create_service_with_all_deps(self) -> RunPullService:
         """Create service with all dependencies mocked."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ) as mock_backend_cls, patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ) as mock_executor_cls, patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ) as mock_resolver_cls, patch(
-            "app.services.run_pull_service.SkillStager"
-        ) as mock_skill_cls, patch(
-            "app.services.run_pull_service.PluginStager"
-        ) as mock_plugin_cls, patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ) as mock_attach_cls, patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ) as mock_claude_cls, patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ) as mock_slash_cls, patch(
-            "app.services.run_pull_service.SubAgentStager"
-        ) as mock_subagent_cls, patch(
-            "app.services.run_pull_service.TaskDispatcher.get_container_pool"
-        ) as mock_get_pool:
-
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient") as mock_backend_cls,
+            patch("app.services.run_pull_service.ExecutorClient") as mock_executor_cls,
+            patch("app.services.run_pull_service.ConfigResolver") as mock_resolver_cls,
+            patch("app.services.run_pull_service.SkillStager") as mock_skill_cls,
+            patch("app.services.run_pull_service.PluginStager") as mock_plugin_cls,
+            patch("app.services.run_pull_service.AttachmentStager") as mock_attach_cls,
+            patch("app.services.run_pull_service.ClaudeMdStager") as mock_claude_cls,
+            patch("app.services.run_pull_service.SlashCommandStager") as mock_slash_cls,
+            patch("app.services.run_pull_service.SubAgentStager") as mock_subagent_cls,
+            patch(
+                "app.services.run_pull_service.TaskDispatcher.get_container_pool"
+            ) as mock_get_pool,
+        ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,
@@ -1243,11 +1079,13 @@ class TestHandleClaimMainFlow(unittest.TestCase):
             mock_executor_cls.return_value = mock_executor
 
             mock_resolver = MagicMock()
-            mock_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {},
-                "plugin_files": {},
-                "input_files": [],
-            })
+            mock_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {},
+                    "plugin_files": {},
+                    "input_files": [],
+                }
+            )
             mock_resolver_cls.return_value = mock_resolver
 
             # Stagers return dict/list
@@ -1318,9 +1156,11 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.config_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {"skill1": {}, "skill2": {"enabled": True}},
-            })
+            service.config_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {"skill1": {}, "skill2": {"enabled": True}},
+                }
+            )
 
             claim = {
                 "run": {"run_id": 1, "session_id": "sess-1"},
@@ -1343,10 +1183,12 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.config_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {},
-                "plugin_files": {"plugin1": {}},
-            })
+            service.config_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {},
+                    "plugin_files": {"plugin1": {}},
+                }
+            )
 
             claim = {
                 "run": {"run_id": 1, "session_id": "sess-1"},
@@ -1366,10 +1208,12 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.config_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {},
-                "input_files": [{"path": "/tmp/file.txt"}],
-            })
+            service.config_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {},
+                    "input_files": [{"path": "/tmp/file.txt"}],
+                }
+            )
 
             claim = {
                 "run": {"run_id": 1, "session_id": "sess-1"},
@@ -1389,9 +1233,11 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.config_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {"skill1": {}},
-            })
+            service.config_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {"skill1": {}},
+                }
+            )
             service.backend_client.resolve_slash_commands = AsyncMock(
                 return_value=[{"name": "cmd1"}]
             )
@@ -1418,10 +1264,12 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.backend_client.get_claude_md = AsyncMock(return_value={
-                "enabled": True,
-                "content": "test instructions",
-            })
+            service.backend_client.get_claude_md = AsyncMock(
+                return_value={
+                    "enabled": True,
+                    "content": "test instructions",
+                }
+            )
             service.claude_md_stager.stage = MagicMock(
                 return_value={"enabled": True, "bytes": 100}
             )
@@ -1469,10 +1317,12 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.config_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {},
-                "subagent_raw_agents": {"agent1": {"type": "researcher"}},
-            })
+            service.config_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {},
+                    "subagent_raw_agents": {"agent1": {"type": "researcher"}},
+                }
+            )
 
             claim = {
                 "run": {"run_id": 1, "session_id": "sess-1"},
@@ -1492,10 +1342,12 @@ class TestHandleClaimMainFlow(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_all_deps()
-            service.config_resolver.resolve = AsyncMock(return_value={
-                "skill_files": {},
-                "subagent_raw_agents": {"agent1": {}},
-            })
+            service.config_resolver.resolve = AsyncMock(
+                return_value={
+                    "skill_files": {},
+                    "subagent_raw_agents": {"agent1": {}},
+                }
+            )
             service.subagent_stager.stage_raw_agents = MagicMock(
                 side_effect=Exception("Subagent staging failed")
             )
@@ -1528,7 +1380,10 @@ class TestHandleClaimMainFlow(unittest.TestCase):
                 "run": {"run_id": 1, "session_id": "sess-1"},
                 "user_id": "user-1",
                 "prompt": "test",
-                "config_snapshot": {"container_mode": "persistent", "container_id": "existing-id"},
+                "config_snapshot": {
+                    "container_mode": "persistent",
+                    "container_id": "existing-id",
+                },
             }
 
             await service._handle_claim(claim)
@@ -1652,30 +1507,27 @@ class TestHandleClaimMainFlow(unittest.TestCase):
         """Test container_pool is created via TaskDispatcher when None (line 413)."""
 
         async def run_test() -> None:
-            with patch(
-                "app.services.run_pull_service.get_settings"
-            ) as mock_settings, patch(
-                "app.services.run_pull_service.BackendClient"
-            ) as mock_backend_cls, patch(
-                "app.services.run_pull_service.ExecutorClient"
-            ) as mock_executor_cls, patch(
-                "app.services.run_pull_service.ConfigResolver"
-            ) as mock_resolver_cls, patch(
-                "app.services.run_pull_service.SkillStager"
-            ), patch(
-                "app.services.run_pull_service.PluginStager"
-            ), patch(
-                "app.services.run_pull_service.AttachmentStager"
-            ), patch(
-                "app.services.run_pull_service.ClaudeMdStager"
-            ), patch(
-                "app.services.run_pull_service.SlashCommandStager"
-            ), patch(
-                "app.services.run_pull_service.SubAgentStager"
-            ), patch(
-                "app.services.run_pull_service.TaskDispatcher.get_container_pool"
-            ) as mock_get_pool:
-
+            with (
+                patch("app.services.run_pull_service.get_settings") as mock_settings,
+                patch(
+                    "app.services.run_pull_service.BackendClient"
+                ) as mock_backend_cls,
+                patch(
+                    "app.services.run_pull_service.ExecutorClient"
+                ) as mock_executor_cls,
+                patch(
+                    "app.services.run_pull_service.ConfigResolver"
+                ) as mock_resolver_cls,
+                patch("app.services.run_pull_service.SkillStager"),
+                patch("app.services.run_pull_service.PluginStager"),
+                patch("app.services.run_pull_service.AttachmentStager"),
+                patch("app.services.run_pull_service.ClaudeMdStager"),
+                patch("app.services.run_pull_service.SlashCommandStager"),
+                patch("app.services.run_pull_service.SubAgentStager"),
+                patch(
+                    "app.services.run_pull_service.TaskDispatcher.get_container_pool"
+                ) as mock_get_pool,
+            ):
                 mock_settings.return_value = MagicMock(
                     max_concurrent_tasks=5,
                     task_claim_lease_seconds=30,
@@ -1730,28 +1582,18 @@ class TestHandleClaimExceptionHandling(unittest.TestCase):
 
     def _create_service_for_exception_test(self) -> RunPullService:
         """Create service with all dependencies for exception testing."""
-        with patch(
-            "app.services.run_pull_service.get_settings"
-        ) as mock_settings, patch(
-            "app.services.run_pull_service.BackendClient"
-        ) as mock_backend_cls, patch(
-            "app.services.run_pull_service.ExecutorClient"
-        ) as mock_executor_cls, patch(
-            "app.services.run_pull_service.ConfigResolver"
-        ) as mock_resolver_cls, patch(
-            "app.services.run_pull_service.SkillStager"
-        ), patch(
-            "app.services.run_pull_service.PluginStager"
-        ), patch(
-            "app.services.run_pull_service.AttachmentStager"
-        ), patch(
-            "app.services.run_pull_service.ClaudeMdStager"
-        ), patch(
-            "app.services.run_pull_service.SlashCommandStager"
-        ), patch(
-            "app.services.run_pull_service.SubAgentStager"
+        with (
+            patch("app.services.run_pull_service.get_settings") as mock_settings,
+            patch("app.services.run_pull_service.BackendClient") as mock_backend_cls,
+            patch("app.services.run_pull_service.ExecutorClient") as mock_executor_cls,
+            patch("app.services.run_pull_service.ConfigResolver") as mock_resolver_cls,
+            patch("app.services.run_pull_service.SkillStager"),
+            patch("app.services.run_pull_service.PluginStager"),
+            patch("app.services.run_pull_service.AttachmentStager"),
+            patch("app.services.run_pull_service.ClaudeMdStager"),
+            patch("app.services.run_pull_service.SlashCommandStager"),
+            patch("app.services.run_pull_service.SubAgentStager"),
         ):
-
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
                 task_claim_lease_seconds=30,

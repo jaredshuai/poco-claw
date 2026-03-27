@@ -160,7 +160,9 @@ class TestUserInputRequestServiceAnswerRequest(unittest.TestCase):
 
     @patch("app.services.user_input_request_service.SessionRepository")
     @patch("app.services.user_input_request_service.UserInputRequestRepository")
-    def test_wrong_user(self, mock_request_repo: MagicMock, mock_session_repo: MagicMock) -> None:
+    def test_wrong_user(
+        self, mock_request_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
         mock_entry = MagicMock()
         mock_entry.session_id = uuid.uuid4()
         mock_request_repo.get_by_id.return_value = mock_entry
@@ -181,7 +183,9 @@ class TestUserInputRequestServiceAnswerRequest(unittest.TestCase):
 
     @patch("app.services.user_input_request_service.SessionRepository")
     @patch("app.services.user_input_request_service.UserInputRequestRepository")
-    def test_not_pending(self, mock_request_repo: MagicMock, mock_session_repo: MagicMock) -> None:
+    def test_not_pending(
+        self, mock_request_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
         mock_entry = MagicMock()
         mock_entry.session_id = uuid.uuid4()
         mock_entry.status = "answered"

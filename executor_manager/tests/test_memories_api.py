@@ -1,4 +1,5 @@
 """Tests for app/api/v1/memories.py."""
+
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,9 +27,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
                 "/api/v1/memories",
                 json={
                     "session_id": "session-123",
-                    "messages": [
-                        {"role": "user", "content": "test message"}
-                    ],
+                    "messages": [{"role": "user", "content": "test message"}],
                 },
             )
 
@@ -88,9 +87,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             data = response.json()
             assert data["code"] == 0
             assert len(data["data"]) == 2
-            mock_client.list_memories.assert_called_once_with(
-                session_id="session-123"
-            )
+            mock_client.list_memories.assert_called_once_with(session_id="session-123")
 
     def test_search_memories_success(self) -> None:
         """Test successful memories search."""
@@ -134,9 +131,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             mock_client,
         ):
             client = TestClient(app)
-            response = client.get(
-                "/api/v1/memories/mem-123?session_id=session-123"
-            )
+            response = client.get("/api/v1/memories/mem-123?session_id=session-123")
 
             assert response.status_code == 200
             data = response.json()
@@ -209,18 +204,14 @@ class TestMemoriesEndpoints(unittest.TestCase):
         from app.main import app
 
         mock_client = MagicMock()
-        mock_client.delete_memory = AsyncMock(
-            return_value={"deleted": True}
-        )
+        mock_client.delete_memory = AsyncMock(return_value={"deleted": True})
 
         with patch(
             "app.api.v1.memories.backend_client",
             mock_client,
         ):
             client = TestClient(app)
-            response = client.delete(
-                "/api/v1/memories/mem-123?session_id=session-123"
-            )
+            response = client.delete("/api/v1/memories/mem-123?session_id=session-123")
 
             assert response.status_code == 200
             data = response.json()
@@ -235,9 +226,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
         from app.main import app
 
         mock_client = MagicMock()
-        mock_client.delete_all_memories = AsyncMock(
-            return_value={"deleted_count": 5}
-        )
+        mock_client.delete_all_memories = AsyncMock(return_value={"deleted_count": 5})
 
         with patch(
             "app.api.v1.memories.backend_client",

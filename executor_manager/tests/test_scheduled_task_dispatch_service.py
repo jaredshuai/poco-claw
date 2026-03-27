@@ -11,11 +11,14 @@ class TestScheduledTaskDispatchServiceInit(unittest.TestCase):
 
     def test_init_with_defaults(self) -> None:
         """Test init creates BackendClient by default."""
-        with patch(
-            "app.services.scheduled_task_dispatch_service.BackendClient"
-        ) as mock_backend_cls, patch(
-            "app.services.scheduled_task_dispatch_service.get_settings"
-        ) as mock_get_settings:
+        with (
+            patch(
+                "app.services.scheduled_task_dispatch_service.BackendClient"
+            ) as mock_backend_cls,
+            patch(
+                "app.services.scheduled_task_dispatch_service.get_settings"
+            ) as mock_get_settings,
+        ):
             mock_settings = MagicMock()
             mock_settings.scheduled_tasks_dispatch_batch_size = 50
             mock_get_settings.return_value = mock_settings
@@ -45,9 +48,7 @@ class TestScheduledTaskDispatchServiceInit(unittest.TestCase):
 class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
     """Test ScheduledTaskDispatchService.dispatch_due."""
 
-    def _create_service(
-        self, batch_size: int = 50
-    ) -> ScheduledTaskDispatchService:
+    def _create_service(self, batch_size: int = 50) -> ScheduledTaskDispatchService:
         """Create service with mocked dependencies."""
         mock_backend = MagicMock()
         mock_backend.dispatch_due_scheduled_tasks = AsyncMock(
@@ -73,9 +74,7 @@ class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
         asyncio.run(service.dispatch_due())
 
         service.backend_client.dispatch_due_scheduled_tasks.assert_called_once()
-        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[
-            1
-        ]
+        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[1]
         assert call_kwargs["limit"] == 50
 
     def test_dispatch_due_with_custom_batch_size(self) -> None:
@@ -86,9 +85,7 @@ class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
 
         asyncio.run(service.dispatch_due())
 
-        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[
-            1
-        ]
+        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[1]
         assert call_kwargs["limit"] == 100
 
     def test_dispatch_due_with_zero_batch_size(self) -> None:
@@ -99,9 +96,7 @@ class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
 
         asyncio.run(service.dispatch_due())
 
-        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[
-            1
-        ]
+        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[1]
         # max(1, int(0)) = 1
         assert call_kwargs["limit"] == 1
 
@@ -113,9 +108,7 @@ class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
 
         asyncio.run(service.dispatch_due())
 
-        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[
-            1
-        ]
+        call_kwargs = service.backend_client.dispatch_due_scheduled_tasks.call_args[1]
         # max(1, int(-10)) = 1
         assert call_kwargs["limit"] == 1
 

@@ -1,4 +1,5 @@
 """Tests for app/api/v1 endpoints via TestClient."""
+
 import io
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,15 +15,11 @@ class TestCallbackEndpoint(unittest.TestCase):
         from app.main import app
 
         with patch.object(
-            app.dependency_overrides.get(
-                type(app.router.routes[0].path), MagicMock()
-            ),
+            app.dependency_overrides.get(type(app.router.routes[0].path), MagicMock()),
             "callback_service",
             None,
         ):
-            with patch(
-                "app.api.v1.callback.callback_service"
-            ) as mock_service:
+            with patch("app.api.v1.callback.callback_service") as mock_service:
                 mock_result = MagicMock()
                 mock_result.model_dump.return_value = {
                     "session_id": "sess-123",
@@ -56,9 +53,7 @@ class TestComputerEndpoint(unittest.TestCase):
         """Test successful screenshot upload."""
         from app.main import app
 
-        with patch(
-            "app.api.v1.computer.computer_service"
-        ) as mock_service:
+        with patch("app.api.v1.computer.computer_service") as mock_service:
             mock_result = MagicMock()
             mock_result.model_dump.return_value = {
                 "session_id": "sess-123",
@@ -87,9 +82,7 @@ class TestComputerEndpoint(unittest.TestCase):
         """Test screenshot upload with default content type."""
         from app.main import app
 
-        with patch(
-            "app.api.v1.computer.computer_service"
-        ) as mock_service:
+        with patch("app.api.v1.computer.computer_service") as mock_service:
             mock_result = MagicMock()
             mock_result.model_dump.return_value = {
                 "session_id": "sess-123",

@@ -194,9 +194,7 @@ class TestSkillServiceGetSkill(unittest.TestCase):
 
     @patch("app.services.skill_service.SkillRepository")
     @patch("app.services.skill_service.infer_capability_source")
-    def test_get_skill_found(
-        self, mock_infer: MagicMock, mock_repo: MagicMock
-    ) -> None:
+    def test_get_skill_found(self, mock_infer: MagicMock, mock_repo: MagicMock) -> None:
         skill = self._make_skill()
         mock_repo.get_by_id.return_value = skill
         mock_infer.return_value = {"kind": "manual"}
@@ -635,9 +633,7 @@ class TestSkillServiceStorageService(unittest.TestCase):
     def test_storage_service_lazy_init(self) -> None:
         service = SkillService(storage_service=None)
 
-        with patch(
-            "app.services.skill_service.S3StorageService"
-        ) as mock_storage_cls:
+        with patch("app.services.skill_service.S3StorageService") as mock_storage_cls:
             mock_storage_cls.return_value = MagicMock()
             service._storage_service()
 
@@ -646,9 +642,7 @@ class TestSkillServiceStorageService(unittest.TestCase):
     def test_storage_service_cached(self) -> None:
         service = SkillService(storage_service=None)
 
-        with patch(
-            "app.services.skill_service.S3StorageService"
-        ) as mock_storage_cls:
+        with patch("app.services.skill_service.S3StorageService") as mock_storage_cls:
             mock_instance = MagicMock()
             mock_storage_cls.return_value = mock_instance
 
@@ -676,9 +670,7 @@ class TestSkillServiceToResponse(unittest.TestCase):
         skill.updated_at = datetime.now()
         skill.source = {"kind": "manual"}
 
-        with patch(
-            "app.services.skill_service.infer_capability_source"
-        ) as mock_infer:
+        with patch("app.services.skill_service.infer_capability_source") as mock_infer:
             mock_infer.return_value = {"kind": "manual"}
 
             result = SkillService._to_response(skill)
@@ -801,7 +793,9 @@ class TestSkillServiceVersionSkillAssets(unittest.TestCase):
         skill.id = kwargs.get("id", 1)
         skill.name = kwargs.get("name", "test-skill")
         skill.description = kwargs.get("description", "Test skill")
-        skill.entry = kwargs.get("entry", {"s3_key": "skills/user/skill/", "is_prefix": True})
+        skill.entry = kwargs.get(
+            "entry", {"s3_key": "skills/user/skill/", "is_prefix": True}
+        )
         skill.scope = kwargs.get("scope", "user")
         skill.source = kwargs.get("source", {"kind": "manual"})
         return skill
@@ -855,7 +849,9 @@ class TestSkillServiceVersionSkillAssets(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_not_prefix_entry_returns_none(self) -> None:
-        skill = self._make_skill(entry={"s3_key": "skills/user/skill.md", "is_prefix": False})
+        skill = self._make_skill(
+            entry={"s3_key": "skills/user/skill.md", "is_prefix": False}
+        )
 
         result = self.service._version_skill_assets(
             skill=skill,
@@ -928,9 +924,14 @@ class TestSkillServiceListSkillFilesWithStorage(unittest.TestCase):
     @patch("app.services.skill_service.build_nodes_from_file_entries")
     @patch("app.services.skill_service.SkillRepository")
     def test_list_skill_files_prefix_mode(
-        self, mock_repo: MagicMock, mock_build_entries: MagicMock, mock_build_workspace: MagicMock
+        self,
+        mock_repo: MagicMock,
+        mock_build_entries: MagicMock,
+        mock_build_workspace: MagicMock,
     ) -> None:
-        skill = self._make_skill(entry={"s3_key": "skills/user/skill/", "is_prefix": True})
+        skill = self._make_skill(
+            entry={"s3_key": "skills/user/skill/", "is_prefix": True}
+        )
         mock_repo.get_by_id.return_value = skill
         self.storage_service.list_objects.return_value = ["skills/user/skill/file.md"]
         self.storage_service.presign_get.return_value = "https://url"
@@ -946,9 +947,14 @@ class TestSkillServiceListSkillFilesWithStorage(unittest.TestCase):
     @patch("app.services.skill_service.build_nodes_from_file_entries")
     @patch("app.services.skill_service.SkillRepository")
     def test_list_skill_files_object_mode(
-        self, mock_repo: MagicMock, mock_build_entries: MagicMock, mock_build_workspace: MagicMock
+        self,
+        mock_repo: MagicMock,
+        mock_build_entries: MagicMock,
+        mock_build_workspace: MagicMock,
     ) -> None:
-        skill = self._make_skill(entry={"s3_key": "skills/user/skill.md", "is_prefix": False})
+        skill = self._make_skill(
+            entry={"s3_key": "skills/user/skill.md", "is_prefix": False}
+        )
         mock_repo.get_by_id.return_value = skill
         self.storage_service.exists.return_value = True
         self.storage_service.presign_get.return_value = "https://url"
@@ -976,7 +982,9 @@ class TestSkillServiceEdgeCases(unittest.TestCase):
         skill.id = kwargs.get("id", self.skill_id)
         skill.name = kwargs.get("name", "test-skill")
         skill.description = kwargs.get("description", "Test skill")
-        skill.entry = kwargs.get("entry", {"s3_key": "skills/user/skill/", "is_prefix": True})
+        skill.entry = kwargs.get(
+            "entry", {"s3_key": "skills/user/skill/", "is_prefix": True}
+        )
         skill.scope = kwargs.get("scope", "user")
         skill.owner_user_id = kwargs.get("owner_user_id", self.user_id)
         skill.created_at = kwargs.get("created_at", datetime.now())
@@ -988,10 +996,16 @@ class TestSkillServiceEdgeCases(unittest.TestCase):
     @patch("app.services.skill_service.build_nodes_from_file_entries")
     @patch("app.services.skill_service.normalize_manifest_path")
     def test_build_file_nodes_from_prefix_skips_invalid_path(
-        self, mock_normalize: MagicMock, mock_build_entries: MagicMock, mock_build_workspace: MagicMock
+        self,
+        mock_normalize: MagicMock,
+        mock_build_entries: MagicMock,
+        mock_build_workspace: MagicMock,
     ) -> None:
         mock_normalize.side_effect = lambda p: None if p == "invalid" else p
-        self.storage_service.list_objects.return_value = ["skills/user/skill/invalid", "skills/user/skill/valid.md"]
+        self.storage_service.list_objects.return_value = [
+            "skills/user/skill/invalid",
+            "skills/user/skill/valid.md",
+        ]
         self.storage_service.presign_get.return_value = "https://url"
         mock_build_entries.return_value = [{"path": "valid.md"}]
         mock_build_workspace.return_value = [MagicMock()]
@@ -1036,7 +1050,9 @@ class TestSkillServiceEdgeCases(unittest.TestCase):
 
         # Mock version_skill_assets to return a new entry
         with patch.object(
-            self.service, "_version_skill_assets", return_value={"s3_key": "new/path/", "is_prefix": True}
+            self.service,
+            "_version_skill_assets",
+            return_value={"s3_key": "new/path/", "is_prefix": True},
         ):
             request = SkillUpdateRequest(name="new-name")
 

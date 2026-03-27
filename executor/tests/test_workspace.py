@@ -49,7 +49,9 @@ class TestWorkspaceManagerAsyncMethods:
             await manager._setup_session_persistence()
 
             assert manager.system_claude_home.is_symlink()
-            assert manager.system_claude_home.resolve() == manager.persistent_claude_data
+            assert (
+                manager.system_claude_home.resolve() == manager.persistent_claude_data
+            )
 
     async def test_cleanup_removes_symlink(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -191,19 +193,13 @@ class TestWorkspaceManagerEnsureGitRepo(unittest.TestCase):
             mock_is_repo.assert_called_once_with(Path("/workspace"))
 
     def test_init_new_repo(self) -> None:
-        with patch(
-            "app.core.workspace.is_repository", return_value=False
-        ):
-            with patch(
-                "app.core.workspace.init_repository"
-            ) as mock_init:
+        with patch("app.core.workspace.is_repository", return_value=False):
+            with patch("app.core.workspace.init_repository") as mock_init:
                 WorkspaceManager._ensure_git_repo(Path("/workspace"))
                 mock_init.assert_called_once_with(Path("/workspace"))
 
     def test_init_fails_silently(self) -> None:
-        with patch(
-            "app.core.workspace.is_repository", return_value=False
-        ):
+        with patch("app.core.workspace.is_repository", return_value=False):
             with patch(
                 "app.core.workspace.init_repository", side_effect=Exception("fail")
             ):
@@ -221,21 +217,15 @@ class TestWorkspaceManagerBuildGitEnv(unittest.TestCase):
 
     def test_token_with_github_url(self) -> None:
         manager = WorkspaceManager(mount_path="/workspace")
-        with patch.object(
-            manager, "_ensure_git_askpass", return_value="/tmp/askpass"
-        ):
-            result = manager._build_git_env(
-                "https://github.com/owner/repo", "mytoken"
-            )
+        with patch.object(manager, "_ensure_git_askpass", return_value="/tmp/askpass"):
+            result = manager._build_git_env("https://github.com/owner/repo", "mytoken")
             assert "GIT_ASKPASS" in result
             assert result["GIT_ASKPASS"] == "/tmp/askpass"
             assert result["POCO_GIT_TOKEN"] == "mytoken"
 
     def test_token_with_non_github_url(self) -> None:
         manager = WorkspaceManager(mount_path="/workspace")
-        result = manager._build_git_env(
-            "https://gitlab.com/owner/repo", "mytoken"
-        )
+        result = manager._build_git_env("https://gitlab.com/owner/repo", "mytoken")
         assert result == {"GIT_TERMINAL_PROMPT": "0"}
 
     def test_token_with_invalid_url(self) -> None:
@@ -323,9 +313,7 @@ class TestWorkspaceManagerPrepareRepository(unittest.TestCase):
         config.git_branch = None
         config.git_token = None
 
-        with patch.object(
-            manager, "_ensure_git_repo"
-        ) as mock_ensure:
+        with patch.object(manager, "_ensure_git_repo") as mock_ensure:
             result = manager._prepare_repository(config)
             assert result == Path("/workspace")
             mock_ensure.assert_called_once()
@@ -365,9 +353,7 @@ class TestWorkspaceManagerEnsureClonedRepo(unittest.TestCase):
             manager = WorkspaceManager(mount_path=tmpdir)
 
             with patch("app.core.workspace.is_repository", return_value=True):
-                with patch.object(
-                    manager, "_checkout_branch"
-                ) as mock_checkout:
+                with patch.object(manager, "_checkout_branch") as mock_checkout:
                     repo_path = Path(tmpdir) / "repo"
                     repo_path.mkdir()
 
@@ -452,9 +438,7 @@ class TestWorkspaceManagerCheckoutBranch(unittest.TestCase):
             side_effect=GitCommandError("fetch failed", 1),
         ):
             with pytest.raises(RuntimeError, match="Failed to checkout"):
-                WorkspaceManager._checkout_branch(
-                    Path("/workspace"), "main"
-                )
+                WorkspaceManager._checkout_branch(Path("/workspace"), "main")
 
 
 class TestWorkspaceManagerEnsureGitExcludesExtra(unittest.TestCase):

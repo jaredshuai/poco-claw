@@ -99,11 +99,7 @@ class DeliverableDetectionService:
         materially_modified: bool,
         presented_as_result: bool,
     ) -> bool:
-        return (
-            ref_type == "upload"
-            and materially_modified
-            and presented_as_result
-        )
+        return ref_type == "upload" and materially_modified and presented_as_result
 
     @staticmethod
     def select_primary_candidates(
@@ -191,9 +187,8 @@ class DeliverableDetectionService:
             )
             session_db.flush()
 
-            if (
-                deliverable.latest_version_id is None
-                or next_version_no > (latest_version.version_no if latest_version else 0)
+            if deliverable.latest_version_id is None or next_version_no > (
+                latest_version.version_no if latest_version else 0
             ):
                 deliverable.latest_version_id = version.id
 
@@ -247,10 +242,13 @@ class DeliverableDetectionService:
                 continue
 
             materially_modified = normalized_path in file_changes
-            if normalized_path in input_paths and not self.should_promote_reference_input(
-                ref_type="upload",
-                materially_modified=materially_modified,
-                presented_as_result=True,
+            if (
+                normalized_path in input_paths
+                and not self.should_promote_reference_input(
+                    ref_type="upload",
+                    materially_modified=materially_modified,
+                    presented_as_result=True,
+                )
             ):
                 continue
 

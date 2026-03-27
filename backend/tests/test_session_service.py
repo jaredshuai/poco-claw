@@ -127,7 +127,9 @@ class TestSessionServiceCreateSession(unittest.TestCase):
 
         mock_repo.create.assert_called_once()
         call_args = mock_repo.create.call_args
-        self.assertEqual(call_args.kwargs["config"]["repo_url"], "https://github.com/test/repo")
+        self.assertEqual(
+            call_args.kwargs["config"]["repo_url"], "https://github.com/test/repo"
+        )
 
 
 class TestSessionServiceGetSession(unittest.TestCase):
@@ -256,7 +258,9 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
     @patch("app.services.session_service.SessionRepository")
     def test_update_session_unpin(self, mock_repo: MagicMock) -> None:
-        mock_session = self._make_session(is_pinned=True, pinned_at=datetime.now(timezone.utc))
+        mock_session = self._make_session(
+            is_pinned=True, pinned_at=datetime.now(timezone.utc)
+        )
         mock_repo.get_by_id.return_value = mock_session
 
         request = SessionUpdateRequest(is_pinned=False)
@@ -357,7 +361,9 @@ class TestSessionServiceListSessions(unittest.TestCase):
         mock_sessions = [MagicMock(), MagicMock()]
         mock_repo.list_by_user.return_value = mock_sessions
 
-        result = self.service.list_sessions(self.db, user_id=self.user_id, limit=10, offset=5)
+        result = self.service.list_sessions(
+            self.db, user_id=self.user_id, limit=10, offset=5
+        )
 
         mock_repo.list_by_user.assert_called_once_with(
             self.db, self.user_id, 10, 5, None, kind=None
@@ -380,9 +386,7 @@ class TestSessionServiceListSessions(unittest.TestCase):
         mock_sessions = [MagicMock()]
         mock_repo.list_by_user.return_value = mock_sessions
 
-        self.service.list_sessions(
-            self.db, user_id=self.user_id, project_id=project_id
-        )
+        self.service.list_sessions(self.db, user_id=self.user_id, project_id=project_id)
 
         mock_repo.list_by_user.assert_called_once()
 
@@ -422,7 +426,9 @@ class TestSessionServiceFindSessionBySdkIdOrUuid(unittest.TestCase):
         mock_repo.get_by_sdk_session_id.return_value = None
         mock_repo.get_by_id.return_value = None
 
-        result = self.service.find_session_by_sdk_id_or_uuid(self.db, "invalid-uuid-string")
+        result = self.service.find_session_by_sdk_id_or_uuid(
+            self.db, "invalid-uuid-string"
+        )
 
         # Should try sdk_session_id first, then not attempt UUID parsing for invalid string
         mock_repo.get_by_sdk_session_id.assert_called_once()
@@ -454,7 +460,9 @@ class TestSessionServiceEnsureNoActiveQueueItems(unittest.TestCase):
         with self.assertRaises(AppException) as ctx:
             self.service._ensure_no_active_queue_items(self.db, self.session_id)
 
-        self.assertEqual(ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS)
+        self.assertEqual(
+            ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS
+        )
 
 
 class TestSessionServiceUpdateSessionMoreFields(unittest.TestCase):
@@ -744,7 +752,9 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         )
 
         self.assertTrue(mock_execution.is_error)
-        self.assertEqual(mock_execution.tool_output, {"content": "Canceled: User requested"})
+        self.assertEqual(
+            mock_execution.tool_output, {"content": "Canceled: User requested"}
+        )
 
     @patch("app.services.session_service.ToolExecutionRepository")
     @patch("app.services.session_service.UserInputRequestRepository")
@@ -878,13 +888,18 @@ class TestSessionServiceBranchSession(unittest.TestCase):
                 self.db, self.session_id, user_id=self.user_id, cutoff_message_id=1
             )
 
-        self.assertEqual(ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS)
+        self.assertEqual(
+            ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS
+        )
 
     @patch("app.services.session_service.MessageRepository")
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_branch_session_message_not_found(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -902,7 +917,10 @@ class TestSessionServiceBranchSession(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_branch_session_message_wrong_session(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -977,9 +995,7 @@ class TestSessionServiceListSessionsWithKind(unittest.TestCase):
         mock_sessions = [MagicMock()]
         mock_repo.list_by_user.return_value = mock_sessions
 
-        self.service.list_sessions(
-            self.db, user_id=self.user_id, kind="chat"
-        )
+        self.service.list_sessions(self.db, user_id=self.user_id, kind="chat")
 
         mock_repo.list_by_user.assert_called_once()
         call_args = mock_repo.list_by_user.call_args
@@ -1047,13 +1063,18 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
                 assistant_message_id=2,
             )
 
-        self.assertEqual(ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS)
+        self.assertEqual(
+            ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS
+        )
 
     @patch("app.services.session_service.MessageRepository")
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_user_message_not_found(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -1075,7 +1096,10 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_user_message_wrong_session(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -1101,7 +1125,10 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_user_message_not_user_role(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -1127,7 +1154,10 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_assistant_message_not_found(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -1160,7 +1190,10 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_assistant_message_wrong_role(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -1198,7 +1231,10 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_assistant_before_user(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -1253,7 +1289,10 @@ class TestSessionServiceRegenerateFromMessageExtended(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_regenerate_with_model_override(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         """Test regenerate_from_message with model override."""
         mock_session = self._make_session()
@@ -1346,13 +1385,18 @@ class TestSessionServiceEditMessageAndRegenerate(unittest.TestCase):
                 content="new content",
             )
 
-        self.assertEqual(ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS)
+        self.assertEqual(
+            ctx.exception.error_code, ErrorCode.SESSION_HAS_ACTIVE_QUEUE_ITEMS
+        )
 
     @patch("app.services.session_service.MessageRepository")
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_edit_message_user_message_not_found(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         """Test edit_message with user message not found."""
         mock_session = self._make_session()
@@ -1375,7 +1419,10 @@ class TestSessionServiceEditMessageAndRegenerate(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_edit_message_user_message_wrong_role(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         """Test edit_message with wrong message role."""
         mock_session = self._make_session()
@@ -1402,7 +1449,10 @@ class TestSessionServiceEditMessageAndRegenerate(unittest.TestCase):
     @patch("app.services.session_service.SessionQueueItemRepository")
     @patch("app.services.session_service.SessionRepository")
     def test_edit_message_empty_content(
-        self, mock_session_repo: MagicMock, mock_queue_repo: MagicMock, mock_msg_repo: MagicMock
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
     ) -> None:
         """Test edit_message with empty content."""
         mock_session = self._make_session()

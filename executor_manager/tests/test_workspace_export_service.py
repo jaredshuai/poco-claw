@@ -1,4 +1,5 @@
 """Tests for workspace_export_service.py."""
+
 import tempfile
 import unittest
 import zipfile
@@ -721,12 +722,15 @@ class TestExportWorkspace(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace("session-456")
@@ -747,12 +751,15 @@ class TestExportWorkspace(unittest.TestCase):
         mock_wm.resolve_user_id.return_value = None
         mock_storage = MagicMock()
 
-        with patch(
-            "app.services.workspace_export_service.workspace_manager",
-            mock_wm,
-        ), patch(
-            "app.services.workspace_export_service.storage_service",
-            mock_storage,
+        with (
+            patch(
+                "app.services.workspace_export_service.workspace_manager",
+                mock_wm,
+            ),
+            patch(
+                "app.services.workspace_export_service.storage_service",
+                mock_storage,
+            ),
         ):
             service = WorkspaceExportService()
             result = service.export_workspace("unknown-session")
@@ -768,12 +775,15 @@ class TestExportWorkspace(unittest.TestCase):
         mock_wm.get_session_workspace_dir.return_value = None
         mock_storage = MagicMock()
 
-        with patch(
-            "app.services.workspace_export_service.workspace_manager",
-            mock_wm,
-        ), patch(
-            "app.services.workspace_export_service.storage_service",
-            mock_storage,
+        with (
+            patch(
+                "app.services.workspace_export_service.workspace_manager",
+                mock_wm,
+            ),
+            patch(
+                "app.services.workspace_export_service.storage_service",
+                mock_storage,
+            ),
         ):
             service = WorkspaceExportService()
             result = service.export_workspace("session-456")
@@ -805,12 +815,15 @@ class TestExportWorkspace(unittest.TestCase):
                 message="S3 upload failed",
             )
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace("session-456")
@@ -839,12 +852,15 @@ class TestExportWorkspace(unittest.TestCase):
             mock_storage = MagicMock()
             mock_storage.upload_file.side_effect = Exception("Unexpected error")
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace("session-456")
@@ -874,12 +890,15 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.stage_skill_submission_folder(
@@ -895,12 +914,15 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
         mock_wm.resolve_user_id.return_value = None
         mock_storage = MagicMock()
 
-        with patch(
-            "app.services.workspace_export_service.workspace_manager",
-            mock_wm,
-        ), patch(
-            "app.services.workspace_export_service.storage_service",
-            mock_storage,
+        with (
+            patch(
+                "app.services.workspace_export_service.workspace_manager",
+                mock_wm,
+            ),
+            patch(
+                "app.services.workspace_export_service.storage_service",
+                mock_storage,
+            ),
         ):
             service = WorkspaceExportService()
 
@@ -918,12 +940,15 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
         mock_wm.get_session_workspace_dir.return_value = None
         mock_storage = MagicMock()
 
-        with patch(
-            "app.services.workspace_export_service.workspace_manager",
-            mock_wm,
-        ), patch(
-            "app.services.workspace_export_service.storage_service",
-            mock_storage,
+        with (
+            patch(
+                "app.services.workspace_export_service.workspace_manager",
+                mock_wm,
+            ),
+            patch(
+                "app.services.workspace_export_service.storage_service",
+                mock_storage,
+            ),
         ):
             service = WorkspaceExportService()
 
@@ -946,12 +971,15 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
 
@@ -978,12 +1006,15 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
 
@@ -1012,12 +1043,15 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.stage_skill_submission_folder(
@@ -1047,12 +1081,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace_folder(
@@ -1069,12 +1106,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
         mock_wm.resolve_user_id.return_value = None
         mock_storage = MagicMock()
 
-        with patch(
-            "app.services.workspace_export_service.workspace_manager",
-            mock_wm,
-        ), patch(
-            "app.services.workspace_export_service.storage_service",
-            mock_storage,
+        with (
+            patch(
+                "app.services.workspace_export_service.workspace_manager",
+                mock_wm,
+            ),
+            patch(
+                "app.services.workspace_export_service.storage_service",
+                mock_storage,
+            ),
         ):
             service = WorkspaceExportService()
             result = service.export_workspace_folder(
@@ -1092,12 +1132,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
         mock_wm.get_session_workspace_dir.return_value = None
         mock_storage = MagicMock()
 
-        with patch(
-            "app.services.workspace_export_service.workspace_manager",
-            mock_wm,
-        ), patch(
-            "app.services.workspace_export_service.storage_service",
-            mock_storage,
+        with (
+            patch(
+                "app.services.workspace_export_service.workspace_manager",
+                mock_wm,
+            ),
+            patch(
+                "app.services.workspace_export_service.storage_service",
+                mock_storage,
+            ),
         ):
             service = WorkspaceExportService()
             result = service.export_workspace_folder(
@@ -1120,12 +1163,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace_folder(
@@ -1150,12 +1196,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace_folder(
@@ -1187,12 +1236,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                 message="Upload failed",
             )
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace_folder(
@@ -1221,12 +1273,15 @@ class TestExportWorkspaceFolder(unittest.TestCase):
             mock_storage = MagicMock()
             mock_storage.upload_file.side_effect = Exception("Unexpected")
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace_folder(
@@ -1260,14 +1315,18 @@ class TestExportWorkspaceEdgeCases(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
-            ), patch.object(
-                Path, "unlink", side_effect=PermissionError("Cannot delete")
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
+                patch.object(
+                    Path, "unlink", side_effect=PermissionError("Cannot delete")
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.export_workspace("session-456")
@@ -1299,12 +1358,15 @@ class TestExportWorkspaceEdgeCases(unittest.TestCase):
 
             mock_storage = MagicMock()
 
-            with patch(
-                "app.services.workspace_export_service.workspace_manager",
-                mock_wm,
-            ), patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+            with (
+                patch(
+                    "app.services.workspace_export_service.workspace_manager",
+                    mock_wm,
+                ),
+                patch(
+                    "app.services.workspace_export_service.storage_service",
+                    mock_storage,
+                ),
             ):
                 service = WorkspaceExportService()
                 result = service.stage_skill_submission_folder(

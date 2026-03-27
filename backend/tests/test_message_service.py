@@ -79,7 +79,11 @@ class TestMessageServiceCollectMessageAttachments(unittest.TestCase):
         run = MagicMock()
         run.config_snapshot = {
             "input_files": [
-                {"source": "file1.txt", "content_type": "text/plain", "name": "file1.txt"}
+                {
+                    "source": "file1.txt",
+                    "content_type": "text/plain",
+                    "name": "file1.txt",
+                }
             ]
         }
         run.user_message_id = 1
@@ -93,7 +97,11 @@ class TestMessageServiceCollectMessageAttachments(unittest.TestCase):
         run.config_snapshot = {
             "input_files": [
                 "not a dict",
-                {"source": "file1.txt", "content_type": "text/plain", "name": "file1.txt"},
+                {
+                    "source": "file1.txt",
+                    "content_type": "text/plain",
+                    "name": "file1.txt",
+                },
             ]
         }
         run.user_message_id = 1
@@ -119,7 +127,11 @@ class TestMessageServiceCollectMessageAttachments(unittest.TestCase):
         run1 = MagicMock()
         run1.config_snapshot = {
             "input_files": [
-                {"source": "file1.txt", "content_type": "text/plain", "name": "file1.txt"}
+                {
+                    "source": "file1.txt",
+                    "content_type": "text/plain",
+                    "name": "file1.txt",
+                }
             ]
         }
         run1.user_message_id = 1
@@ -127,7 +139,11 @@ class TestMessageServiceCollectMessageAttachments(unittest.TestCase):
         run2 = MagicMock()
         run2.config_snapshot = {
             "input_files": [
-                {"source": "file2.txt", "content_type": "text/plain", "name": "file2.txt"}
+                {
+                    "source": "file2.txt",
+                    "content_type": "text/plain",
+                    "name": "file2.txt",
+                }
             ]
         }
         run2.user_message_id = 2
@@ -209,9 +225,7 @@ class TestMessageServiceGetMessages(unittest.TestCase):
         session_id = uuid.uuid4()
         mock_messages = [MagicMock(), MagicMock()]
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.list_by_session.return_value = mock_messages
             service = MessageService()
             result = service.get_messages(db, session_id)
@@ -228,9 +242,7 @@ class TestMessageServiceGetMessage(unittest.TestCase):
         message_id = 1
         mock_message = MagicMock()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_message
             service = MessageService()
             result = service.get_message(db, message_id)
@@ -241,9 +253,7 @@ class TestMessageServiceGetMessage(unittest.TestCase):
         db = MagicMock()
         message_id = 1
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.get_by_id.return_value = None
             service = MessageService()
             with self.assertRaises(AppException) as ctx:
@@ -258,9 +268,7 @@ class TestMessageServiceGetMessagesDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.list_by_session_after_id.return_value = []
             service = MessageService()
             result = service.get_messages_delta(db, session_id)
@@ -274,9 +282,7 @@ class TestMessageServiceGetMessagesDelta(unittest.TestCase):
 
         mock_message = create_mock_message(message_id=1, session_id=session_id)
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.list_by_session_after_id.return_value = [mock_message]
             service = MessageService()
             result = service.get_messages_delta(db, session_id)
@@ -288,11 +294,11 @@ class TestMessageServiceGetMessagesDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        mock_messages = [create_mock_message(message_id=i, session_id=session_id) for i in range(3)]
+        mock_messages = [
+            create_mock_message(message_id=i, session_id=session_id) for i in range(3)
+        ]
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.list_by_session_after_id.return_value = mock_messages
             service = MessageService()
             # Request limit=2, but we get 3 messages, so has_more=True
@@ -305,9 +311,7 @@ class TestMessageServiceGetMessagesDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_repo:
             mock_repo.list_by_session_after_id.return_value = []
             service = MessageService()
             service.get_messages_delta(db, session_id, after_message_id=5, limit=10)
@@ -322,15 +326,9 @@ class TestMessageServiceGetMessagesWithFilesDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.RunRepository"
-            ):
-                with patch(
-                    "app.services.message_service.S3StorageService"
-                ):
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.RunRepository"):
+                with patch("app.services.message_service.S3StorageService"):
                     mock_msg_repo.list_by_session_after_id.return_value = []
                     service = MessageService()
                     result = service.get_messages_with_files_delta(
@@ -346,15 +344,9 @@ class TestMessageServiceGetMessagesWithFilesDelta(unittest.TestCase):
 
         mock_message = create_mock_message(message_id=1, session_id=session_id)
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.RunRepository"
-            ) as mock_run_repo:
-                with patch(
-                    "app.services.message_service.S3StorageService"
-                ):
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.RunRepository") as mock_run_repo:
+                with patch("app.services.message_service.S3StorageService"):
                     mock_msg_repo.list_by_session_after_id.return_value = [mock_message]
                     mock_run_repo.list_by_session_and_user_message_ids.return_value = []
 
@@ -373,9 +365,7 @@ class TestMessageServiceGetMessageAttachmentsDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
             mock_msg_repo.list_ids_by_session_after_id.return_value = []
             service = MessageService()
             result = service.get_message_attachments_delta(
@@ -389,15 +379,9 @@ class TestMessageServiceGetMessageAttachmentsDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.RunRepository"
-            ) as mock_run_repo:
-                with patch(
-                    "app.services.message_service.S3StorageService"
-                ):
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.RunRepository") as mock_run_repo:
+                with patch("app.services.message_service.S3StorageService"):
                     mock_msg_repo.list_ids_by_session_after_id.return_value = [1, 2]
                     mock_run_repo.list_by_session_and_user_message_ids.return_value = []
 
@@ -414,12 +398,8 @@ class TestMessageServiceGetMessageAttachmentsDelta(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.S3StorageService"
-            ):
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.S3StorageService"):
                 mock_msg_repo.list_ids_by_session_after_id.return_value = [1, 2, 3]
 
                 service = MessageService()
@@ -441,11 +421,11 @@ class TestMessageServiceGetMessageAttachments(unittest.TestCase):
         with patch.object(
             MessageService, "_build_message_id_to_attachments", return_value={}
         ):
-            with patch(
-                "app.services.message_service.S3StorageService"
-            ):
+            with patch("app.services.message_service.S3StorageService"):
                 service = MessageService()
-                result = service.get_message_attachments(db, session_id, user_id="user-123")
+                result = service.get_message_attachments(
+                    db, session_id, user_id="user-123"
+                )
 
                 self.assertEqual(result, [])
 
@@ -492,9 +472,7 @@ class TestMessageServiceBuildMessageIdToAttachments(unittest.TestCase):
         }
         mock_run.user_message_id = 1
 
-        with patch(
-            "app.services.message_service.RunRepository"
-        ) as mock_repo:
+        with patch("app.services.message_service.RunRepository") as mock_repo:
             mock_repo.list_by_session.return_value = [mock_run]
             service = MessageService()
             result = service._build_message_id_to_attachments(db, session_id)
@@ -509,15 +487,9 @@ class TestMessageServiceGetMessagesWithFiles(unittest.TestCase):
         db = MagicMock()
         session_id = uuid.uuid4()
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.RunRepository"
-            ) as mock_run_repo:
-                with patch(
-                    "app.services.message_service.S3StorageService"
-                ):
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.RunRepository") as mock_run_repo:
+                with patch("app.services.message_service.S3StorageService"):
                     mock_msg_repo.list_by_session.return_value = []
                     mock_run_repo.list_by_session.return_value = []
 
@@ -545,12 +517,8 @@ class TestMessageServiceGetMessagesWithFiles(unittest.TestCase):
         }
         mock_run.user_message_id = 1
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.RunRepository"
-            ) as mock_run_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.RunRepository") as mock_run_repo:
                 with patch(
                     "app.services.message_service.S3StorageService"
                 ) as mock_storage_cls:
@@ -588,12 +556,8 @@ class TestMessageServiceGetMessageAttachmentsDeltaWithAttachments(unittest.TestC
         }
         mock_run.user_message_id = 1
 
-        with patch(
-            "app.services.message_service.MessageRepository"
-        ) as mock_msg_repo:
-            with patch(
-                "app.services.message_service.RunRepository"
-            ) as mock_run_repo:
+        with patch("app.services.message_service.MessageRepository") as mock_msg_repo:
+            with patch("app.services.message_service.RunRepository") as mock_run_repo:
                 with patch(
                     "app.services.message_service.S3StorageService"
                 ) as mock_storage_cls:

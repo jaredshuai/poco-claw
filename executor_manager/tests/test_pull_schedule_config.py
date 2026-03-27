@@ -1,4 +1,5 @@
 """Tests for app/scheduler/pull_schedule_config.py."""
+
 import json
 import tempfile
 import unittest
@@ -108,7 +109,9 @@ class TestWindowPullRule(unittest.TestCase):
         """Test that cron is required."""
         from app.scheduler.pull_schedule_config import WindowPullRule
 
-        with pytest.raises(ValueError, match="window rule requires non-empty cron config"):
+        with pytest.raises(
+            ValueError, match="window rule requires non-empty cron config"
+        ):
             WindowPullRule(id="test", cron={})
 
     def test_validate_window_minutes_positive(self) -> None:
@@ -297,14 +300,12 @@ class TestLoadFileData(unittest.TestCase):
         """Test loading a TOML file."""
         from app.scheduler.pull_schedule_config import _load_file_data
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".toml", delete=False
-        ) as f:
-            f.write('enabled = true\n')
-            f.write('[[rules]]\n')
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write("enabled = true\n")
+            f.write("[[rules]]\n")
             f.write('kind = "interval"\n')
             f.write('id = "test"\n')
-            f.write('seconds = 5\n')
+            f.write("seconds = 5\n")
             temp_path = Path(f.name)
 
         try:
@@ -320,9 +321,7 @@ class TestLoadFileData(unittest.TestCase):
         """Test loading a JSON file."""
         from app.scheduler.pull_schedule_config import _load_file_data
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"enabled": True, "rules": []}, f)
             temp_path = Path(f.name)
 
@@ -345,9 +344,7 @@ class TestLoadFileData(unittest.TestCase):
         """Test loading an unsupported file format."""
         from app.scheduler.pull_schedule_config import _load_file_data
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("enabled: true\n")
             temp_path = Path(f.name)
 
@@ -373,15 +370,14 @@ class TestLoadPullScheduleConfig(unittest.TestCase):
         """Test loading a valid config file."""
         from app.scheduler.pull_schedule_config import load_pull_schedule_config
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
-            json.dump({
-                "enabled": True,
-                "rules": [
-                    {"kind": "interval", "id": "test", "seconds": 5}
-                ]
-            }, f)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                {
+                    "enabled": True,
+                    "rules": [{"kind": "interval", "id": "test", "seconds": 5}],
+                },
+                f,
+            )
             temp_path = f.name
 
         try:
@@ -399,7 +395,9 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
 
     def test_default_config_with_minimal_settings(self) -> None:
         """Test default config with minimal settings."""
-        from app.scheduler.pull_schedule_config import default_pull_schedule_config_from_settings
+        from app.scheduler.pull_schedule_config import (
+            default_pull_schedule_config_from_settings,
+        )
 
         mock_settings = MagicMock()
         mock_settings.task_pull_enabled = True
@@ -416,7 +414,9 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
 
     def test_default_config_with_nightly_enabled(self) -> None:
         """Test default config with nightly enabled."""
-        from app.scheduler.pull_schedule_config import default_pull_schedule_config_from_settings
+        from app.scheduler.pull_schedule_config import (
+            default_pull_schedule_config_from_settings,
+        )
 
         mock_settings = MagicMock()
         mock_settings.task_pull_enabled = True
@@ -438,7 +438,9 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
 
     def test_default_config_with_disabled_pull(self) -> None:
         """Test default config with pull disabled."""
-        from app.scheduler.pull_schedule_config import default_pull_schedule_config_from_settings
+        from app.scheduler.pull_schedule_config import (
+            default_pull_schedule_config_from_settings,
+        )
 
         mock_settings = MagicMock()
         mock_settings.task_pull_enabled = False
@@ -453,7 +455,9 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
 
     def test_default_config_clamps_interval(self) -> None:
         """Test that interval is clamped to min 1."""
-        from app.scheduler.pull_schedule_config import default_pull_schedule_config_from_settings
+        from app.scheduler.pull_schedule_config import (
+            default_pull_schedule_config_from_settings,
+        )
 
         mock_settings = MagicMock()
         mock_settings.task_pull_enabled = True
@@ -470,7 +474,9 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
 
     def test_default_config_uses_specific_intervals(self) -> None:
         """Test that specific intervals are used when provided."""
-        from app.scheduler.pull_schedule_config import default_pull_schedule_config_from_settings
+        from app.scheduler.pull_schedule_config import (
+            default_pull_schedule_config_from_settings,
+        )
 
         mock_settings = MagicMock()
         mock_settings.task_pull_enabled = True
@@ -491,7 +497,9 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
 
     def test_default_config_all_queues_disabled(self) -> None:
         """Test config when all queue types are disabled."""
-        from app.scheduler.pull_schedule_config import default_pull_schedule_config_from_settings
+        from app.scheduler.pull_schedule_config import (
+            default_pull_schedule_config_from_settings,
+        )
 
         mock_settings = MagicMock()
         mock_settings.task_pull_enabled = True

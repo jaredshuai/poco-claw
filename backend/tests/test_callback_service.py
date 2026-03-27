@@ -7,6 +7,30 @@ from app.schemas.callback import AgentCallbackRequest, CallbackStatus
 from app.services.callback_service import CallbackService
 
 
+def create_mock_db_session(
+    session_id: uuid.UUID | None = None,
+    status: str = "running",
+    title: str = "Test Session",
+    sdk_session_id: str = "sdk-123",
+    workspace_export_status: str | None = None,
+    workspace_files_prefix: str | None = None,
+    workspace_manifest_key: str | None = None,
+    workspace_archive_key: str | None = None,
+) -> MagicMock:
+    """Helper to create a properly configured mock AgentSession."""
+    mock = MagicMock()
+    mock.id = session_id or uuid.uuid4()
+    mock.status = status
+    mock.title = title
+    mock.sdk_session_id = sdk_session_id
+    mock.workspace_export_status = workspace_export_status
+    mock.workspace_files_prefix = workspace_files_prefix
+    mock.workspace_manifest_key = workspace_manifest_key
+    mock.workspace_archive_key = workspace_archive_key
+    mock.state_patch = None
+    return mock
+
+
 def create_callback_request(
     session_id: str = "session-1",
     status: CallbackStatus = CallbackStatus.COMPLETED,
@@ -707,6 +731,451 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
             result = service._should_apply_workspace_export(db, db_session, db_run, callback)
             # Should return False - stale run and not a "ready" status upgrade
             self.assertFalse(result)
+
+
+class TestCallbackServiceResolveSessionAndRun(unittest.TestCase):
+    """Test _resolve_session_and_run method."""
+
+    def test_with_run_id_found(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        run_id = uuid.uuid4()
+        session_id = uuid.uuid4()
+        db_run = MagicMock()
+        db_run.session_id = session_id
+        db_session = MagicMock()
+
+        with patch("app.services.callback_service.RunRepository") as run_repo:
+            with patch("app.services.callback_service.SessionRepository") as session_repo:
+                run_repo.get_by_id.return_value = db_run
+                session_repo.get_by_id_for_update.return_value = db_session
+
+                callback = create_callback_request(run_id=str(run_id))
+                result = service._resolve_session_and_run(db, callback, run_id)
+
+                self.assertEqual(result, (db_session, db_run))
+
+    def test_with_run_id_not_found(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        run_id = uuid.uuid4()
+
+        with patch("app.services.callback_service.RunRepository") as run_repo:
+            run_repo.get_by_id.return_value = None
+
+            callback = create_callback_request(run_id=str(run_id), session_id="sdk-123")
+            with patch(
+                "app.services.callback_service.session_service"
+            ) as mock_session_svc:
+                mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = None
+                result = service._resolve_session_and_run(db, callback, run_id)
+
+                self.assertEqual(result, (None, None))
+
+    def test_without_run_id_session_found(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        session_id = uuid.uuid4()
+        db_session = create_mock_db_session(session_id=session_id)
+        db_run = MagicMock()
+
+        with patch("app.services.callback_service.SessionRepository") as session_repo:
+            with patch("app.services.callback_service.RunRepository") as run_repo:
+                session_repo.get_by_id_for_update.return_value = db_session
+                run_repo.get_latest_active_by_session.return_value = db_run
+
+                with patch(
+                    "app.services.callback_service.session_service"
+                ) as mock_session_svc:
+                    mock_session_ref = MagicMock()
+                    mock_session_ref.id = session_id
+                    mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = mock_session_ref
+
+                    callback = create_callback_request(session_id="sdk-123")
+                    result = service._resolve_session_and_run(db, callback, None)
+
+                    self.assertEqual(result, (db_session, db_run))
+
+    def test_without_run_id_session_not_found(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+
+        with patch(
+            "app.services.callback_service.session_service"
+        ) as mock_session_svc:
+            mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = None
+
+            callback = create_callback_request(session_id="sdk-123")
+            result = service._resolve_session_and_run(db, callback, None)
+
+            self.assertEqual(result, (None, None))
+
+    def test_skip_active_run_fallback(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        session_id = uuid.uuid4()
+        db_session = create_mock_db_session(session_id=session_id)
+
+        with patch("app.services.callback_service.SessionRepository") as session_repo:
+            session_repo.get_by_id_for_update.return_value = db_session
+
+            with patch(
+                "app.services.callback_service.session_service"
+            ) as mock_session_svc:
+                mock_session_ref = MagicMock()
+                mock_session_ref.id = session_id
+                mock_session_svc.find_session_by_sdk_id_or_uuid.return_value = mock_session_ref
+
+                # Terminal status with ready workspace export and no new_message
+                callback = create_callback_request(
+                    workspace_export_status="ready",
+                    new_message=None,
+                )
+                result = service._resolve_session_and_run(db, callback, None)
+
+                # Should return (db_session, None) because skip is True
+                self.assertEqual(result, (db_session, None))
+
+
+class TestCallbackServiceDetectDeliverablesIfReady(unittest.TestCase):
+    """Test _detect_deliverables_if_ready method."""
+
+    def test_not_ready_status(self) -> None:
+        db = MagicMock()
+        db_session = MagicMock()
+        service = CallbackService()
+
+        callback = create_callback_request(workspace_export_status="pending")
+        service._detect_deliverables_if_ready(
+            db=db, db_session=db_session, db_run=None, callback=callback
+        )
+        # Should not call detect
+
+    def test_no_manifest_key(self) -> None:
+        db = MagicMock()
+        db_session = MagicMock()
+        db_session.workspace_manifest_key = ""
+        service = CallbackService()
+
+        callback = create_callback_request(workspace_export_status="ready")
+        service._detect_deliverables_if_ready(
+            db=db, db_session=db_session, db_run=None, callback=callback
+        )
+        # Should not call detect
+
+    def test_with_run(self) -> None:
+        db = MagicMock()
+        db_session = MagicMock()
+        db_session.workspace_manifest_key = "manifest.json"
+        db_run = MagicMock()
+
+        service = CallbackService()
+
+        callback = create_callback_request(workspace_export_status="ready")
+        with patch.object(
+            service._deliverable_detection, "detect_for_completed_run"
+        ) as mock_detect:
+            service._detect_deliverables_if_ready(
+                db=db, db_session=db_session, db_run=db_run, callback=callback
+            )
+            mock_detect.assert_called_once_with(db, session=db_session, run=db_run)
+
+    def test_without_run_finds_terminal(self) -> None:
+        db = MagicMock()
+        db_session = MagicMock()
+        db_session.id = uuid.uuid4()
+        db_session.workspace_manifest_key = "manifest.json"
+        terminal_run = MagicMock()
+
+        service = CallbackService()
+
+        callback = create_callback_request(workspace_export_status="ready")
+        with patch("app.services.callback_service.RunRepository") as run_repo:
+            with patch.object(
+                service._deliverable_detection, "detect_for_completed_run"
+            ) as mock_detect:
+                run_repo.get_latest_terminal_by_session.return_value = terminal_run
+                service._detect_deliverables_if_ready(
+                    db=db, db_session=db_session, db_run=None, callback=callback
+                )
+                mock_detect.assert_called_once()
+
+    def test_without_run_no_terminal(self) -> None:
+        db = MagicMock()
+        db_session = MagicMock()
+        db_session.id = uuid.uuid4()
+        db_session.workspace_manifest_key = "manifest.json"
+
+        service = CallbackService()
+
+        callback = create_callback_request(workspace_export_status="ready")
+        with patch("app.services.callback_service.RunRepository") as run_repo:
+            with patch.object(
+                service._deliverable_detection, "detect_for_completed_run"
+            ) as mock_detect:
+                run_repo.get_latest_terminal_by_session.return_value = None
+                service._detect_deliverables_if_ready(
+                    db=db, db_session=db_session, db_run=None, callback=callback
+                )
+                mock_detect.assert_not_called()
+
+
+class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
+    """Test process_agent_callback method."""
+
+    def test_session_not_found(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (None, None)
+
+            callback = create_callback_request(session_id="unknown-session")
+            result = service.process_agent_callback(db, callback)
+
+            self.assertEqual(result.status, "callback_received")
+            assert result.message is not None
+            self.assertIn("not found", result.message)
+
+    def test_canceled_session(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session(status="canceled")
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, None)
+
+            callback = create_callback_request()
+            result = service.process_agent_callback(db, callback)
+
+            self.assertEqual(result.status, "canceled")
+
+    def test_updates_sdk_session_id_from_message(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session(sdk_session_id="old-sdk-id")
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, None)
+
+            callback = create_callback_request(
+                new_message={
+                    "_type": "ResultMessage",
+                    "session_id": "new-sdk-id",
+                }
+            )
+            with patch("app.services.deliverable_detection_service.S3StorageService"):
+                result = service.process_agent_callback(db, callback)
+
+                self.assertEqual(db_session.sdk_session_id, "new-sdk-id")
+                db.commit.assert_called_once()
+
+    def test_persists_new_message(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, None)
+
+            with patch.object(
+                service, "_should_skip_duplicate_result_message"
+            ) as mock_skip:
+                mock_skip.return_value = False
+
+                with patch.object(
+                    service, "_persist_message_and_tools"
+                ) as mock_persist:
+                    mock_message = MagicMock()
+                    mock_persist.return_value = mock_message
+
+                    callback = create_callback_request(
+                        status=CallbackStatus.RUNNING,
+                        new_message={
+                            "_type": "AssistantMessage",
+                            "content": [{"_type": "TextBlock", "text": "Hello"}],
+                        },
+                    )
+                    with patch("app.services.deliverable_detection_service.S3StorageService"):
+                        result = service.process_agent_callback(db, callback)
+
+                        mock_persist.assert_called_once()
+
+    def test_skips_duplicate_message(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, None)
+
+            with patch.object(
+                service, "_should_skip_duplicate_result_message"
+            ) as mock_skip:
+                mock_skip.return_value = True
+
+                with patch.object(
+                    service, "_persist_message_and_tools"
+                ) as mock_persist:
+                    with patch("app.services.deliverable_detection_service.S3StorageService"):
+                        callback = create_callback_request(
+                            new_message={"_type": "ResultMessage"}
+                        )
+                        result = service.process_agent_callback(db, callback)
+
+                        mock_persist.assert_not_called()
+
+    def test_applies_workspace_export(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, None)
+
+            with patch.object(
+                service, "_should_apply_workspace_export"
+            ) as mock_apply:
+                mock_apply.return_value = True
+
+                with patch.object(
+                    service, "_should_preserve_existing_ready_workspace"
+                ) as mock_preserve:
+                    mock_preserve.return_value = False
+
+                    with patch("app.services.deliverable_detection_service.S3StorageService"):
+                        callback = create_callback_request(
+                            workspace_files_prefix="files/",
+                            workspace_manifest_key="manifest.json",
+                            workspace_archive_key="archive.zip",
+                            workspace_export_status="ready",
+                        )
+                        result = service.process_agent_callback(db, callback)
+
+                        self.assertEqual(db_session.workspace_files_prefix, "files/")
+                        self.assertEqual(db_session.workspace_manifest_key, "manifest.json")
+                        self.assertEqual(db_session.workspace_archive_key, "archive.zip")
+                        self.assertEqual(db_session.workspace_export_status, "ready")
+
+    def test_run_completed(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session()
+        db_run = MagicMock()
+        db_run.id = uuid.uuid4()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, db_run)
+
+            with patch(
+                "app.services.callback_service.run_lifecycle_service"
+            ) as mock_lifecycle:
+                with patch("app.services.deliverable_detection_service.S3StorageService"):
+                    callback = create_callback_request(status=CallbackStatus.COMPLETED)
+                    result = service.process_agent_callback(db, callback)
+
+                    self.assertEqual(db_run.progress, 100)
+                    mock_lifecycle.finalize_terminal.assert_called_once()
+
+    def test_run_failed(self) -> None:
+        db = MagicMock()
+        service = CallbackService()
+        db_session = create_mock_db_session()
+        db_run = MagicMock()
+        db_run.id = uuid.uuid4()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, db_run)
+
+            with patch(
+                "app.services.callback_service.run_lifecycle_service"
+            ) as mock_lifecycle:
+                with patch("app.services.deliverable_detection_service.S3StorageService"):
+                    callback = create_callback_request(
+                        status=CallbackStatus.FAILED, error_message="Something went wrong"
+                    )
+                    result = service.process_agent_callback(db, callback)
+
+                    mock_lifecycle.finalize_terminal.assert_called_once_with(
+                        db, db_run, status="failed", error_message="Something went wrong"
+                    )
+
+
+class TestExtractVisibleMessageText(unittest.TestCase):
+    """Test _extract_visible_message_text helper function."""
+
+    def test_text_block_content(self) -> None:
+        from app.services.callback_service import _extract_visible_message_text
+
+        message = {
+            "content": [
+                {"_type": "TextBlock", "text": "Hello"},
+                {"_type": "TextBlock", "text": "World"},
+            ]
+        }
+        result = _extract_visible_message_text(message)
+        self.assertEqual(result, "Hello\n\nWorld")
+
+    def test_result_field(self) -> None:
+        from app.services.callback_service import _extract_visible_message_text
+
+        message = {"result": "Task completed"}
+        result = _extract_visible_message_text(message)
+        self.assertEqual(result, "Task completed")
+
+    def test_text_field(self) -> None:
+        from app.services.callback_service import _extract_visible_message_text
+
+        message = {"text": "Plain text"}
+        result = _extract_visible_message_text(message)
+        self.assertEqual(result, "Plain text")
+
+    def test_no_text(self) -> None:
+        from app.services.callback_service import _extract_visible_message_text
+
+        message = {"content": []}
+        result = _extract_visible_message_text(message)
+        self.assertIsNone(result)
+
+    def test_empty_text_blocks(self) -> None:
+        from app.services.callback_service import _extract_visible_message_text
+
+        message = {
+            "content": [
+                {"_type": "TextBlock", "text": ""},
+                {"_type": "TextBlock", "text": "   "},
+            ]
+        }
+        result = _extract_visible_message_text(message)
+        self.assertIsNone(result)
+
+
+class TestNormalizeVisibleMessageText(unittest.TestCase):
+    """Test _normalize_visible_message_text helper function."""
+
+    def test_none_input(self) -> None:
+        from app.services.callback_service import _normalize_visible_message_text
+
+        result = _normalize_visible_message_text(None)
+        self.assertEqual(result, "")
+
+    def test_empty_string(self) -> None:
+        from app.services.callback_service import _normalize_visible_message_text
+
+        result = _normalize_visible_message_text("")
+        self.assertEqual(result, "")
+
+    def test_removes_replacement_char(self) -> None:
+        from app.services.callback_service import _normalize_visible_message_text
+
+        result = _normalize_visible_message_text("Hello\ufffdWorld")
+        self.assertEqual(result, "HelloWorld")
+
+    def test_strips_whitespace(self) -> None:
+        from app.services.callback_service import _normalize_visible_message_text
+
+        result = _normalize_visible_message_text("  Hello World  ")
+        self.assertEqual(result, "Hello World")
 
 
 if __name__ == "__main__":

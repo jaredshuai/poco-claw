@@ -1,4 +1,5 @@
 import unittest
+import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -821,6 +822,252 @@ class TestTaskServiceMergeConfigMapExtended(unittest.TestCase):
         defaults = {"key": "value"}
         result = TaskService._merge_config_map(defaults, None)  # type: ignore
         self.assertEqual(result, {"key": "value"})
+
+
+class TestTaskServiceValidateModelExtended(unittest.TestCase):
+    """Extended tests for _validate_and_normalize_model."""
+
+    @patch("app.services.task_service.get_allowed_model_ids")
+    @patch("app.services.task_service.get_settings")
+    def test_model_not_allowed_no_provider(self, mock_settings: MagicMock, mock_allowed: MagicMock) -> None:
+        """Test model not in allowed list and no provider_id (line 90-94)."""
+        settings = MagicMock()
+        settings.default_model = "default-model"
+        mock_settings.return_value = settings
+        mock_allowed.return_value = ["allowed-model"]
+
+        config = {"model": "unknown-model"}
+        with self.assertRaises(AppException) as ctx:
+            TaskService._validate_and_normalize_model(config)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+        self.assertIn("Invalid model", str(ctx.exception.message))
+
+    @patch("app.services.task_service.infer_provider_id")
+    @patch("app.services.task_service.get_allowed_model_ids")
+    @patch("app.services.task_service.get_settings")
+    def test_model_with_inferred_provider(
+        self, mock_settings: MagicMock, mock_allowed: MagicMock, mock_infer: MagicMock
+    ) -> None:
+        """Test model with inferred provider_id (line 98-99)."""
+        settings = MagicMock()
+        settings.default_model = "default-model"
+        mock_settings.return_value = settings
+        mock_allowed.return_value = []
+        mock_infer.return_value = "anthropic"
+
+        config = {"model": "claude-3-opus"}
+        TaskService._validate_and_normalize_model(config)
+        self.assertEqual(config["model"], "claude-3-opus")
+        self.assertEqual(config["model_provider_id"], "anthropic")
+
+
+class TestTaskServiceApplyProjectRepoDefaultsExtended(unittest.TestCase):
+    """Extended tests for _apply_project_repo_defaults."""
+
+    def test_project_none(self) -> None:
+        """Test with None project."""
+        config = {"key": "value"}
+        result = TaskService._apply_project_repo_defaults(config, None)
+        self.assertEqual(result, {"key": "value"})
+
+    def test_project_no_repo_url(self) -> None:
+        """Test project with empty repo_url (line 140)."""
+        config = {"other": "value"}
+        project = MagicMock()
+        project.repo_url = ""
+        result = TaskService._apply_project_repo_defaults(config, project)
+        self.assertNotIn("repo_url", result)
+
+    def test_config_explicit_empty_repo_url(self) -> None:
+        """Test explicit empty repo_url in config (line 162-163)."""
+        config = {"repo_url": ""}
+        project = MagicMock()
+        project.repo_url = "https://github.com/test/repo"
+        result = TaskService._apply_project_repo_defaults(config, project)
+        self.assertEqual(result["repo_url"], "")
+
+    def test_config_same_repo_url_fills_branch(self) -> None:
+        """Test same repo_url fills branch/token (line 167-175)."""
+        config = {"repo_url": "https://github.com/test/repo"}
+        project = MagicMock()
+        project.repo_url = "https://github.com/test/repo"
+        project.git_branch = "main"
+        project.git_token_env_key = "GIT_TOKEN"
+        result = TaskService._apply_project_repo_defaults(config, project)
+        self.assertEqual(result["git_branch"], "main")
+        self.assertEqual(result["git_token_env_key"], "GIT_TOKEN")
+
+    def test_config_different_repo_url_no_fill(self) -> None:
+        """Test different repo_url doesn't fill defaults."""
+        config = {"repo_url": "https://github.com/other/repo"}
+        project = MagicMock()
+        project.repo_url = "https://github.com/test/repo"
+        project.git_branch = "main"
+        project.git_token_env_key = "GIT_TOKEN"
+        result = TaskService._apply_project_repo_defaults(config, project)
+        self.assertNotIn("git_branch", result)
+
+
+class TestTaskServiceEnqueueTask(unittest.TestCase):
+    """Test enqueue_task method."""
+
+    def setUp(self) -> None:
+        self.db = MagicMock()
+        self.service = TaskService()
+        self.user_id = "user-123"
+
+    @patch("app.services.task_service.SessionRepository")
+    @patch("app.services.task_service.ProjectRepository")
+    @patch("app.services.task_service.SessionQueueService")
+    def test_enqueue_task_empty_prompt(
+        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        """Test enqueue_task with empty prompt raises error (line 248-253)."""
+        request = MagicMock()
+        request.prompt = "   "
+        request.schedule_mode = "immediate"
+        request.scheduled_at = None
+        request.timezone = None
+        request.project_id = None
+        request.session_id = None
+        request.permission_mode = "default"
+        request.config = None
+        request.client_request_id = None
+
+        with self.assertRaises(AppException) as ctx:
+            self.service.enqueue_task(self.db, self.user_id, request)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+        self.assertIn("empty", ctx.exception.message.lower())
+
+    @patch("app.services.task_service.SessionRepository")
+    @patch("app.services.task_service.ProjectRepository")
+    @patch("app.services.task_service.SessionQueueService")
+    def test_enqueue_task_invalid_permission_mode(
+        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        """Test enqueue_task with invalid permission_mode (line 258-267)."""
+        request = MagicMock()
+        request.prompt = "test prompt"
+        request.schedule_mode = "immediate"
+        request.scheduled_at = None
+        request.timezone = None
+        request.project_id = None
+        request.session_id = None
+        request.permission_mode = "invalid_mode"
+        request.config = None
+        request.client_request_id = None
+
+        with self.assertRaises(AppException) as ctx:
+            self.service.enqueue_task(self.db, self.user_id, request)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+        self.assertIn("Invalid permission_mode", ctx.exception.message)
+
+    @patch("app.services.task_service.SessionRepository")
+    @patch("app.services.task_service.ProjectRepository")
+    @patch("app.services.task_service.SessionQueueService")
+    def test_enqueue_task_project_not_found(
+        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        """Test enqueue_task with project not found (line 273-278)."""
+        request = MagicMock()
+        request.prompt = "test prompt"
+        request.schedule_mode = "immediate"
+        request.scheduled_at = None
+        request.timezone = None
+        request.project_id = uuid.uuid4()
+        request.session_id = None
+        request.permission_mode = "default"
+        request.config = None
+        request.client_request_id = None
+
+        mock_project_repo.get_by_id.return_value = None
+
+        with self.assertRaises(AppException) as ctx:
+            self.service.enqueue_task(self.db, self.user_id, request)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.PROJECT_NOT_FOUND)
+
+    @patch("app.services.task_service.SessionRepository")
+    @patch("app.services.task_service.ProjectRepository")
+    @patch("app.services.task_service.SessionQueueService")
+    def test_enqueue_task_session_not_found(
+        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        """Test enqueue_task with session not found (line 284-288)."""
+        request = MagicMock()
+        request.prompt = "test prompt"
+        request.schedule_mode = "immediate"
+        request.scheduled_at = None
+        request.timezone = None
+        request.project_id = None
+        request.session_id = uuid.uuid4()
+        request.permission_mode = "default"
+        request.config = None
+        request.client_request_id = None
+
+        mock_session_repo.get_by_id_for_update.return_value = None
+
+        with self.assertRaises(AppException) as ctx:
+            self.service.enqueue_task(self.db, self.user_id, request)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.NOT_FOUND)
+
+    @patch("app.services.task_service.SessionRepository")
+    @patch("app.services.task_service.ProjectRepository")
+    @patch("app.services.task_service.SessionQueueService")
+    def test_enqueue_task_session_wrong_user(
+        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        """Test enqueue_task with session wrong user (line 289-293)."""
+        request = MagicMock()
+        request.prompt = "test prompt"
+        request.schedule_mode = "immediate"
+        request.scheduled_at = None
+        request.timezone = None
+        request.project_id = None
+        request.session_id = uuid.uuid4()
+        request.permission_mode = "default"
+        request.config = None
+        request.client_request_id = None
+
+        mock_session = MagicMock()
+        mock_session.user_id = "other-user"
+        mock_session_repo.get_by_id_for_update.return_value = mock_session
+
+        with self.assertRaises(AppException) as ctx:
+            self.service.enqueue_task(self.db, self.user_id, request)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.FORBIDDEN)
+
+    @patch("app.services.task_service.SessionRepository")
+    @patch("app.services.task_service.ProjectRepository")
+    @patch("app.services.task_service.SessionQueueService")
+    def test_enqueue_task_project_session_mismatch(
+        self, mock_queue_service: MagicMock, mock_project_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        """Test enqueue_task with project_id/session_id mismatch (line 294-298)."""
+        project_id = uuid.uuid4()
+        session_id = uuid.uuid4()
+        request = MagicMock()
+        request.prompt = "test prompt"
+        request.schedule_mode = "immediate"
+        request.scheduled_at = None
+        request.timezone = None
+        request.project_id = project_id
+        request.session_id = session_id
+        request.permission_mode = "default"
+        request.config = None
+        request.client_request_id = None
+
+        mock_session = MagicMock()
+        mock_session.user_id = self.user_id
+        mock_session.project_id = uuid.uuid4()  # Different project
+        mock_session_repo.get_by_id_for_update.return_value = mock_session
+
+        # Project lookup fails because session's project is different
+        mock_project_repo.get_by_id.return_value = None
+
+        with self.assertRaises(AppException) as ctx:
+            self.service.enqueue_task(self.db, self.user_id, request)
+        # The error is PROJECT_NOT_FOUND because project_repo.get_by_id returns None
+        self.assertEqual(ctx.exception.error_code, ErrorCode.PROJECT_NOT_FOUND)
 
 
 if __name__ == "__main__":

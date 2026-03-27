@@ -50,14 +50,6 @@ class ContainerPool:
             "EXECUTOR_TIMEZONE": settings.executor_timezone,
         }
 
-        anthropic_auth_token = (settings.anthropic_auth_token or "").strip()
-        if anthropic_auth_token:
-            environment["ANTHROPIC_AUTH_TOKEN"] = anthropic_auth_token
-
-        anthropic_api_key = (settings.anthropic_api_key or "").strip()
-        if anthropic_api_key:
-            environment["ANTHROPIC_API_KEY"] = anthropic_api_key
-
         if browser_enabled:
             environment["POCO_BROWSER_VIEWPORT_SIZE"] = (
                 settings.poco_browser_viewport_size

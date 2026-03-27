@@ -1,7 +1,7 @@
 """Tests for app/core/middleware/request_logging.py."""
 import logging
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

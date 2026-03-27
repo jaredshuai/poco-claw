@@ -1,5 +1,4 @@
 """Tests for workspace_export_service.py."""
-import json
 import tempfile
 import unittest
 import zipfile

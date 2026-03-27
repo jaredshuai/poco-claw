@@ -15,7 +15,7 @@ class TestClaudeMdStagerInit(unittest.TestCase):
         ) as mock_workspace_cls:
             mock_workspace_cls.return_value = MagicMock()
 
-            stager = ClaudeMdStager()
+            ClaudeMdStager()
 
             mock_workspace_cls.assert_called_once()
 

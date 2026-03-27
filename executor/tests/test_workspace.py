@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -193,7 +193,7 @@ class TestWorkspaceManagerEnsureGitRepo(unittest.TestCase):
     def test_init_new_repo(self) -> None:
         with patch(
             "app.core.workspace.is_repository", return_value=False
-        ) as mock_is_repo:
+        ):
             with patch(
                 "app.core.workspace.init_repository"
             ) as mock_init:
@@ -203,10 +203,10 @@ class TestWorkspaceManagerEnsureGitRepo(unittest.TestCase):
     def test_init_fails_silently(self) -> None:
         with patch(
             "app.core.workspace.is_repository", return_value=False
-        ) as mock_is_repo:
+        ):
             with patch(
                 "app.core.workspace.init_repository", side_effect=Exception("fail")
-            ) as mock_init:
+            ):
                 # Should not raise
                 WorkspaceManager._ensure_git_repo(Path("/workspace"))
 
@@ -371,7 +371,7 @@ class TestWorkspaceManagerEnsureClonedRepo(unittest.TestCase):
                     repo_path = Path(tmpdir) / "repo"
                     repo_path.mkdir()
 
-                    result = manager._ensure_cloned_repo(
+                    manager._ensure_cloned_repo(
                         "https://github.com/owner/repo",
                         "main",
                         git_token=None,
@@ -401,7 +401,7 @@ class TestWorkspaceManagerEnsureClonedRepo(unittest.TestCase):
                 with patch("app.core.workspace.clone") as mock_clone:
                     mock_clone.return_value = Path(tmpdir) / "repo"
 
-                    result = manager._ensure_cloned_repo(
+                    manager._ensure_cloned_repo(
                         "https://github.com/owner/repo",
                         "main",
                         git_token=None,

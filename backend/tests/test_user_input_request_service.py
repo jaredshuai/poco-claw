@@ -11,7 +11,6 @@ from app.schemas.user_input_request import (
     UserInputRequestResponse,
 )
 from app.services.user_input_request_service import (
-    DEFAULT_EXPIRES_SECONDS,
     UserInputRequestService,
 )
 
@@ -132,7 +131,7 @@ class TestUserInputRequestServiceGetRequest(unittest.TestCase):
         )
         mock_repo.get_by_id.return_value = mock_entry
 
-        result = self.service.get_request(self.db, str(mock_entry.id), allow_expire=True)
+        self.service.get_request(self.db, str(mock_entry.id), allow_expire=True)
 
         self.assertEqual(mock_entry.status, "expired")
 

@@ -302,7 +302,7 @@ class TestProjectServiceCreateProject(unittest.TestCase):
             mock_repo.create.return_value = None
 
             service = ProjectService()
-            result = service.create_project(db, user_id, request)
+            service.create_project(db, user_id, request)
 
             db.commit.assert_called_once()
 
@@ -355,7 +355,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
         ) as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
-            result = service.update_project(db, user_id, project_id, request)
+            service.update_project(db, user_id, project_id, request)
             self.assertEqual(mock_project.name, "New Name")
             db.commit.assert_called_once()
 
@@ -376,7 +376,7 @@ class TestProjectServiceUpdateProject(unittest.TestCase):
         ) as mock_repo:
             mock_repo.get_by_id.return_value = mock_project
             service = ProjectService()
-            result = service.update_project(db, user_id, project_id, request)
+            service.update_project(db, user_id, project_id, request)
             self.assertEqual(
                 mock_project.repo_url, "https://github.com/owner/new-repo"
             )

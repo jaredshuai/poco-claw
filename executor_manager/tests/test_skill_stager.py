@@ -21,7 +21,7 @@ class TestSkillStagerInit(unittest.TestCase):
             mock_storage_cls.return_value = MagicMock()
             mock_workspace_cls.return_value = MagicMock()
 
-            stager = SkillStager()
+            SkillStager()
 
             mock_storage_cls.assert_called_once()
             mock_workspace_cls.assert_called_once()
@@ -153,7 +153,7 @@ class TestSkillStagerCleanSkillsDir(unittest.TestCase):
                 has_symlink = False
 
             if has_symlink:
-                removed = SkillStager._clean_skills_dir(skills_root, set())
+                SkillStager._clean_skills_dir(skills_root, set())
                 assert not (skills_root / "skill1").exists()
 
     def test_empty_directory(self) -> None:
@@ -174,7 +174,7 @@ class TestSkillStagerCleanSkillsDir(unittest.TestCase):
                 escape_link = skills_root / "escape"
                 escape_link.symlink_to(outside_dir)
 
-                removed = SkillStager._clean_skills_dir(skills_root, set())
+                SkillStager._clean_skills_dir(skills_root, set())
 
                 assert escape_link.exists() or not escape_link.is_dir()
             except OSError:

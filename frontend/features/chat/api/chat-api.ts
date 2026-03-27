@@ -350,7 +350,10 @@ export const chatService = {
     versionId: string,
   ): Promise<DeliverableVersionToolExecutionResponse[]> => {
     return apiClient.get<DeliverableVersionToolExecutionResponse[]>(
-      API_ENDPOINTS.sessionDeliverableVersionToolExecutions(sessionId, versionId),
+      API_ENDPOINTS.sessionDeliverableVersionToolExecutions(
+        sessionId,
+        versionId,
+      ),
     );
   },
 

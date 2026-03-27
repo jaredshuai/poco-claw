@@ -12,7 +12,10 @@ interface FileChangesListProps {
   deliverables?: DeliverableResponse[];
   selectedDeliverableId?: string | null;
   selectedDeliverableVersionId?: string | null;
-  onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
+  onSelectDeliverable?: (
+    deliverableId: string,
+    versionId: string | null,
+  ) => void;
   onFileClick?: (filePath: string) => void;
 }
 

@@ -125,7 +125,7 @@ class TestConfigResolverInit(unittest.TestCase):
         with patch("app.services.config_resolver.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock()
             with patch("app.services.config_resolver.BackendClient") as mock_bc:
-                resolver = ConfigResolver()
+                ConfigResolver()
                 mock_bc.assert_called_once()
 
 
@@ -600,7 +600,7 @@ class TestConfigResolverResolveEffectiveMcpConfig:
         with patch("app.services.config_resolver.get_settings"):
             resolver.settings = MagicMock()
 
-            result = await resolver._resolve_effective_mcp_config(
+            await resolver._resolve_effective_mcp_config(
                 "user-123", {"mcp_config": {"1": True, "2": False}}
             )
 
@@ -712,7 +712,7 @@ class TestConfigResolverResolveEffectiveSubagents:
         with patch("app.services.config_resolver.get_settings"):
             resolver.settings = MagicMock()
 
-            result = await resolver._resolve_effective_subagents("user-123", {})
+            await resolver._resolve_effective_subagents("user-123", {})
 
             mock_backend.resolve_subagents.assert_called_once_with(
                 user_id="user-123", subagent_ids=None

@@ -36,7 +36,9 @@ export function useSessionDeliverables({
   isActive = false,
   pollingIntervalMs = 4000,
 }: UseSessionDeliverablesOptions): UseSessionDeliverablesReturn {
-  const [deliverables, setDeliverables] = React.useState<DeliverableResponse[]>([]);
+  const [deliverables, setDeliverables] = React.useState<DeliverableResponse[]>(
+    [],
+  );
   const [versionMap, setVersionMap] = React.useState<
     Record<string, DeliverableVersionResponse>
   >({});

@@ -17,7 +17,7 @@ class TestSlashCommandStagerInit(unittest.TestCase):
         ) as mock_workspace_cls:
             mock_workspace_cls.return_value = MagicMock()
 
-            stager = SlashCommandStager()
+            SlashCommandStager()
 
             mock_workspace_cls.assert_called_once()
 

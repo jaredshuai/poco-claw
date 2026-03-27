@@ -27,7 +27,10 @@ interface DeliverablesListProps {
   deliverables: DeliverableResponse[];
   versionMap: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId?: string | null;
-  onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
+  onSelectDeliverable?: (
+    deliverableId: string,
+    versionId: string | null,
+  ) => void;
   onFileClick?: (filePath: string) => void;
   onViewProcess?: (deliverableId: string, versionId: string) => void;
   onDownloadVersion?: (version: DeliverableVersionResponse) => void;
@@ -83,7 +86,10 @@ function DeliverableCard({
     onSelect();
   };
 
-  const fileName = latestVersion?.file_name || latestVersion?.file_path?.split("/").pop() || deliverable.logical_name;
+  const fileName =
+    latestVersion?.file_name ||
+    latestVersion?.file_path?.split("/").pop() ||
+    deliverable.logical_name;
 
   return (
     <div
@@ -99,12 +105,20 @@ function DeliverableCard({
         )}
         onClick={handleHeaderClick}
       >
-        <div className="shrink-0">{getKindIcon(deliverable.kind, "text-primary")}</div>
+        <div className="shrink-0">
+          {getKindIcon(deliverable.kind, "text-primary")}
+        </div>
         <div className="flex-1 min-w-0 overflow-hidden">
-          <p className="font-medium text-sm truncate" title={deliverable.logical_name}>
+          <p
+            className="font-medium text-sm truncate"
+            title={deliverable.logical_name}
+          >
             {deliverable.logical_name}
           </p>
-          <p className="text-xs text-muted-foreground truncate" title={fileName}>
+          <p
+            className="text-xs text-muted-foreground truncate"
+            title={fileName}
+          >
             {fileName}
           </p>
         </div>
@@ -275,13 +289,13 @@ export function DeliverablesList({
   // Separate deliverables from reference inputs and compute version history
   const deliverableVersions = deliverables
     .map((d) => {
-      const latestVersion = d.latest_version_id ? versionMap[d.latest_version_id] ?? null : null;
+      const latestVersion = d.latest_version_id
+        ? (versionMap[d.latest_version_id] ?? null)
+        : null;
       // Get older versions: all versions for this deliverable except the latest, sorted by version_no desc
       const olderVersions = Object.values(versionMap)
         .filter(
-          (v) =>
-            v.deliverable_id === d.id &&
-            v.id !== d.latest_version_id
+          (v) => v.deliverable_id === d.id && v.id !== d.latest_version_id,
         )
         .sort((a, b) => b.version_no - a.version_no);
       return { deliverable: d, latestVersion, olderVersions };
@@ -314,35 +328,41 @@ export function DeliverablesList({
                 </span>
               </div>
               <div className="space-y-2">
-                {deliverableVersions.map(({ deliverable, latestVersion, olderVersions }) => (
-                  <DeliverableCard
-                    key={deliverable.id}
-                    deliverable={deliverable}
-                    latestVersion={latestVersion}
-                    olderVersions={olderVersions}
-                    isSelected={selectedDeliverableId === deliverable.id}
-                    onSelect={() =>
-                      onSelectDeliverable?.(deliverable.id, latestVersion?.id ?? null)
-                    }
-                    onPreview={
-                      latestVersion && onPreviewVersion
-                        ? () => onPreviewVersion(latestVersion)
-                        : undefined
-                    }
-                    onViewProcess={
-                      latestVersion && onViewProcess
-                        ? () => onViewProcess(deliverable.id, latestVersion.id)
-                        : undefined
-                    }
-                    onDownload={
-                      latestVersion && onDownloadVersion
-                        ? () => onDownloadVersion(latestVersion)
-                        : undefined
-                    }
-                    onPreviewVersion={onPreviewVersion}
-                    t={t}
-                  />
-                ))}
+                {deliverableVersions.map(
+                  ({ deliverable, latestVersion, olderVersions }) => (
+                    <DeliverableCard
+                      key={deliverable.id}
+                      deliverable={deliverable}
+                      latestVersion={latestVersion}
+                      olderVersions={olderVersions}
+                      isSelected={selectedDeliverableId === deliverable.id}
+                      onSelect={() =>
+                        onSelectDeliverable?.(
+                          deliverable.id,
+                          latestVersion?.id ?? null,
+                        )
+                      }
+                      onPreview={
+                        latestVersion && onPreviewVersion
+                          ? () => onPreviewVersion(latestVersion)
+                          : undefined
+                      }
+                      onViewProcess={
+                        latestVersion && onViewProcess
+                          ? () =>
+                              onViewProcess(deliverable.id, latestVersion.id)
+                          : undefined
+                      }
+                      onDownload={
+                        latestVersion && onDownloadVersion
+                          ? () => onDownloadVersion(latestVersion)
+                          : undefined
+                      }
+                      onPreviewVersion={onPreviewVersion}
+                      t={t}
+                    />
+                  ),
+                )}
               </div>
             </div>
           )}

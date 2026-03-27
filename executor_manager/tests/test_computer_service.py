@@ -72,7 +72,7 @@ class TestComputerServiceInit(unittest.TestCase):
             mock_workspace_cls.return_value = MagicMock()
             mock_storage_cls.return_value = MagicMock()
 
-            service = ComputerService()
+            ComputerService()
 
             mock_workspace_cls.assert_called_once()
             mock_storage_cls.assert_called_once()

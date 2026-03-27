@@ -1,9 +1,8 @@
 import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from app.models.agent_run import AgentRun
 from app.repositories.run_repository import RunRepository
 
 

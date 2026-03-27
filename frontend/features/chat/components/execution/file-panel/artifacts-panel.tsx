@@ -28,7 +28,10 @@ interface ArtifactsPanelProps {
   deliverables?: DeliverableResponse[];
   versionMap?: Record<string, DeliverableVersionResponse>;
   selectedDeliverableId?: string | null;
-  onSelectDeliverable?: (deliverableId: string, versionId: string | null) => void;
+  onSelectDeliverable?: (
+    deliverableId: string,
+    versionId: string | null,
+  ) => void;
   onOpenDeliverablePreview?: (deliverableId: string, versionId: string) => void;
   onOpenDeliverableProcess?: (deliverableId: string, versionId: string) => void;
   headerAction?: React.ReactNode;

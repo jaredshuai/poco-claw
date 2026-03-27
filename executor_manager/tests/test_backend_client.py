@@ -436,7 +436,7 @@ class TestBackendClientResolveSubagents:
             with patch.object(
                 client._client, "request", AsyncMock(return_value=mock_response)
             ) as mock_request:
-                result = await client.resolve_subagents("user-123", [1, 2])
+                await client.resolve_subagents("user-123", [1, 2])
 
                 # Verify subagent_ids was included
                 call_args = mock_request.call_args

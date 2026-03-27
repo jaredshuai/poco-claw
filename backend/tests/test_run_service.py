@@ -570,7 +570,7 @@ class TestRunServiceFailRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
-            with patch("app.services.run_service.run_lifecycle_service") as mock_lifecycle:
+            with patch("app.services.run_service.run_lifecycle_service"):
                 service = RunService()
                 result = service.fail_run(db, run_id, request)
                 self.assertIsNotNone(result)

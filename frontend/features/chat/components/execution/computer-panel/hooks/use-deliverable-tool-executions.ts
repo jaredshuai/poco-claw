@@ -70,7 +70,14 @@ export function useDeliverableToolExecutions({
       void fetchDeliverableExecutions();
     }, pollingIntervalMs);
     return () => window.clearInterval(timer);
-  }, [fetchDeliverableExecutions, isActive, mode, pollingIntervalMs, sessionId, versionId]);
+  }, [
+    fetchDeliverableExecutions,
+    isActive,
+    mode,
+    pollingIntervalMs,
+    sessionId,
+    versionId,
+  ]);
 
   if (mode !== "deliverable" || !versionId) {
     return sessionExecutions;

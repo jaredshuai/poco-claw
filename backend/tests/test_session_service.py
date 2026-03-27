@@ -57,7 +57,7 @@ class TestSessionServiceCreateSession(unittest.TestCase):
 
         request = SessionCreateRequest(config=None, project_id=None)
 
-        result = self.service.create_session(self.db, self.user_id, request)
+        self.service.create_session(self.db, self.user_id, request)
 
         mock_repo.create.assert_called_once()
         self.db.commit.assert_called_once()
@@ -78,7 +78,7 @@ class TestSessionServiceCreateSession(unittest.TestCase):
 
         request = SessionCreateRequest(config=None, project_id=project_id)
 
-        result = self.service.create_session(self.db, self.user_id, request)
+        self.service.create_session(self.db, self.user_id, request)
 
         mock_project_repo.get_by_id.assert_called_once_with(self.db, project_id)
 
@@ -123,7 +123,7 @@ class TestSessionServiceCreateSession(unittest.TestCase):
         config = TaskConfig(repo_url="https://github.com/test/repo")
         request = SessionCreateRequest(config=config, project_id=None)
 
-        result = self.service.create_session(self.db, self.user_id, request)
+        self.service.create_session(self.db, self.user_id, request)
 
         mock_repo.create.assert_called_once()
         call_args = mock_repo.create.call_args
@@ -202,7 +202,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         request = SessionUpdateRequest(status="completed")
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.status, "completed")
         self.db.commit.assert_called_once()
@@ -214,7 +214,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         request = SessionUpdateRequest(title="New Title")
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.title, "New Title")
 
@@ -249,7 +249,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         request = SessionUpdateRequest(is_pinned=True)
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertTrue(mock_session.is_pinned)
         self.assertIsNotNone(mock_session.pinned_at)
@@ -261,7 +261,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         request = SessionUpdateRequest(is_pinned=False)
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertFalse(mock_session.is_pinned)
         self.assertIsNone(mock_session.pinned_at)
@@ -281,7 +281,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         request = SessionUpdateRequest(project_id=project_id)
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.project_id, project_id)
 
@@ -310,7 +310,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         request = SessionUpdateRequest(project_id=None)
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertIsNone(mock_session.project_id)
 
@@ -329,7 +329,7 @@ class TestSessionServiceDeleteSession(unittest.TestCase):
         mock_session.id = self.session_id
         mock_repo.get_by_id.return_value = mock_session
 
-        result = self.service.delete_session(self.db, self.session_id)
+        self.service.delete_session(self.db, self.session_id)
 
         self.assertTrue(mock_session.is_deleted)
         self.db.commit.assert_called_once()
@@ -380,7 +380,7 @@ class TestSessionServiceListSessions(unittest.TestCase):
         mock_sessions = [MagicMock()]
         mock_repo.list_by_user.return_value = mock_sessions
 
-        result = self.service.list_sessions(
+        self.service.list_sessions(
             self.db, user_id=self.user_id, project_id=project_id
         )
 
@@ -490,7 +490,7 @@ class TestSessionServiceUpdateSessionMoreFields(unittest.TestCase):
 
         request = SessionUpdateRequest(title=None)
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertIsNone(mock_session.title)
 
@@ -501,7 +501,7 @@ class TestSessionServiceUpdateSessionMoreFields(unittest.TestCase):
 
         request = SessionUpdateRequest(sdk_session_id="sdk-123")
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.sdk_session_id, "sdk-123")
 
@@ -512,7 +512,7 @@ class TestSessionServiceUpdateSessionMoreFields(unittest.TestCase):
 
         request = SessionUpdateRequest(workspace_archive_url="https://archive.url")
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.workspace_archive_url, "https://archive.url")
 
@@ -523,7 +523,7 @@ class TestSessionServiceUpdateSessionMoreFields(unittest.TestCase):
 
         request = SessionUpdateRequest(state_patch={"key": "value"})
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.state_patch, {"key": "value"})
 
@@ -539,7 +539,7 @@ class TestSessionServiceUpdateSessionMoreFields(unittest.TestCase):
             workspace_export_status="completed",
         )
 
-        result = self.service.update_session(self.db, self.session_id, request)
+        self.service.update_session(self.db, self.session_id, request)
 
         self.assertEqual(mock_session.workspace_files_prefix, "prefix/")
         self.assertEqual(mock_session.workspace_manifest_key, "manifest-key")
@@ -598,7 +598,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_user_input_repo.list_pending_by_session.return_value = []
         mock_tool_repo.list_unfinished_by_session.return_value = []
 
-        result = self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertEqual(mock_session.status, "canceled")
         self.db.commit.assert_called_once()
@@ -635,7 +635,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_user_input_repo.list_pending_by_session.return_value = []
         mock_tool_repo.list_unfinished_by_session.return_value = []
 
-        result = self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertEqual(mock_run.status, "canceled")
         self.assertIsNotNone(mock_run.finished_at)
@@ -676,7 +676,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_user_input_repo.list_pending_by_session.return_value = []
         mock_tool_repo.list_unfinished_by_session.return_value = []
 
-        result = self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertEqual(mock_task.last_run_id, 1)
         self.assertEqual(mock_task.last_run_status, "canceled")
@@ -706,7 +706,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_queue_repo.mark_canceled.return_value = 0
         mock_tool_repo.list_unfinished_by_session.return_value = []
 
-        result = self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertEqual(mock_request.status, "expired")
 
@@ -739,7 +739,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_queue_repo.mark_canceled.return_value = 0
         mock_user_input_repo.list_pending_by_session.return_value = []
 
-        result = self.service.cancel_session(
+        self.service.cancel_session(
             self.db, self.session_id, user_id=self.user_id, reason="User requested"
         )
 
@@ -776,7 +776,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_queue_repo.mark_canceled.return_value = 0
         mock_user_input_repo.list_pending_by_session.return_value = []
 
-        result = self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertTrue(mock_execution.is_error)
         self.assertIsNotNone(mock_execution.duration_ms)
@@ -810,7 +810,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_queue_repo.mark_canceled.return_value = 0
         mock_user_input_repo.list_pending_by_session.return_value = []
 
-        result = self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertEqual(mock_execution.tool_output, {"content": "Canceled"})
 
@@ -977,7 +977,7 @@ class TestSessionServiceListSessionsWithKind(unittest.TestCase):
         mock_sessions = [MagicMock()]
         mock_repo.list_by_user.return_value = mock_sessions
 
-        result = self.service.list_sessions(
+        self.service.list_sessions(
             self.db, user_id=self.user_id, kind="chat"
         )
 
@@ -990,7 +990,7 @@ class TestSessionServiceListSessionsWithKind(unittest.TestCase):
         mock_sessions = [MagicMock()]
         mock_repo.list_all.return_value = mock_sessions
 
-        result = self.service.list_sessions(self.db, kind="agent")
+        self.service.list_sessions(self.db, kind="agent")
 
         mock_repo.list_all.assert_called_once()
         call_args = mock_repo.list_all.call_args

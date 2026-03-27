@@ -21,7 +21,7 @@ class TestPluginStagerInit(unittest.TestCase):
             mock_storage_cls.return_value = MagicMock()
             mock_workspace_cls.return_value = MagicMock()
 
-            stager = PluginStager()
+            PluginStager()
 
             mock_storage_cls.assert_called_once()
             mock_workspace_cls.assert_called_once()
@@ -158,7 +158,7 @@ class TestPluginStagerCleanPluginsDir(unittest.TestCase):
                 has_symlink = False
 
             if has_symlink:
-                removed = PluginStager._clean_plugins_dir(plugins_root, set())
+                PluginStager._clean_plugins_dir(plugins_root, set())
 
                 # Symlink should be skipped (not counted as removed)
                 # plugin1 is a real directory and should be removed
@@ -177,7 +177,7 @@ class TestPluginStagerCleanPluginsDir(unittest.TestCase):
                 escape_link = plugins_root / "escape"
                 escape_link.symlink_to(outside_dir)
 
-                removed = PluginStager._clean_plugins_dir(plugins_root, set())
+                PluginStager._clean_plugins_dir(plugins_root, set())
 
                 # Symlink should be skipped
                 assert escape_link.exists() or not escape_link.is_dir()

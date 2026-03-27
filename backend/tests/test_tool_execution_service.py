@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.schemas.tool_execution import ToolExecutionDeltaResponse, ToolExecutionResponse
+from app.schemas.tool_execution import ToolExecutionDeltaResponse
 from app.services.tool_execution_service import ToolExecutionService
 
 
@@ -36,7 +36,7 @@ class TestToolExecutionServiceGetToolExecutions(unittest.TestCase):
         mock_executions = []
         mock_repo.list_by_session.return_value = mock_executions
 
-        result = self.service.get_tool_executions(self.db, self.session_id)
+        self.service.get_tool_executions(self.db, self.session_id)
 
         mock_repo.list_by_session.assert_called_once()
         call_args = mock_repo.list_by_session.call_args

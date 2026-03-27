@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import docker
 import docker.errors
@@ -215,7 +215,7 @@ class ContainerPool:
             settings=self.settings,
             browser_enabled=browser_enabled,
         )
-        run_kwargs = {
+        run_kwargs: dict[str, Any] = {
             "image": image,
             "name": container_name,
             "environment": environment,
@@ -228,9 +228,7 @@ class ContainerPool:
         }
         if memory_limit is not None:
             run_kwargs["mem_limit"] = memory_limit
-        container = self.docker_client.containers.run(
-            **run_kwargs,
-        )
+        container = self.docker_client.containers.run(**cast(Any, run_kwargs))
         logger.info(
             "timing",
             extra={

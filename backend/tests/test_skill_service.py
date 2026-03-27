@@ -201,7 +201,7 @@ class TestSkillServiceGetSkill(unittest.TestCase):
         mock_repo.get_by_id.return_value = skill
         mock_infer.return_value = {"kind": "manual"}
 
-        result = self.service.get_skill(self.db, self.user_id, self.skill_id)
+        self.service.get_skill(self.db, self.user_id, self.skill_id)
 
         mock_repo.get_by_id.assert_called_once_with(self.db, self.skill_id)
 
@@ -233,7 +233,7 @@ class TestSkillServiceGetSkill(unittest.TestCase):
         mock_repo.get_by_id.return_value = skill
         mock_infer.return_value = {"kind": "system"}
 
-        result = self.service.get_skill(self.db, self.user_id, self.skill_id)
+        self.service.get_skill(self.db, self.user_id, self.skill_id)
 
         # System skills are visible to all users
         mock_repo.get_by_id.assert_called_once()
@@ -499,7 +499,7 @@ class TestSkillServiceUpdateSkill(unittest.TestCase):
 
         request = SkillUpdateRequest(name="new-name")
 
-        result = self.service.update_skill(self.db, self.user_id, self.skill_id, request)
+        self.service.update_skill(self.db, self.user_id, self.skill_id, request)
 
         mock_repo.get_by_name.assert_called_once()
         self.db.commit.assert_called_once()
@@ -529,7 +529,7 @@ class TestSkillServiceUpdateSkill(unittest.TestCase):
 
         request = SkillUpdateRequest(description="New description")
 
-        result = self.service.update_skill(self.db, self.user_id, self.skill_id, request)
+        self.service.update_skill(self.db, self.user_id, self.skill_id, request)
 
         self.db.commit.assert_called_once()
 
@@ -544,7 +544,7 @@ class TestSkillServiceUpdateSkill(unittest.TestCase):
 
         request = SkillUpdateRequest(entry={"new": "entry"})
 
-        result = self.service.update_skill(self.db, self.user_id, self.skill_id, request)
+        self.service.update_skill(self.db, self.user_id, self.skill_id, request)
 
         self.db.commit.assert_called_once()
 
@@ -559,7 +559,7 @@ class TestSkillServiceUpdateSkill(unittest.TestCase):
 
         request = SkillUpdateRequest(scope="project")
 
-        result = self.service.update_skill(self.db, self.user_id, self.skill_id, request)
+        self.service.update_skill(self.db, self.user_id, self.skill_id, request)
 
         self.db.commit.assert_called_once()
 
@@ -639,7 +639,7 @@ class TestSkillServiceStorageService(unittest.TestCase):
             "app.services.skill_service.S3StorageService"
         ) as mock_storage_cls:
             mock_storage_cls.return_value = MagicMock()
-            result = service._storage_service()
+            service._storage_service()
 
             mock_storage_cls.assert_called_once()
 
@@ -729,7 +729,7 @@ class TestSkillServiceBuildFileNodesFromPrefix(unittest.TestCase):
         mock_build_entries.return_value = [{"path": "file1.md"}]
         mock_build_workspace.return_value = [MagicMock()]
 
-        result = self.service._build_file_nodes_from_prefix("skills/user/skill")
+        self.service._build_file_nodes_from_prefix("skills/user/skill")
 
         self.storage_service.list_objects.assert_called_once()
         self.assertEqual(self.storage_service.presign_get.call_count, 2)
@@ -749,7 +749,7 @@ class TestSkillServiceBuildFileNodesFromPrefix(unittest.TestCase):
         mock_build_entries.return_value = [{"path": "file.md"}]
         mock_build_workspace.return_value = [MagicMock()]
 
-        result = self.service._build_file_nodes_from_prefix("skills/user/skill")
+        self.service._build_file_nodes_from_prefix("skills/user/skill")
 
         # Only one file (not the directory)
         self.assertEqual(self.storage_service.presign_get.call_count, 1)
@@ -780,7 +780,7 @@ class TestSkillServiceBuildFileNodesFromObject(unittest.TestCase):
         mock_build_entries.return_value = [{"path": "skill.md"}]
         mock_build_workspace.return_value = [MagicMock()]
 
-        result = self.service._build_file_nodes_from_object("skills/user/skill.md")
+        self.service._build_file_nodes_from_object("skills/user/skill.md")
 
         self.storage_service.exists.assert_called_once()
         self.storage_service.presign_get.assert_called_once()
@@ -937,7 +937,7 @@ class TestSkillServiceListSkillFilesWithStorage(unittest.TestCase):
         mock_build_entries.return_value = [{"path": "file.md"}]
         mock_build_workspace.return_value = [MagicMock()]
 
-        result = self.service.list_skill_files(self.db, self.user_id, self.skill_id)
+        self.service.list_skill_files(self.db, self.user_id, self.skill_id)
 
         self.storage_service.list_objects.assert_called_once()
         mock_build_workspace.assert_called_once()
@@ -955,7 +955,7 @@ class TestSkillServiceListSkillFilesWithStorage(unittest.TestCase):
         mock_build_entries.return_value = [{"path": "skill.md"}]
         mock_build_workspace.return_value = [MagicMock()]
 
-        result = self.service.list_skill_files(self.db, self.user_id, self.skill_id)
+        self.service.list_skill_files(self.db, self.user_id, self.skill_id)
 
         self.storage_service.exists.assert_called_once()
         mock_build_workspace.assert_called_once()
@@ -996,7 +996,7 @@ class TestSkillServiceEdgeCases(unittest.TestCase):
         mock_build_entries.return_value = [{"path": "valid.md"}]
         mock_build_workspace.return_value = [MagicMock()]
 
-        result = self.service._build_file_nodes_from_prefix("skills/user/skill")
+        self.service._build_file_nodes_from_prefix("skills/user/skill")
 
         # Only one presign_get call (for valid.md, not for invalid)
         self.assertEqual(self.storage_service.presign_get.call_count, 1)
@@ -1047,7 +1047,7 @@ class TestSkillServiceEdgeCases(unittest.TestCase):
 
             self.db.refresh.side_effect = mock_refresh
 
-            result = self.service.update_skill(self.db, self.user_id, self.skill_id, request)
+            self.service.update_skill(self.db, self.user_id, self.skill_id, request)
 
             self.assertEqual(skill.entry["s3_key"], "new/path/")
 
@@ -1072,7 +1072,7 @@ class TestSkillServiceEdgeCases(unittest.TestCase):
 
             self.db.refresh.side_effect = mock_refresh
 
-            result = self.service.update_skill(self.db, self.user_id, self.skill_id, request)
+            self.service.update_skill(self.db, self.user_id, self.skill_id, request)
 
             # Entry should remain unchanged
             self.assertEqual(skill.entry["s3_key"], "skills/user/skill/")

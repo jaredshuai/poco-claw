@@ -121,8 +121,8 @@ export function DeliverableCardGroup({
                     onOpenPreview?.(card.deliverableId, previousVersion.id)
                   }
                 >
-                  <History className="mr-1 size-4" />
-                  v{previousVersion.version_no}
+                  <History className="mr-1 size-4" />v
+                  {previousVersion.version_no}
                 </Button>
               ) : null}
             </div>

@@ -4,7 +4,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from app.core.engine import AgentExecutor, _temporary_env_overrides
 from app.schemas.request import TaskConfig

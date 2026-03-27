@@ -103,7 +103,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         db_run.status = "queued"
         db_run.started_at = None
 
-        result = self.service.mark_running(self.db, db_run)
+        self.service.mark_running(self.db, db_run)
 
         self.assertEqual(db_run.status, "running")
         self.assertIsNotNone(db_run.started_at)
@@ -140,7 +140,7 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
 
         mock_queue.promote_next_if_available.return_value = None
 
-        result = self.service.finalize_terminal(self.db, db_run, status="completed")
+        self.service.finalize_terminal(self.db, db_run, status="completed")
 
         self.assertEqual(db_run.status, "completed")
         self.assertEqual(db_run.progress, 100)
@@ -157,7 +157,7 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         db_run.status = "running"
         db_run.finished_at = None
 
-        result = self.service.finalize_terminal(
+        self.service.finalize_terminal(
             self.db, db_run, status="failed", error_message="Error message"
         )
 
@@ -176,7 +176,7 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         db_run.status = "running"
         db_run.finished_at = None
 
-        result = self.service.finalize_terminal(self.db, db_run, status="canceled")
+        self.service.finalize_terminal(self.db, db_run, status="canceled")
 
         self.assertEqual(db_run.status, "canceled")
         mock_queue.cancel_active_items.assert_called_once()

@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import MagicMock, patch
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException

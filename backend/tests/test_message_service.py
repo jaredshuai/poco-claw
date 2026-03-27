@@ -3,7 +3,6 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from pydantic import ValidationError
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -311,7 +310,7 @@ class TestMessageServiceGetMessagesDelta(unittest.TestCase):
         ) as mock_repo:
             mock_repo.list_by_session_after_id.return_value = []
             service = MessageService()
-            result = service.get_messages_delta(db, session_id, after_message_id=5, limit=10)
+            service.get_messages_delta(db, session_id, after_message_id=5, limit=10)
 
             mock_repo.list_by_session_after_id.assert_called_once()
 
@@ -328,10 +327,10 @@ class TestMessageServiceGetMessagesWithFilesDelta(unittest.TestCase):
         ) as mock_msg_repo:
             with patch(
                 "app.services.message_service.RunRepository"
-            ) as mock_run_repo:
+            ):
                 with patch(
                     "app.services.message_service.S3StorageService"
-                ) as mock_storage_cls:
+                ):
                     mock_msg_repo.list_by_session_after_id.return_value = []
                     service = MessageService()
                     result = service.get_messages_with_files_delta(
@@ -355,7 +354,7 @@ class TestMessageServiceGetMessagesWithFilesDelta(unittest.TestCase):
             ) as mock_run_repo:
                 with patch(
                     "app.services.message_service.S3StorageService"
-                ) as mock_storage_cls:
+                ):
                     mock_msg_repo.list_by_session_after_id.return_value = [mock_message]
                     mock_run_repo.list_by_session_and_user_message_ids.return_value = []
 
@@ -398,7 +397,7 @@ class TestMessageServiceGetMessageAttachmentsDelta(unittest.TestCase):
             ) as mock_run_repo:
                 with patch(
                     "app.services.message_service.S3StorageService"
-                ) as mock_storage_cls:
+                ):
                     mock_msg_repo.list_ids_by_session_after_id.return_value = [1, 2]
                     mock_run_repo.list_by_session_and_user_message_ids.return_value = []
 
@@ -420,7 +419,7 @@ class TestMessageServiceGetMessageAttachmentsDelta(unittest.TestCase):
         ) as mock_msg_repo:
             with patch(
                 "app.services.message_service.S3StorageService"
-            ) as mock_storage_cls:
+            ):
                 mock_msg_repo.list_ids_by_session_after_id.return_value = [1, 2, 3]
 
                 service = MessageService()
@@ -444,7 +443,7 @@ class TestMessageServiceGetMessageAttachments(unittest.TestCase):
         ):
             with patch(
                 "app.services.message_service.S3StorageService"
-            ) as mock_storage_cls:
+            ):
                 service = MessageService()
                 result = service.get_message_attachments(db, session_id, user_id="user-123")
 
@@ -518,7 +517,7 @@ class TestMessageServiceGetMessagesWithFiles(unittest.TestCase):
             ) as mock_run_repo:
                 with patch(
                     "app.services.message_service.S3StorageService"
-                ) as mock_storage_cls:
+                ):
                     mock_msg_repo.list_by_session.return_value = []
                     mock_run_repo.list_by_session.return_value = []
 

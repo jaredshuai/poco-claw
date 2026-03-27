@@ -965,7 +965,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                 }
             )
             with patch("app.services.deliverable_detection_service.S3StorageService"):
-                result = service.process_agent_callback(db, callback)
+                service.process_agent_callback(db, callback)
 
                 self.assertEqual(db_session.sdk_session_id, "new-sdk-id")
                 db.commit.assert_called_once()
@@ -997,7 +997,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                         },
                     )
                     with patch("app.services.deliverable_detection_service.S3StorageService"):
-                        result = service.process_agent_callback(db, callback)
+                        service.process_agent_callback(db, callback)
 
                         mock_persist.assert_called_once()
 
@@ -1021,7 +1021,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                         callback = create_callback_request(
                             new_message={"_type": "ResultMessage"}
                         )
-                        result = service.process_agent_callback(db, callback)
+                        service.process_agent_callback(db, callback)
 
                         mock_persist.assert_not_called()
 
@@ -1050,7 +1050,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                             workspace_archive_key="archive.zip",
                             workspace_export_status="ready",
                         )
-                        result = service.process_agent_callback(db, callback)
+                        service.process_agent_callback(db, callback)
 
                         self.assertEqual(db_session.workspace_files_prefix, "files/")
                         self.assertEqual(db_session.workspace_manifest_key, "manifest.json")
@@ -1072,7 +1072,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
             ) as mock_lifecycle:
                 with patch("app.services.deliverable_detection_service.S3StorageService"):
                     callback = create_callback_request(status=CallbackStatus.COMPLETED)
-                    result = service.process_agent_callback(db, callback)
+                    service.process_agent_callback(db, callback)
 
                     self.assertEqual(db_run.progress, 100)
                     mock_lifecycle.finalize_terminal.assert_called_once()
@@ -1094,7 +1094,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
                     callback = create_callback_request(
                         status=CallbackStatus.FAILED, error_message="Something went wrong"
                     )
-                    result = service.process_agent_callback(db, callback)
+                    service.process_agent_callback(db, callback)
 
                     mock_lifecycle.finalize_terminal.assert_called_once_with(
                         db, db_run, status="failed", error_message="Something went wrong"

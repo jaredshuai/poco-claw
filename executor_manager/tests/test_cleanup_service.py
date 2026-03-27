@@ -16,7 +16,7 @@ class TestCleanupServiceInit(unittest.TestCase):
         ) as mock_workspace_cls:
             mock_workspace_cls.return_value = MagicMock()
 
-            service = CleanupService(scheduler=mock_scheduler)
+            CleanupService(scheduler=mock_scheduler)
 
             mock_scheduler.add_job.assert_called_once()
             call_kwargs = mock_scheduler.add_job.call_args[1]
@@ -162,7 +162,7 @@ class TestCleanupServiceScheduleCleanupJob(unittest.TestCase):
         ) as mock_workspace_cls:
             mock_workspace_cls.return_value = MagicMock()
 
-            service = CleanupService(scheduler=mock_scheduler)
+            CleanupService(scheduler=mock_scheduler)
 
             # Verify the job was added with correct parameters
             assert mock_scheduler.add_job.call_count == 1
@@ -176,7 +176,7 @@ class TestCleanupServiceScheduleCleanupJob(unittest.TestCase):
         ) as mock_workspace_cls:
             mock_workspace_cls.return_value = MagicMock()
 
-            service = CleanupService(scheduler=mock_scheduler)
+            CleanupService(scheduler=mock_scheduler)
 
             call_kwargs = mock_scheduler.add_job.call_args[1]
             assert call_kwargs["replace_existing"] is True

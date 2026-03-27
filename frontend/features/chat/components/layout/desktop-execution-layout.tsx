@@ -35,7 +35,10 @@ interface DesktopExecutionLayoutProps {
   selectedDeliverableId: string | null;
   selectedDeliverableVersionId: string | null;
   processMode: "deliverable" | "session";
-  onSelectDeliverable: (deliverableId: string, versionId: string | null) => void;
+  onSelectDeliverable: (
+    deliverableId: string,
+    versionId: string | null,
+  ) => void;
   onProcessModeChange: (mode: "deliverable" | "session") => void;
   onOpenDeliverablePreview: (deliverableId: string, versionId: string) => void;
   onOpenDeliverableProcess: (deliverableId: string, versionId: string) => void;
@@ -135,7 +138,9 @@ export function DesktopExecutionLayout({
                           sessionId={sessionId}
                           sessionStatus={session?.status}
                           browserEnabled={browserEnabled}
-                          selectedDeliverableVersionId={selectedDeliverableVersionId}
+                          selectedDeliverableVersionId={
+                            selectedDeliverableVersionId
+                          }
                           processMode={processMode}
                           onProcessModeChange={onProcessModeChange}
                           hideHeader

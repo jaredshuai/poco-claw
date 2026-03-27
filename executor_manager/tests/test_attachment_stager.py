@@ -21,7 +21,7 @@ class TestAttachmentStagerInit(unittest.TestCase):
             mock_storage_cls.return_value = MagicMock()
             mock_workspace_cls.return_value = MagicMock()
 
-            stager = AttachmentStager()
+            AttachmentStager()
 
             mock_storage_cls.assert_called_once()
             mock_workspace_cls.assert_called_once()
@@ -281,7 +281,7 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
             with patch.object(
                 stager, "storage_service", mock_storage
             ):
-                result = stager.stage_inputs("user-123", "session-456", inputs)
+                stager.stage_inputs("user-123", "session-456", inputs)
 
                 # Should only process the dict item
                 # Since it has no valid s3_key (source is not s3_key), it won't be staged
@@ -475,8 +475,8 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
 
             with patch.object(
                 AttachmentStager, "_clone_repo"
-            ) as mock_clone:
-                result = stager.stage_inputs("user-123", "session-456", inputs)
+            ):
+                stager.stage_inputs("user-123", "session-456", inputs)
 
                 # Old directory should be removed (old_file.txt should not exist)
                 assert not (existing_dir / "old_file.txt").exists()

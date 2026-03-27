@@ -45,7 +45,8 @@ export const API_ENDPOINTS = {
     `/sessions/${sessionId}/tool-executions`,
   sessionToolExecutionsDelta: (sessionId: string) =>
     `/sessions/${sessionId}/tool-executions/delta`,
-  sessionDeliverables: (sessionId: string) => `/sessions/${sessionId}/deliverables`,
+  sessionDeliverables: (sessionId: string) =>
+    `/sessions/${sessionId}/deliverables`,
   sessionDeliverable: (sessionId: string, deliverableId: string) =>
     `/sessions/${sessionId}/deliverables/${deliverableId}`,
   sessionDeliverableVersions: (sessionId: string, deliverableId: string) =>
@@ -55,7 +56,8 @@ export const API_ENDPOINTS = {
   sessionDeliverableVersionToolExecutions: (
     sessionId: string,
     versionId: string,
-  ) => `/sessions/${sessionId}/deliverable-versions/${versionId}/tool-executions`,
+  ) =>
+    `/sessions/${sessionId}/deliverable-versions/${versionId}/tool-executions`,
   sessionBrowserScreenshot: (sessionId: string, toolUseId: string) =>
     `/sessions/${sessionId}/computer/browser/${toolUseId}`,
   sessionUsage: (sessionId: string) => `/sessions/${sessionId}/usage`,

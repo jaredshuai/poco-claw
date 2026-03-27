@@ -229,7 +229,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             mock_file_response.return_value = MagicMock()
 
             client = TestClient(app)
-            response = client.get(
+            client.get(
                 "/api/v1/workspace/file/user-123/session-1?path=main.py"
             )
 

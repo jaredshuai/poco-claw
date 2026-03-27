@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
-from app.schemas.im import InboundMessage
 from app.services.im_providers import (
     DingTalkClient,
     FeishuClient,

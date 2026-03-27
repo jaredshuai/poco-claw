@@ -1,7 +1,6 @@
 """Tests for app/scheduler/pull_job_registry.py."""
 import unittest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -199,7 +198,7 @@ class TestRegisterPullJobs(unittest.TestCase):
             ],
         )
 
-        result = register_pull_jobs(mock_scheduler, mock_service, config)
+        register_pull_jobs(mock_scheduler, mock_service, config)
 
         # Should have called set_window_until due to bootstrap
         mock_service.set_window_until.assert_called()

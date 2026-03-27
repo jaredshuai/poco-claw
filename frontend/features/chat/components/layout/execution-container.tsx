@@ -72,9 +72,9 @@ export function ExecutionContainer({ sessionId }: ExecutionContainerProps) {
   >(null);
   const [selectedDeliverableVersionId, setSelectedDeliverableVersionId] =
     React.useState<string | null>(null);
-  const [processMode, setProcessMode] = React.useState<"deliverable" | "session">(
-    "session",
-  );
+  const [processMode, setProcessMode] = React.useState<
+    "deliverable" | "session"
+  >("session");
   const effectiveRightPanelCollapsed = isRightPanelCollapsed || !showFilePanel;
   const didManualSwitchRef = React.useRef(false);
   const prevDefaultRef = React.useRef<string>(defaultRightTab);

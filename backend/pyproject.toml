@@ -29,9 +29,8 @@ dependencies = [
 [tool.pyrefly]
 project-excludes = ["assets/**"]
 project-includes = [
-    "**/*.py",
-    "**/*.pyi",
-    "**/*.ipynb",
+    "app/**/*.py",
+    "app/**/*.pyi",
 ]
 
 search_path = ["."]

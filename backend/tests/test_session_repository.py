@@ -1,6 +1,6 @@
 import unittest
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from app.models.agent_session import AgentSession
 from app.repositories.session_repository import SessionRepository

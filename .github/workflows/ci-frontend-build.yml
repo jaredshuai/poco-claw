@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - ".github/workflows/ci-frontend-build.yml"
   push:
     branches:
       - main
     paths:
       - "frontend/**"
+      - ".github/workflows/ci-frontend-build.yml"
   workflow_dispatch:
 
 permissions:

@@ -17,6 +17,7 @@ export interface TaskSendOptions {
   memory_enabled?: boolean | null;
   mcp_config?: Record<string, boolean> | null;
   skill_config?: Record<string, boolean> | null;
+  plugin_config?: Record<string, boolean> | null;
   run_schedule?: {
     schedule_mode: RunScheduleMode;
     timezone: string;

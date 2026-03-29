@@ -322,9 +322,6 @@ class ConfigResolver:
             return {}
 
         spec = _PROVIDER_RUNTIME_SPECS.get(provider_id)
-        if not spec and explicit_provider_id and inferred_provider_id:
-            provider_id = inferred_provider_id
-            spec = _PROVIDER_RUNTIME_SPECS.get(provider_id)
         if not spec:
             return {}
 
@@ -423,8 +420,8 @@ class ConfigResolver:
         2) config_snapshot.mcp_config toggles (server_id -> bool) -> fetch via backend internal API
         3) legacy config_snapshot.mcp_config already contains full server configs
         """
-        server_ids = self._normalize_ids(config_snapshot.get("mcp_server_ids"))
-        if server_ids:
+        if "mcp_server_ids" in config_snapshot:
+            server_ids = self._normalize_ids(config_snapshot.get("mcp_server_ids"))
             return await self.backend_client.resolve_mcp_config(
                 user_id=user_id, server_ids=server_ids
             )
@@ -465,8 +462,8 @@ class ConfigResolver:
         1) config_snapshot.plugin_ids -> fetch entries via backend internal API
         2) legacy config_snapshot.plugin_files already contains entry configs
         """
-        plugin_ids = self._normalize_ids(config_snapshot.get("plugin_ids"))
-        if plugin_ids:
+        if "plugin_ids" in config_snapshot:
+            plugin_ids = self._normalize_ids(config_snapshot.get("plugin_ids"))
             return await self.backend_client.resolve_plugin_config(
                 user_id=user_id, plugin_ids=plugin_ids
             )

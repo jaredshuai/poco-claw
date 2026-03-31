@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ace-tool__search_context",
+      "mcp__MiniMax__web_search",
+      "WebSearch",
+      "mcp__web-reader__webReader",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --connect-timeout 10 \"https://acemcp.heroman.wtf/\")",
+      "Bash(pnpm add:*)",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm test:*)",
+      "Bash(wc -l frontend/tests/**/*.test.ts frontend/tests/**/*.test.tsx frontend/tests/**/**/*.test.ts frontend/tests/**/**/*.test.tsx)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//e/codespace/poco-claw/**)",
+      "Bash(done)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm lint:*)"
+    ]
+  }
+}

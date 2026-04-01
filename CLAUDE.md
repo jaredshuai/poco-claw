@@ -193,3 +193,15 @@ GitHub Actions workflows (`.github/workflows/`):
 - When modifying backend models, always start with `alembic revision --autogenerate` then review
 - No `any` types in frontend; use explicit interfaces/types
 - Do not catch `Exception` to re-raise as `HTTPException(500, ...)` -- use global handlers
+
+---
+
+## .context 项目上下文
+
+> 项目使用 `.context/` 管理开发决策上下文。
+
+- 编码规范：`.context/prefs/coding-style.md`
+- 工作流规则：`.context/prefs/workflow.md`
+- 决策历史：`.context/history/commits.md`
+
+**规则**：修改代码前必读 prefs/，做决策时按 workflow.md 规则记录日志。

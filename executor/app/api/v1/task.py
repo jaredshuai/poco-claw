@@ -1,8 +1,10 @@
 import logging
 import json
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks
+from pydantic import BaseModel
 
 from app.core.callback import CallbackClient
 from app.core.computer import ComputerClient
@@ -57,8 +59,8 @@ async def run_task(req: TaskRun, background_tasks: BackgroundTasks) -> dict:
         else None
     )
     registry = HookRegistry()
-    hook_specs = [
-        spec.model_dump(mode="json") if hasattr(spec, "model_dump") else spec
+    hook_specs: list[dict[str, Any]] = [
+        spec.model_dump(mode="json") if isinstance(spec, BaseModel) else spec
         for spec in (
             req.config.hook_specs or registry.default_specs(browser_enabled=req.config.browser_enabled)
         )

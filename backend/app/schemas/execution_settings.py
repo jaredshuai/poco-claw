@@ -17,12 +17,15 @@ class HookPipelineSettings(BaseModel):
 
 
 class WorkspaceExecutionSettings(BaseModel):
-    checkout_strategy: Literal[
-        "clone",
-        "worktree",
-        "sparse-clone",
-        "sparse-worktree",
-    ] | None = None
+    checkout_strategy: (
+        Literal[
+            "clone",
+            "worktree",
+            "sparse-clone",
+            "sparse-worktree",
+        ]
+        | None
+    ) = None
     sparse_paths: list[str] = Field(default_factory=list)
     reference_branch: str | None = None
 

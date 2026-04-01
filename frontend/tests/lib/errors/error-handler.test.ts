@@ -165,7 +165,11 @@ describe("parseApiError", () => {
   });
 
   it("creates ApiError from object with code and message", () => {
-    const obj = { code: 500, message: "Server error", details: { key: "value" } };
+    const obj = {
+      code: 500,
+      message: "Server error",
+      details: { key: "value" },
+    };
     const parsed = parseApiError(obj);
     expect(parsed).toBeInstanceOf(ApiError);
     expect(parsed.statusCode).toBe(500);
@@ -328,8 +332,9 @@ describe("retryWithBackoff", () => {
   it("respects maxRetries limit", async () => {
     const fn = vi.fn().mockRejectedValue(new NetworkError("Failed"));
 
-    await expect(retryWithBackoff(fn, { maxRetries: 2 }))
-      .rejects.toThrow(NetworkError);
+    await expect(retryWithBackoff(fn, { maxRetries: 2 })).rejects.toThrow(
+      NetworkError,
+    );
     expect(fn).toHaveBeenCalledTimes(3); // initial + 2 retries
   }, 10000);
 
@@ -376,7 +381,8 @@ describe("retryWithBackoff", () => {
     const lastError = new NetworkError("Last attempt failed");
     const fn = vi.fn().mockRejectedValue(lastError);
 
-    await expect(retryWithBackoff(fn, { maxRetries: 2 }))
-      .rejects.toThrow("Last attempt failed");
+    await expect(retryWithBackoff(fn, { maxRetries: 2 })).rejects.toThrow(
+      "Last attempt failed",
+    );
   }, 10000);
 });

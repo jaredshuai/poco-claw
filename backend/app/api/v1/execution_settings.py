@@ -3,7 +3,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user_id, get_db
-from app.schemas.execution_settings import ExecutionSettings, ExecutionSettingsUpdateRequest
+from app.schemas.execution_settings import (
+    ExecutionSettings,
+    ExecutionSettingsUpdateRequest,
+)
 from app.schemas.response import Response, ResponseSchema
 from app.services.execution_settings_service import ExecutionSettingsService
 

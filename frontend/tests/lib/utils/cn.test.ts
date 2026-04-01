@@ -17,11 +17,13 @@ describe("cn", () => {
   });
 
   it("handles object inputs with conditional classes", () => {
-    expect(cn({
-      "class-a": true,
-      "class-b": false,
-      "class-c": true,
-    })).toBe("class-a class-c");
+    expect(
+      cn({
+        "class-a": true,
+        "class-b": false,
+        "class-c": true,
+      }),
+    ).toBe("class-a class-c");
   });
 
   it("resolves Tailwind conflicts with twMerge - later class wins", () => {
@@ -58,20 +60,24 @@ describe("cn", () => {
   });
 
   it("filters out false values in object syntax", () => {
-    expect(cn({
-      "always-include": true,
-      "never-include": false,
-    })).toBe("always-include");
+    expect(
+      cn({
+        "always-include": true,
+        "never-include": false,
+      }),
+    ).toBe("always-include");
   });
 
   it("handles complex nested inputs", () => {
-    expect(cn(
-      "base",
-      ["array1", "array2"],
-      { "obj-true": true, "obj-false": false },
-      null,
-      undefined,
-    )).toBe("base array1 array2 obj-true");
+    expect(
+      cn(
+        "base",
+        ["array1", "array2"],
+        { "obj-true": true, "obj-false": false },
+        null,
+        undefined,
+      ),
+    ).toBe("base array1 array2 obj-true");
   });
 
   it("handles numbers as class names", () => {
@@ -84,15 +90,20 @@ describe("cn", () => {
   });
 
   it("handles Tailwind arbitrary values", () => {
-    expect(cn("[padding:10px]", "[margin:5px]")).toBe("[padding:10px] [margin:5px]");
+    expect(cn("[padding:10px]", "[margin:5px]")).toBe(
+      "[padding:10px] [margin:5px]",
+    );
   });
 
   it("handles dark mode variants", () => {
-    expect(cn("text-white", "dark:text-gray-900")).toBe("text-white dark:text-gray-900");
+    expect(cn("text-white", "dark:text-gray-900")).toBe(
+      "text-white dark:text-gray-900",
+    );
   });
 
   it("handles hover/active/focus variants", () => {
-    expect(cn("bg-blue-500", "hover:bg-blue-600", "active:bg-blue-700"))
-      .toBe("bg-blue-500 hover:bg-blue-600 active:bg-blue-700");
+    expect(cn("bg-blue-500", "hover:bg-blue-600", "active:bg-blue-700")).toBe(
+      "bg-blue-500 hover:bg-blue-600 active:bg-blue-700",
+    );
   });
 });

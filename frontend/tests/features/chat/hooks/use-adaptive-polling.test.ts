@@ -89,7 +89,8 @@ describe("useAdaptivePolling", () => {
     it("should clear existing interval when restarting", () => {
       const callback = vi.fn();
       const { rerender } = renderHook(
-        ({ isActive }) => useAdaptivePolling({ callback, isActive, interval: 2000 }),
+        ({ isActive }) =>
+          useAdaptivePolling({ callback, isActive, interval: 2000 }),
         { initialProps: { isActive: true } },
       );
 

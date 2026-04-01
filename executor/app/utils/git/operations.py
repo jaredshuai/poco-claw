@@ -1720,18 +1720,14 @@ def worktree_prune(cwd: str | Path | None = None) -> None:
     _run_git_command(["worktree", "prune"], cwd=cwd, check=True)
 
 
-def sparse_checkout_init(
-    *, cwd: str | Path | None = None, cone: bool = True
-) -> None:
+def sparse_checkout_init(*, cwd: str | Path | None = None, cone: bool = True) -> None:
     args = ["sparse-checkout", "init"]
     if cone:
         args.append("--cone")
     _run_git_command(args, cwd=cwd, check=True)
 
 
-def sparse_checkout_set(
-    paths: list[str], *, cwd: str | Path | None = None
-) -> None:
+def sparse_checkout_set(paths: list[str], *, cwd: str | Path | None = None) -> None:
     if not paths:
         return
     _run_git_command(["sparse-checkout", "set", *paths], cwd=cwd, check=True)

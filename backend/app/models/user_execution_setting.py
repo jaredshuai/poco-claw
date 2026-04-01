@@ -9,5 +9,7 @@ class UserExecutionSetting(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    schema_version: Mapped[str] = mapped_column(String(32), default="v1", nullable=False)
+    schema_version: Mapped[str] = mapped_column(
+        String(32), default="v1", nullable=False
+    )
     settings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)

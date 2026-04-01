@@ -62,12 +62,15 @@ class TaskConfig(BaseModel):
     execution_settings: dict[str, Any] = Field(default_factory=dict)
     hook_specs: list[HookSpec] = Field(default_factory=list)
     permission_policy: dict[str, Any] = Field(default_factory=dict)
-    workspace_strategy: Literal[
-        "clone",
-        "worktree",
-        "sparse-clone",
-        "sparse-worktree",
-    ] | None = None
+    workspace_strategy: (
+        Literal[
+            "clone",
+            "worktree",
+            "sparse-clone",
+            "sparse-worktree",
+        ]
+        | None
+    ) = None
     workspace_sparse_paths: list[str] = Field(default_factory=list)
     workspace_reference_branch: str | None = None
 

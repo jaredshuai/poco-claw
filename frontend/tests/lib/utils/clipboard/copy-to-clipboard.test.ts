@@ -74,8 +74,12 @@ describe("copyToClipboard", () => {
       vi.spyOn(mockTextArea, "select").mockImplementation(() => {});
 
       vi.spyOn(document, "createElement").mockReturnValue(mockTextArea);
-      vi.spyOn(document.body, "appendChild").mockImplementation(() => mockTextArea);
-      vi.spyOn(document.body, "removeChild").mockImplementation((node: Node) => node);
+      vi.spyOn(document.body, "appendChild").mockImplementation(
+        () => mockTextArea,
+      );
+      vi.spyOn(document.body, "removeChild").mockImplementation(
+        (node: Node) => node,
+      );
 
       const result = await copyToClipboard("fallback text");
       expect(result).toBe(true);
@@ -94,8 +98,12 @@ describe("copyToClipboard", () => {
       vi.spyOn(mockTextArea, "select").mockImplementation(() => {});
 
       vi.spyOn(document, "createElement").mockReturnValue(mockTextArea);
-      vi.spyOn(document.body, "appendChild").mockImplementation(() => mockTextArea);
-      vi.spyOn(document.body, "removeChild").mockImplementation((node: Node) => node);
+      vi.spyOn(document.body, "appendChild").mockImplementation(
+        () => mockTextArea,
+      );
+      vi.spyOn(document.body, "removeChild").mockImplementation(
+        (node: Node) => node,
+      );
 
       const onSuccess = vi.fn();
       await copyToClipboard("fallback text", { onSuccess });
@@ -114,8 +122,12 @@ describe("copyToClipboard", () => {
       vi.spyOn(mockTextArea, "select").mockImplementation(() => {});
 
       vi.spyOn(document, "createElement").mockReturnValue(mockTextArea);
-      vi.spyOn(document.body, "appendChild").mockImplementation(() => mockTextArea);
-      vi.spyOn(document.body, "removeChild").mockImplementation((node: Node) => node);
+      vi.spyOn(document.body, "appendChild").mockImplementation(
+        () => mockTextArea,
+      );
+      vi.spyOn(document.body, "removeChild").mockImplementation(
+        (node: Node) => node,
+      );
 
       const onError = vi.fn();
       const result = await copyToClipboard("fallback text", { onError });

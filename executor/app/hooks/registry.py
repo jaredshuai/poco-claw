@@ -78,7 +78,9 @@ class HookRegistry:
             try:
                 hook = HookFactory.create(
                     key.strip(),
-                    config=spec.get("config") if isinstance(spec.get("config"), dict) else {},
+                    config=spec.get("config")
+                    if isinstance(spec.get("config"), dict)
+                    else {},
                     dependencies=dependencies,
                 )
             except ValueError:

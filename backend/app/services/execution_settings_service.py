@@ -63,7 +63,11 @@ class ExecutionSettingsService:
         return ExecutionSettings.model_validate(
             {
                 "schema_version": existing.schema_version,
-                **(deepcopy(existing.settings) if isinstance(existing.settings, dict) else {}),
+                **(
+                    deepcopy(existing.settings)
+                    if isinstance(existing.settings, dict)
+                    else {}
+                ),
             }
         )
 
@@ -87,7 +91,11 @@ class ExecutionSettingsService:
         return ExecutionSettings.model_validate(
             {
                 "schema_version": existing.schema_version,
-                **(deepcopy(existing.settings) if isinstance(existing.settings, dict) else {}),
+                **(
+                    deepcopy(existing.settings)
+                    if isinstance(existing.settings, dict)
+                    else {}
+                ),
             }
         )
 

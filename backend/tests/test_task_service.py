@@ -904,7 +904,9 @@ class TestTaskServiceValidateModelExtended(unittest.TestCase):
 class TestSessionQueueServiceEffectiveBaseConfig(unittest.TestCase):
     """Tests for base config inheritance while runs are queued."""
 
-    def test_uses_session_config_snapshot_instead_of_last_queued_run_snapshot(self) -> None:
+    def test_uses_session_config_snapshot_instead_of_last_queued_run_snapshot(
+        self,
+    ) -> None:
         service = SessionQueueService()
         db = MagicMock()
         db_session = MagicMock()

@@ -293,7 +293,9 @@ class ConfigResolver:
                 sparse_paths = workspace_defaults.get("sparse_paths")
                 if isinstance(sparse_paths, list):
                     resolved["workspace_sparse_paths"] = [
-                        item for item in sparse_paths if isinstance(item, str) and item.strip()
+                        item
+                        for item in sparse_paths
+                        if isinstance(item, str) and item.strip()
                     ]
             if "workspace_reference_branch" not in resolved:
                 reference_branch = workspace_defaults.get("reference_branch")

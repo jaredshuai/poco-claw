@@ -111,9 +111,11 @@ describe("api-client", () => {
     });
 
     it("should construct correct URL with endpoint", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: { result: "success" } }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(
+          createMockResponse({ code: 200, data: { result: "success" } }),
+        );
 
       await apiFetch("/test");
 
@@ -126,9 +128,9 @@ describe("api-client", () => {
     });
 
     it("should add Content-Type for non-FormData requests", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       await apiFetch("/test", { method: "POST", body: { foo: "bar" } });
 
@@ -138,9 +140,9 @@ describe("api-client", () => {
     });
 
     it("should NOT add Content-Type for FormData requests", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       const formData = new FormData();
       formData.append("file", "content");
@@ -154,9 +156,11 @@ describe("api-client", () => {
 
     it("should unwrap standard API envelope on success", async () => {
       const mockData = { id: 1, name: "Test" };
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, message: "OK", data: mockData }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(
+          createMockResponse({ code: 200, message: "OK", data: mockData }),
+        );
 
       const result = await apiFetch("/test");
 
@@ -165,9 +169,11 @@ describe("api-client", () => {
 
     it("should unwrap envelope with code 0", async () => {
       const mockData = { id: 1, name: "Test" };
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 0, message: "OK", data: mockData }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(
+          createMockResponse({ code: 0, message: "OK", data: mockData }),
+        );
 
       const result = await apiFetch("/test");
 
@@ -175,31 +181,37 @@ describe("api-client", () => {
     });
 
     it("should throw ApiError for non-200 code in envelope", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 500, message: "Server Error", data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(
+          createMockResponse({
+            code: 500,
+            message: "Server Error",
+            data: null,
+          }),
+        );
 
       await expect(apiFetch("/test")).rejects.toThrow(ApiError);
       await expect(apiFetch("/test")).rejects.toThrow("Server Error");
     });
 
     it("should throw ApiError for HTTP errors", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse(
-          { message: "Resource not found" },
-          false,
-          404,
-        ),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(
+          createMockResponse({ message: "Resource not found" }, false, 404),
+        );
 
       await expect(apiFetch("/test")).rejects.toThrow(ApiError);
       await expect(apiFetch("/test")).rejects.toThrow("Resource not found");
     });
 
     it("should throw ApiError with 408 status on AbortError", async () => {
-      global.fetch = vi.fn().mockRejectedValue(
-        new DOMException("The operation was aborted", "AbortError"),
-      );
+      global.fetch = vi
+        .fn()
+        .mockRejectedValue(
+          new DOMException("The operation was aborted", "AbortError"),
+        );
 
       await expect(apiFetch("/test")).rejects.toThrow(ApiError);
       await expect(apiFetch("/test")).rejects.toThrow("Request timeout");
@@ -245,9 +257,9 @@ describe("api-client", () => {
     });
 
     it("should pass through fetch options", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       const controller = new AbortController();
       await apiFetch("/test", {
@@ -264,7 +276,6 @@ describe("api-client", () => {
         }),
       );
     });
-
   });
 
   describe("apiClient", () => {
@@ -281,9 +292,9 @@ describe("api-client", () => {
     });
 
     it("should make GET requests", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       await apiClient.get("/test");
 
@@ -294,9 +305,9 @@ describe("api-client", () => {
     });
 
     it("should make POST requests with body", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       await apiClient.post("/test", { foo: "bar" });
 
@@ -310,9 +321,9 @@ describe("api-client", () => {
     });
 
     it("should make PATCH requests", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       await apiClient.patch("/test", { update: "value" });
 
@@ -325,9 +336,9 @@ describe("api-client", () => {
     });
 
     it("should make PUT requests", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       await apiClient.put("/test", { replace: "value" });
 
@@ -340,9 +351,9 @@ describe("api-client", () => {
     });
 
     it("should make DELETE requests", async () => {
-      global.fetch = vi.fn().mockResolvedValue(
-        createMockResponse({ code: 200, data: null }),
-      );
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue(createMockResponse({ code: 200, data: null }));
 
       await apiClient.delete("/test");
 

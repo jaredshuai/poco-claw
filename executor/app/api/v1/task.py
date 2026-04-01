@@ -62,7 +62,8 @@ async def run_task(req: TaskRun, background_tasks: BackgroundTasks) -> dict:
     hook_specs: list[dict[str, Any]] = [
         spec.model_dump(mode="json") if isinstance(spec, BaseModel) else spec
         for spec in (
-            req.config.hook_specs or registry.default_specs(browser_enabled=req.config.browser_enabled)
+            req.config.hook_specs
+            or registry.default_specs(browser_enabled=req.config.browser_enabled)
         )
     ]
     hooks = registry.build(

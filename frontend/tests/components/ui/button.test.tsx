@@ -55,18 +55,14 @@ describe("Button", () => {
   });
 
   describe("size prop", () => {
-    it.each([
-      "default",
-      "sm",
-      "lg",
-      "icon",
-      "icon-sm",
-      "icon-lg",
-    ] as const)("should render size: %s", (size) => {
-      render(<Button size={size}>Test</Button>);
-      const button = screen.getByRole("button");
-      expect(button).toHaveAttribute("data-size", size);
-    });
+    it.each(["default", "sm", "lg", "icon", "icon-sm", "icon-lg"] as const)(
+      "should render size: %s",
+      (size) => {
+        render(<Button size={size}>Test</Button>);
+        const button = screen.getByRole("button");
+        expect(button).toHaveAttribute("data-size", size);
+      },
+    );
 
     it("should apply size-specific CSS classes", () => {
       const { rerender } = render(<Button size="default">Default</Button>);

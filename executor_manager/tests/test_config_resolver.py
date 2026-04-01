@@ -424,7 +424,9 @@ class TestConfigResolverResolvePlugins(unittest.TestCase):
 
 @pytest.mark.asyncio
 class TestConfigResolverExecutionSettings:
-    async def test_resolve_includes_user_execution_settings_and_hook_specs(self) -> None:
+    async def test_resolve_includes_user_execution_settings_and_hook_specs(
+        self,
+    ) -> None:
         mock_backend = MagicMock()
         mock_backend.get_env_map = AsyncMock(return_value={})
         mock_backend.resolve_mcp_config = AsyncMock(return_value={})

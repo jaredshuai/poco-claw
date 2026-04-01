@@ -1112,7 +1112,9 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_run.id = uuid.uuid4()
         db_run.session_id = db_session.id
 
-        with patch("app.services.callback_service.McpConnectionService") as mock_mcp_cls:
+        with patch(
+            "app.services.callback_service.McpConnectionService"
+        ) as mock_mcp_cls:
             mock_mcp_service = MagicMock()
             mock_mcp_cls.return_value = mock_mcp_service
             service = CallbackService()

@@ -178,7 +178,10 @@ class SkillService:
         if not isinstance(manifest, dict):
             errors.append("manifest must be an object")
         else:
-            if not isinstance(manifest.get("name"), str) or not manifest["name"].strip():
+            if (
+                not isinstance(manifest.get("name"), str)
+                or not manifest["name"].strip()
+            ):
                 errors.append("manifest.name is required")
             if not isinstance(manifest.get("entry"), dict):
                 errors.append("manifest.entry must be an object")
@@ -380,7 +383,9 @@ class SkillService:
 
     @staticmethod
     def _build_entry_checksum(entry: dict[str, Any]) -> str:
-        payload = json.dumps(entry, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+        payload = json.dumps(
+            entry, sort_keys=True, ensure_ascii=True, separators=(",", ":")
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @staticmethod
@@ -436,8 +441,8 @@ class SkillService:
                     skill.entry if isinstance(skill.entry, dict) else {}
                 )
             ),
-            lifecycle_state=(
-                getattr(skill, "lifecycle_state", None)
+            lifecycle_state=str(
+                getattr(skill, "lifecycle_state", "active")
                 if isinstance(getattr(skill, "lifecycle_state", None), str)
                 else "active"
             ),

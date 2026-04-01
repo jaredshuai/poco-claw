@@ -36,7 +36,9 @@ class HookFactory:
             return CallbackHook(client=dependencies.callback_client)
         if key == "browser_screenshot":
             if dependencies.computer_client is None:
-                raise ValueError("computer_client is required for browser_screenshot hook")
+                raise ValueError(
+                    "computer_client is required for browser_screenshot hook"
+                )
             return BrowserScreenshotHook(client=dependencies.computer_client)
         if key == "run_snapshot":
             return RunSnapshotHook(run_id=dependencies.run_id)

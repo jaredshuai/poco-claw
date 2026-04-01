@@ -218,7 +218,10 @@ describe("useExecutionSession", () => {
 
   describe("updateSession", () => {
     it("should merge updates into existing session", async () => {
-      const mockSession = createMockSession({ status: "running", progress: 50 });
+      const mockSession = createMockSession({
+        status: "running",
+        progress: 50,
+      });
       vi.mocked(getExecutionSessionAction).mockResolvedValue(mockSession);
 
       const { result } = renderHook(() =>
@@ -281,7 +284,9 @@ describe("useExecutionSession", () => {
     });
 
     it("should handle update when session is null", async () => {
-      vi.mocked(getExecutionSessionAction).mockResolvedValue(null as unknown as ExecutionSession);
+      vi.mocked(getExecutionSessionAction).mockResolvedValue(
+        null as unknown as ExecutionSession,
+      );
 
       const { result } = renderHook(() =>
         useExecutionSession({ sessionId: "test-session-id" }),

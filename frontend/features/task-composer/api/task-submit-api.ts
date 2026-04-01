@@ -54,6 +54,15 @@ function buildTaskConfig(
   if (options.plugin_config !== null && options.plugin_config !== undefined) {
     config.plugin_config = options.plugin_config;
   }
+  if (options.workspace_strategy) {
+    config.workspace_strategy = options.workspace_strategy;
+  }
+  if (options.workspace_sparse_paths?.length) {
+    config.workspace_sparse_paths = options.workspace_sparse_paths;
+  }
+  if (options.workspace_reference_branch) {
+    config.workspace_reference_branch = options.workspace_reference_branch;
+  }
 
   return Object.keys(config).length > 0 ? config : undefined;
 }

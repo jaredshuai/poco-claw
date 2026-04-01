@@ -421,6 +421,62 @@ class TestConfigResolverResolvePlugins(unittest.TestCase):
         assert result["plugin1"]["config"] == "test"
         assert result["plugin2"]["enabled"] is False
 
+
+@pytest.mark.asyncio
+class TestConfigResolverExecutionSettings:
+    async def test_resolve_includes_user_execution_settings_and_hook_specs(self) -> None:
+        mock_backend = MagicMock()
+        mock_backend.get_env_map = AsyncMock(return_value={})
+        mock_backend.resolve_mcp_config = AsyncMock(return_value={})
+        mock_backend.resolve_skill_config = AsyncMock(return_value={})
+        mock_backend.resolve_plugin_config = AsyncMock(return_value={})
+        mock_backend.resolve_subagents = AsyncMock(return_value={})
+        mock_backend.get_execution_settings = AsyncMock(
+            return_value={
+                "schema_version": "v1",
+                "hooks": {
+                    "pipeline": [
+                        {
+                            "key": "callback",
+                            "phase": "message",
+                            "order": 20,
+                            "enabled": True,
+                        },
+                        {
+                            "key": "workspace",
+                            "phase": "message",
+                            "order": 10,
+                            "enabled": True,
+                        },
+                    ]
+                },
+                "workspace": {"checkout_strategy": "worktree"},
+            }
+        )
+
+        with patch("app.services.config_resolver.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.default_model = None
+            mock_settings.return_value = mock_settings_obj
+
+            resolver = ConfigResolver(backend_client=mock_backend)
+            resolver.settings = mock_settings_obj
+
+            result = await resolver.resolve(
+                user_id="user-123",
+                config_snapshot={},
+            )
+
+        mock_backend.get_execution_settings.assert_awaited_once_with("user-123")
+        assert result["execution_settings"]["schema_version"] == "v1"
+        assert result["workspace_strategy"] == "worktree"
+        assert [spec["key"] for spec in result["hook_specs"]] == [
+            "workspace",
+            "callback",
+        ]
+
+
+class TestConfigResolverResolvePluginsExtended(unittest.TestCase):
     def test_non_dict_config(self) -> None:
         """Test that non-dict plugin configs are skipped."""
         plugins = {

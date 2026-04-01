@@ -6,8 +6,8 @@
 
 ## Changelog
 
-| Date | Action | Summary |
-|------|--------|---------|
+| Date       | Action  | Summary                  |
+| ---------- | ------- | ------------------------ |
 | 2026-03-31 | Created | Initial module CLAUDE.md |
 
 ---
@@ -39,35 +39,35 @@ All endpoints under `/api/v1/`. Router registry in `app/api/v1/__init__.py`.
 
 ### Public Endpoints (frontend-facing)
 
-| Domain | Router File | Key Operations |
-|--------|-------------|----------------|
-| Sessions | `sessions.py` | CRUD, list by user/project |
-| Session Queue | `session_queue.py` | Queue queries within a session |
-| Tasks | `tasks.py` | Create task (message + run) |
-| Runs | `runs.py` | List, get status |
-| Messages | `messages.py` | List messages by session |
-| Callback | `callback.py` | Receive execution callbacks |
-| Projects | `projects.py` | CRUD, reorder |
-| Attachments | `attachments.py` | Upload files |
-| Audio | `audio.py` | Speech-to-text |
-| Memories | `memories.py` | CRUD |
-| Search | `search.py` | Full-text search |
-| MCP Servers | `mcp_servers.py` | CRUD |
-| Skills | `skills.py`, `skill_marketplace.py` | CRUD, marketplace |
-| Plugins | `plugins.py` | CRUD |
-| Slash Commands | `slash_commands.py` | CRUD |
-| Sub-agents | `subagents.py` | CRUD |
-| Env Vars | `env_vars.py` | CRUD |
-| Claude MD | `claude_md.py` | User CLAUDE.md config |
-| Scheduled Tasks | `scheduled_tasks.py` | CRUD, cron |
-| Tool Executions | `tool_executions.py` | List by session/run |
-| Usage | `usage.py` | Usage logs, analytics |
-| User Input Requests | `user_input_requests.py` | List, respond |
-| Models | `models.py` | Available model list |
-| IM | `im.py` | Telegram/DingTalk/Feishu webhook |
-| Deliverables | `deliverables.py` | List by session |
-| Capability Recommendations | `capability_recommendations.py` | Suggest capabilities |
-| Pending Skill Creations | `pending_skill_creations.py` | Review AI-generated skills |
+| Domain                     | Router File                         | Key Operations                   |
+| -------------------------- | ----------------------------------- | -------------------------------- |
+| Sessions                   | `sessions.py`                       | CRUD, list by user/project       |
+| Session Queue              | `session_queue.py`                  | Queue queries within a session   |
+| Tasks                      | `tasks.py`                          | Create task (message + run)      |
+| Runs                       | `runs.py`                           | List, get status                 |
+| Messages                   | `messages.py`                       | List messages by session         |
+| Callback                   | `callback.py`                       | Receive execution callbacks      |
+| Projects                   | `projects.py`                       | CRUD, reorder                    |
+| Attachments                | `attachments.py`                    | Upload files                     |
+| Audio                      | `audio.py`                          | Speech-to-text                   |
+| Memories                   | `memories.py`                       | CRUD                             |
+| Search                     | `search.py`                         | Full-text search                 |
+| MCP Servers                | `mcp_servers.py`                    | CRUD                             |
+| Skills                     | `skills.py`, `skill_marketplace.py` | CRUD, marketplace                |
+| Plugins                    | `plugins.py`                        | CRUD                             |
+| Slash Commands             | `slash_commands.py`                 | CRUD                             |
+| Sub-agents                 | `subagents.py`                      | CRUD                             |
+| Env Vars                   | `env_vars.py`                       | CRUD                             |
+| Claude MD                  | `claude_md.py`                      | User CLAUDE.md config            |
+| Scheduled Tasks            | `scheduled_tasks.py`                | CRUD, cron                       |
+| Tool Executions            | `tool_executions.py`                | List by session/run              |
+| Usage                      | `usage.py`                          | Usage logs, analytics            |
+| User Input Requests        | `user_input_requests.py`            | List, respond                    |
+| Models                     | `models.py`                         | Available model list             |
+| IM                         | `im.py`                             | Telegram/DingTalk/Feishu webhook |
+| Deliverables               | `deliverables.py`                   | List by session                  |
+| Capability Recommendations | `capability_recommendations.py`     | Suggest capabilities             |
+| Pending Skill Creations    | `pending_skill_creations.py`        | Review AI-generated skills       |
 
 ### Internal Endpoints (Executor Manager -> Backend)
 
@@ -81,6 +81,7 @@ Prefixed with `internal_*`, secured by `X-Internal-Token` header:
 ## Key Dependencies and Configuration
 
 **Dependencies** (from `pyproject.toml`):
+
 - FastAPI, Uvicorn, SQLAlchemy 2.0, Alembic, Pydantic Settings
 - PostgreSQL (psycopg2-binary)
 - anthropic SDK, mem0ai, langchain-neo4j
@@ -88,6 +89,7 @@ Prefixed with `internal_*`, secured by `X-Internal-Token` header:
 - DingTalk/Lark SDKs for IM
 
 **Configuration** (`app/core/settings.py`):
+
 - `DATABASE_URL` -- PostgreSQL connection string
 - `HOST` / `PORT` -- Service binding (default 0.0.0.0:8000)
 - `CORS_ORIGINS` -- Allowed origins
@@ -100,28 +102,28 @@ Prefixed with `internal_*`, secured by `X-Internal-Token` header:
 
 SQLAlchemy models in `app/models/`. Key entities:
 
-| Model | Table | Description |
-|-------|-------|-------------|
-| `AgentSession` | `agent_sessions` | Chat/execution sessions, linked to user & project |
-| `AgentRun` | `agent_runs` | Individual execution runs within a session |
-| `AgentMessage` | `agent_messages` | Chat messages (user/assistant/tool) |
-| `AgentScheduledTask` | `agent_scheduled_tasks` | Cron-based recurring tasks |
-| `AgentSessionQueueItem` | `session_queue_items` | Queued queries within a session |
-| `Project` | `projects` | User projects for organizing sessions |
-| `ToolExecution` | `tool_executions` | Tool use records |
-| `UsageLog` | `usage_logs` | Token usage tracking |
-| `UserInputRequest` | `user_input_requests` | Pending user confirmations |
-| `Skill` | `skills` | Custom skills |
-| `Plugin` | `plugins` | Plugin definitions |
-| `McpServer` | `mcp_servers` | MCP server configs |
-| `SlashCommand` | `slash_commands` | Custom slash commands |
-| `SubAgent` | `sub_agents` | Sub-agent definitions |
-| `UserEnvVar` | `user_env_vars` | Environment variables |
-| `UserClaudeMdSetting` | `user_claude_md_settings` | User CLAUDE.md config |
-| `Deliverable` / `DeliverableVersion` | `deliverables` / `deliverable_versions` | Task output artifacts |
-| `MemoryCreateJob` | `memory_create_jobs` | Async memory creation jobs |
-| `UserModelProviderSetting` | `user_model_provider_settings` | Per-user model provider config |
-| IM models: `Channel`, `ChannelDelivery`, `ImEventOutbox`, etc. | Embedded IM tables | Multi-end messaging |
+| Model                                                          | Table                                   | Description                                       |
+| -------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------- |
+| `AgentSession`                                                 | `agent_sessions`                        | Chat/execution sessions, linked to user & project |
+| `AgentRun`                                                     | `agent_runs`                            | Individual execution runs within a session        |
+| `AgentMessage`                                                 | `agent_messages`                        | Chat messages (user/assistant/tool)               |
+| `AgentScheduledTask`                                           | `agent_scheduled_tasks`                 | Cron-based recurring tasks                        |
+| `AgentSessionQueueItem`                                        | `session_queue_items`                   | Queued queries within a session                   |
+| `Project`                                                      | `projects`                              | User projects for organizing sessions             |
+| `ToolExecution`                                                | `tool_executions`                       | Tool use records                                  |
+| `UsageLog`                                                     | `usage_logs`                            | Token usage tracking                              |
+| `UserInputRequest`                                             | `user_input_requests`                   | Pending user confirmations                        |
+| `Skill`                                                        | `skills`                                | Custom skills                                     |
+| `Plugin`                                                       | `plugins`                               | Plugin definitions                                |
+| `McpServer`                                                    | `mcp_servers`                           | MCP server configs                                |
+| `SlashCommand`                                                 | `slash_commands`                        | Custom slash commands                             |
+| `SubAgent`                                                     | `sub_agents`                            | Sub-agent definitions                             |
+| `UserEnvVar`                                                   | `user_env_vars`                         | Environment variables                             |
+| `UserClaudeMdSetting`                                          | `user_claude_md_settings`               | User CLAUDE.md config                             |
+| `Deliverable` / `DeliverableVersion`                           | `deliverables` / `deliverable_versions` | Task output artifacts                             |
+| `MemoryCreateJob`                                              | `memory_create_jobs`                    | Async memory creation jobs                        |
+| `UserModelProviderSetting`                                     | `user_model_provider_settings`          | Per-user model provider config                    |
+| IM models: `Channel`, `ChannelDelivery`, `ImEventOutbox`, etc. | Embedded IM tables                      | Multi-end messaging                               |
 
 **Migrations**: `alembic/` with 25+ migration files. Use `alembic revision --autogenerate` then review.
 

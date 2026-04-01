@@ -15,6 +15,7 @@
 ### 1.2 范围
 
 **包含**：
+
 - 测试框架选型、安装与配置（Vitest + Testing Library）
 - vitest.config.ts 配置文件（适配 Next.js 16 + path alias + Tailwind）
 - npm scripts 添加（test / test:watch / test:coverage / test:ci）
@@ -23,6 +24,7 @@
 - CLAUDE.md 文档更新（根级 + frontend 模块级）
 
 **不包含**：
+
 - E2E 测试（Playwright/Cypress）-- 留给 Phase 2
 - 不为全部 14 个 feature 模块编写完整测试覆盖 -- 仅提供示例和模式
 - 不修改现有业务代码逻辑
@@ -44,16 +46,16 @@
 
 ### 2.1 为什么选 Vitest 而非 Jest
 
-| 维度 | Vitest | Jest | 评判 |
-|------|--------|------|------|
-| **Vite 原生兼容** | 原生支持 ESM / TypeScript / JSX | 需要 babel 或 ts-jest 转译 | Vitest 胜 -- 虽然 Next.js 用 Turbopack，Vitest 的 ESM 处理更简洁 |
-| **配置复杂度** | 与 Vite 共享配置或独立 vitest.config.ts | 需要 jest.config + transform 配置 | Vitest 胜 -- 配置更少 |
-| **速度** | 基于/esbuild/vite 的原生 ESM 转换，冷启动快 | 基于 babel/ts-jest 转换，冷启动慢 | Vitest 胜 |
-| **Watch 模式** | HMR 级别的 watch，毫秒级重跑 | 文件变更后全量重跑 | Vitest 胜 |
-| **React 19 支持** | @testing-library/react 配合 vi.mock 无额外适配 | 需要 jest-environment-jsdom + 特殊配置 | Vitest 胜 |
-| **Next.js 生态** | next-intl、next-themes 等库有 Vitest 示例 | 传统支持更广 | 平手 |
-| **Coverage** | 内置 c8/istanbul 覆盖率 | 内置 istanbul 覆盖率 | 平手 |
-| **TypeScript 路径别名** | 通过 vite-tsconfig-paths 或 resolve.alias | 通过 moduleNameMapper | Vitest 配置更直观 |
+| 维度                    | Vitest                                         | Jest                                   | 评判                                                             |
+| ----------------------- | ---------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| **Vite 原生兼容**       | 原生支持 ESM / TypeScript / JSX                | 需要 babel 或 ts-jest 转译             | Vitest 胜 -- 虽然 Next.js 用 Turbopack，Vitest 的 ESM 处理更简洁 |
+| **配置复杂度**          | 与 Vite 共享配置或独立 vitest.config.ts        | 需要 jest.config + transform 配置      | Vitest 胜 -- 配置更少                                            |
+| **速度**                | 基于/esbuild/vite 的原生 ESM 转换，冷启动快    | 基于 babel/ts-jest 转换，冷启动慢      | Vitest 胜                                                        |
+| **Watch 模式**          | HMR 级别的 watch，毫秒级重跑                   | 文件变更后全量重跑                     | Vitest 胜                                                        |
+| **React 19 支持**       | @testing-library/react 配合 vi.mock 无额外适配 | 需要 jest-environment-jsdom + 特殊配置 | Vitest 胜                                                        |
+| **Next.js 生态**        | next-intl、next-themes 等库有 Vitest 示例      | 传统支持更广                           | 平手                                                             |
+| **Coverage**            | 内置 c8/istanbul 覆盖率                        | 内置 istanbul 覆盖率                   | 平手                                                             |
+| **TypeScript 路径别名** | 通过 vite-tsconfig-paths 或 resolve.alias      | 通过 moduleNameMapper                  | Vitest 配置更直观                                                |
 
 **结论**：Vitest 在速度、配置简洁度、ESM 原生支持、React 19 兼容性上全面优于 Jest，且已成为 Next.js 社区推荐方案（Next.js 官方文档已提供 Vitest 集成指南）。
 
@@ -61,15 +63,15 @@
 
 **devDependencies（新增）**：
 
-| 包名 | 版本 | 用途 |
-|------|------|------|
-| `vitest` | ^3.x | 测试框架核心 |
-| `@testing-library/react` | ^16.x | React 组件渲染和查询 |
-| `@testing-library/jest-dom` | ^6.x | DOM 断言扩展（toBeInTheDocument 等） |
-| `@testing-library/user-event` | ^14.x | 模拟用户交互事件 |
-| `jsdom` | ^25.x | 浏览器环境模拟 |
-| `vite-tsconfig-paths` | ^5.x | 解析 tsconfig.json 的 paths 别名 |
-| `@vitejs/plugin-react` | ^4.x | Vitest 中 JSX/TSX 编译支持 |
+| 包名                          | 版本  | 用途                                 |
+| ----------------------------- | ----- | ------------------------------------ |
+| `vitest`                      | ^3.x  | 测试框架核心                         |
+| `@testing-library/react`      | ^16.x | React 组件渲染和查询                 |
+| `@testing-library/jest-dom`   | ^6.x  | DOM 断言扩展（toBeInTheDocument 等） |
+| `@testing-library/user-event` | ^14.x | 模拟用户交互事件                     |
+| `jsdom`                       | ^25.x | 浏览器环境模拟                       |
+| `vite-tsconfig-paths`         | ^5.x  | 解析 tsconfig.json 的 paths 别名     |
+| `@vitejs/plugin-react`        | ^4.x  | Vitest 中 JSX/TSX 编译支持           |
 
 ---
 
@@ -139,6 +141,7 @@ graph TD
   - **输入**：tsconfig.json（paths: `@/*` → `./*`）、现有 ESLint/TS 配置
   - **输出**：可用的 Vitest 配置
   - **关键配置项**：
+
     ```typescript
     import { defineConfig } from "vitest/config";
     import react from "@vitejs/plugin-react";
@@ -154,10 +157,7 @@ graph TD
         // 全局 API（describe/it/expect 无需 import）
         globals: true,
         // 包含的测试文件模式
-        include: [
-          "tests/**/*.test.{ts,tsx}",
-          "features/**/*.test.{ts,tsx}",
-        ],
+        include: ["tests/**/*.test.{ts,tsx}", "features/**/*.test.{ts,tsx}"],
         // 排除目录
         exclude: ["node_modules", ".next", "dist"],
         // 覆盖率配置
@@ -181,6 +181,7 @@ graph TD
       },
     });
     ```
+
   - **注意事项**：
     - `vite-tsconfig-paths` 确保 `@/` 别名在测试中正常解析
     - `css.modules.classNameStrategy: "non-scoped"` 避免 Tailwind 类名被 hash 化
@@ -194,6 +195,7 @@ graph TD
   - **输入**：@testing-library/jest-dom 扩展、浏览器 API 依赖分析
   - **输出**：setup.ts 提供 clean testing environment
   - **关键内容**：
+
     ```typescript
     import "@testing-library/jest-dom/vitest";
 
@@ -270,6 +272,7 @@ graph TD
     HTMLDialogElement.prototype.showModal = vi.fn();
     HTMLDialogElement.prototype.close = vi.fn();
     ```
+
   - **注意事项**：
     - `next/navigation` mock 解决 App Router API 在 jsdom 中不可用的问题
     - `matchMedia`、`IntersectionObserver`、`ResizeObserver` 是 shadcn/ui / Radix UI 组件的常见依赖
@@ -566,6 +569,7 @@ graph TD
   - **输入**：ci-frontend-build.yml 和 ci-eslint.yml（复用触发条件和步骤模式）
   - **输出**：ci-vitest.yml 工作流文件
   - **关键内容**：
+
     ```yaml
     name: CI Vitest
 
@@ -619,6 +623,7 @@ graph TD
               path: frontend/coverage/
               retention-days: 7
     ```
+
   - **注意事项**：
     - `paths` 过滤与 ci-eslint.yml 保持一致
     - `if: always()` 确保覆盖率报告即使测试失败也上传
@@ -711,25 +716,27 @@ graph LR
 
 ### 4.2 依赖说明
 
-| 任务 | 依赖于 | 原因 |
-|------|--------|------|
-| A.2 Vitest 配置 | A.1 安装依赖 | 配置文件引用 vitest、vite-tsconfig-paths 等包 |
-| A.3 Setup 文件 | A.1 安装依赖 | setup 文件引用 @testing-library/jest-dom/vitest |
-| A.4 npm scripts | A.2 + A.3 | scripts 依赖配置文件存在 |
-| B.1 ~ B.5 纯函数测试 | A.4 npm scripts | 测试文件需要 vitest 可执行 |
+| 任务                    | 依赖于                 | 原因                                                                 |
+| ----------------------- | ---------------------- | -------------------------------------------------------------------- |
+| A.2 Vitest 配置         | A.1 安装依赖           | 配置文件引用 vitest、vite-tsconfig-paths 等包                        |
+| A.3 Setup 文件          | A.1 安装依赖           | setup 文件引用 @testing-library/jest-dom/vitest                      |
+| A.4 npm scripts         | A.2 + A.3              | scripts 依赖配置文件存在                                             |
+| B.1 ~ B.5 纯函数测试    | A.4 npm scripts        | 测试文件需要 vitest 可执行                                           |
 | C.2 useExecutionSession | C.1 useAdaptivePolling | useExecutionSession 依赖 useAdaptivePolling，先确保 polling 测试通过 |
-| D.1 Button 测试 | A.3 Setup 文件 | DOM 组件测试依赖 jest-dom 扩展和浏览器 API mock |
-| E.1 CI workflow | 所有测试文件 | CI 需要有测试可运行 |
-| F.1/F.2 文档 | E.2 验证完成 | 文档描述已验证可用的状态 |
+| D.1 Button 测试         | A.3 Setup 文件         | DOM 组件测试依赖 jest-dom 扩展和浏览器 API mock                      |
+| E.1 CI workflow         | 所有测试文件           | CI 需要有测试可运行                                                  |
+| F.1/F.2 文档            | E.2 验证完成           | 文档描述已验证可用的状态                                             |
 
 ### 4.3 并行任务
 
 以下任务可以并行开发（依赖 A.4 完成后）：
 
 **第一批并行**（纯函数测试，互不依赖）：
+
 - B.1 formatFileSize 测试 || B.2 storage 测试 || B.3 clipboard 测试 || B.4 errors 测试 || B.5 cn() 测试 || C.1 useAdaptivePolling 测试 || D.1 Button 测试 || D.2 apiClient 测试
 
 **第二批并行**（C.1 完成后）：
+
 - C.2 useExecutionSession 测试
 
 ---
@@ -758,21 +765,21 @@ graph LR
 
 ### 5.2 本次实施范围（Phase 1）
 
-| 层级 | 测试类型 | 覆盖目标 | 文件数 | 优先级 |
-|------|----------|----------|--------|--------|
-| Level 1 | 纯函数单元测试 | `lib/utils/**`、`lib/errors/**` | 5 | P0 -- 最高 ROI，无 DOM 依赖 |
-| Level 2 | Hook 测试 | `features/chat/hooks/` | 2 | P1 -- 核心 Hook 逻辑验证 |
-| Level 3 | UI 组件测试 | `components/ui/button.tsx` | 1 | P1 -- 验证 Testing Library 配置正确 |
-| Level 4 | 集成测试 | `services/api-client.ts` | 1 | P2 -- 请求构造和错误处理 |
+| 层级    | 测试类型       | 覆盖目标                        | 文件数 | 优先级                              |
+| ------- | -------------- | ------------------------------- | ------ | ----------------------------------- |
+| Level 1 | 纯函数单元测试 | `lib/utils/**`、`lib/errors/**` | 5      | P0 -- 最高 ROI，无 DOM 依赖         |
+| Level 2 | Hook 测试      | `features/chat/hooks/`          | 2      | P1 -- 核心 Hook 逻辑验证            |
+| Level 3 | UI 组件测试    | `components/ui/button.tsx`      | 1      | P1 -- 验证 Testing Library 配置正确 |
+| Level 4 | 集成测试       | `services/api-client.ts`        | 1      | P2 -- 请求构造和错误处理            |
 
 ### 5.3 Phase 2 可扩展方向
 
-| 层级 | 测试类型 | 覆盖目标 | 优先级 |
-|------|----------|----------|--------|
-| Level 5 | 更多组件测试 | 所有 shadcn/ui 组件、业务组件 | 中 |
-| Level 6 | 更多 Hook 测试 | 全部 feature hooks | 中 |
-| Level 7 | Feature 集成测试 | 完整 feature 模块交互 | 低 |
-| Level 8 | E2E 测试 (Playwright) | 创建任务、聊天执行、项目切换 | 高 |
+| 层级    | 测试类型              | 覆盖目标                      | 优先级 |
+| ------- | --------------------- | ----------------------------- | ------ |
+| Level 5 | 更多组件测试          | 所有 shadcn/ui 组件、业务组件 | 中     |
+| Level 6 | 更多 Hook 测试        | 全部 feature hooks            | 中     |
+| Level 7 | Feature 集成测试      | 完整 feature 模块交互         | 低     |
+| Level 8 | E2E 测试 (Playwright) | 创建任务、聊天执行、项目切换  | 高     |
 
 ---
 
@@ -780,26 +787,26 @@ graph LR
 
 ### 6.1 vitest.config.ts 关键配置说明
 
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| `plugins: [react()]` | @vitejs/plugin-react | 使 Vitest 能编译 JSX/TSX |
-| `plugins: [tsconfigPaths()]` | vite-tsconfig-paths | 解析 `@/` 路径别名 |
-| `environment: "jsdom"` | jsdom | 模拟浏览器 DOM 环境 |
-| `setupFiles` | `./tests/setup.ts` | 全局 mock 和断言扩展 |
-| `globals: true` | boolean | 无需 import describe/it/expect |
-| `css.modules.classNameStrategy` | "non-scoped" | Tailwind CSS 类名不被 hash |
-| `coverage.provider` | "istanbul" | 覆盖率引擎 |
-| `coverage.include` | lib/ + hooks/ + services/ | 仅统计有意义的代码 |
+| 配置项                          | 值                        | 说明                           |
+| ------------------------------- | ------------------------- | ------------------------------ |
+| `plugins: [react()]`            | @vitejs/plugin-react      | 使 Vitest 能编译 JSX/TSX       |
+| `plugins: [tsconfigPaths()]`    | vite-tsconfig-paths       | 解析 `@/` 路径别名             |
+| `environment: "jsdom"`          | jsdom                     | 模拟浏览器 DOM 环境            |
+| `setupFiles`                    | `./tests/setup.ts`        | 全局 mock 和断言扩展           |
+| `globals: true`                 | boolean                   | 无需 import describe/it/expect |
+| `css.modules.classNameStrategy` | "non-scoped"              | Tailwind CSS 类名不被 hash     |
+| `coverage.provider`             | "istanbul"                | 覆盖率引擎                     |
+| `coverage.include`              | lib/ + hooks/ + services/ | 仅统计有意义的代码             |
 
 ### 6.2 与 Next.js 16 的兼容性考量
 
-| 问题 | 解决方案 |
-|------|----------|
-| Next.js 使用 Turbopack 而非 Vite | Vitest 独立运行，不依赖 Next.js 构建。配置中不引用 next.config.ts |
-| Server Components 无法直接测试 | 本次仅测试客户端组件（Button）和纯逻辑（hooks/utils） |
-| `next/navigation` 在 jsdom 中不可用 | setup.ts 全局 mock |
-| `next/headers` 等 Server API | 仅在 api-client 的服务端分支测试中需要 mock |
-| `import.meta.env.DEV`（error-handler.ts 使用） | jsdom 环境默认支持 |
+| 问题                                           | 解决方案                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| Next.js 使用 Turbopack 而非 Vite               | Vitest 独立运行，不依赖 Next.js 构建。配置中不引用 next.config.ts |
+| Server Components 无法直接测试                 | 本次仅测试客户端组件（Button）和纯逻辑（hooks/utils）             |
+| `next/navigation` 在 jsdom 中不可用            | setup.ts 全局 mock                                                |
+| `next/headers` 等 Server API                   | 仅在 api-client 的服务端分支测试中需要 mock                       |
+| `import.meta.env.DEV`（error-handler.ts 使用） | jsdom 环境默认支持                                                |
 
 ---
 
@@ -807,14 +814,14 @@ graph LR
 
 ### 7.1 潜在风险
 
-| 风险 | 影响 | 缓解措施 |
-|------|------|----------|
-| React 19 + Testing Library 兼容性 | 高 | @testing-library/react v16+ 已支持 React 19，安装时锁定版本 |
-| jsdom 不支持部分浏览器 API（matchMedia 等） | 中 | setup.ts 中预先 mock 这些 API |
-| Vitest 与 Next.js 16 的 `async server components` 冲突 | 低 | 本次不测试 Server Components |
-| Tailwind CSS 类名在 jsdom 中无法验证视觉效果 | 低 | 仅验证类名字符串正确，不验证渲染效果 |
-| useExecutionSession 依赖链过深导致测试复杂 | 中 | 优先 mock 直接依赖，使用 spy 保持部分真实行为 |
-| pnpm install --frozen-lockfile 在 CI 失败 | 中 | 安装新依赖后必须提交更新的 pnpm-lock.yaml |
+| 风险                                                   | 影响 | 缓解措施                                                    |
+| ------------------------------------------------------ | ---- | ----------------------------------------------------------- |
+| React 19 + Testing Library 兼容性                      | 高   | @testing-library/react v16+ 已支持 React 19，安装时锁定版本 |
+| jsdom 不支持部分浏览器 API（matchMedia 等）            | 中   | setup.ts 中预先 mock 这些 API                               |
+| Vitest 与 Next.js 16 的 `async server components` 冲突 | 低   | 本次不测试 Server Components                                |
+| Tailwind CSS 类名在 jsdom 中无法验证视觉效果           | 低   | 仅验证类名字符串正确，不验证渲染效果                        |
+| useExecutionSession 依赖链过深导致测试复杂             | 中   | 优先 mock 直接依赖，使用 spy 保持部分真实行为               |
+| pnpm install --frozen-lockfile 在 CI 失败              | 中   | 安装新依赖后必须提交更新的 pnpm-lock.yaml                   |
 
 ### 7.2 测试文件组织约定
 
@@ -844,6 +851,7 @@ frontend/
 ```
 
 **命名约定**：
+
 - 测试文件名：`<source-file-name>.test.{ts,tsx}`
 - 测试文件位置策略：优先放在 `tests/` 目录下镜像源码路径；当 feature 内部测试文件增多时，可在 feature 目录内直接放置 `.test.ts` 文件
 - 测试描述使用 `describe` 分组，与源码导出函数/组件一一对应
@@ -851,6 +859,7 @@ frontend/
 ### 7.3 后续可扩展的测试
 
 Phase 2 可考虑的增强（不在本次范围）：
+
 - 为 `features/*/services/` 下的 API 服务编写 mock 测试
 - 为更多 shadcn/ui 组件编写测试（Dialog、Select、Tabs 等）
 - 为 `hooks/use-mobile.ts` 等全局 hooks 编写测试
@@ -891,27 +900,27 @@ Phase 3（Hook + 组件 + 集成，部分并行）:
 Phase 4（CI + 文档）: E.1 → E.2 → F.1 + F.2（并行）
 ```
 
-预估关键路径：A.1 → A.2 → A.4 → B.* → E.1 → E.2 → F.*
+预估关键路径：A.1 → A.2 → A.4 → B._ → E.1 → E.2 → F._
 总工作量：17 任务点（A.5 已删除——.gitignore 已有 /coverage）
 
 ---
 
 ## 10. 相关文件清单
 
-| 文件路径 | 操作 | 说明 |
-|----------|------|------|
-| `frontend/package.json` | 修改 | 添加 devDependencies 和 scripts |
-| `frontend/vitest.config.ts` | 新建 | Vitest 配置 |
-| `frontend/tests/setup.ts` | 新建 | 全局测试 setup |
-| `frontend/tests/lib/utils/cn.test.ts` | 新建 | cn() 测试 |
-| `frontend/tests/lib/utils/format-file-size.test.ts` | 新建 | formatFileSize 测试 |
-| `frontend/tests/lib/utils/storage.test.ts` | 新建 | storage 工具测试 |
-| `frontend/tests/lib/utils/clipboard/copy-to-clipboard.test.ts` | 新建 | clipboard 测试 |
-| `frontend/tests/lib/errors/error-handler.test.ts` | 新建 | errors 测试 |
-| `frontend/tests/features/chat/hooks/use-adaptive-polling.test.ts` | 新建 | useAdaptivePolling 测试 |
-| `frontend/tests/features/chat/hooks/use-execution-session.test.ts` | 新建 | useExecutionSession 测试 |
-| `frontend/tests/components/ui/button.test.tsx` | 新建 | Button 组件测试 |
-| `frontend/tests/integration/api-client.test.ts` | 新建 | apiClient 集成测试 |
-| `.github/workflows/ci-vitest.yml` | 新建 | CI workflow |
-| `frontend/CLAUDE.md` | 修改 | 更新测试文档 |
-| `CLAUDE.md` | 修改 | 更新根文档测试策略 |
+| 文件路径                                                           | 操作 | 说明                            |
+| ------------------------------------------------------------------ | ---- | ------------------------------- |
+| `frontend/package.json`                                            | 修改 | 添加 devDependencies 和 scripts |
+| `frontend/vitest.config.ts`                                        | 新建 | Vitest 配置                     |
+| `frontend/tests/setup.ts`                                          | 新建 | 全局测试 setup                  |
+| `frontend/tests/lib/utils/cn.test.ts`                              | 新建 | cn() 测试                       |
+| `frontend/tests/lib/utils/format-file-size.test.ts`                | 新建 | formatFileSize 测试             |
+| `frontend/tests/lib/utils/storage.test.ts`                         | 新建 | storage 工具测试                |
+| `frontend/tests/lib/utils/clipboard/copy-to-clipboard.test.ts`     | 新建 | clipboard 测试                  |
+| `frontend/tests/lib/errors/error-handler.test.ts`                  | 新建 | errors 测试                     |
+| `frontend/tests/features/chat/hooks/use-adaptive-polling.test.ts`  | 新建 | useAdaptivePolling 测试         |
+| `frontend/tests/features/chat/hooks/use-execution-session.test.ts` | 新建 | useExecutionSession 测试        |
+| `frontend/tests/components/ui/button.test.tsx`                     | 新建 | Button 组件测试                 |
+| `frontend/tests/integration/api-client.test.ts`                    | 新建 | apiClient 集成测试              |
+| `.github/workflows/ci-vitest.yml`                                  | 新建 | CI workflow                     |
+| `frontend/CLAUDE.md`                                               | 修改 | 更新测试文档                    |
+| `CLAUDE.md`                                                        | 修改 | 更新根文档测试策略              |

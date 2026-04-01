@@ -6,8 +6,8 @@
 
 ## Changelog
 
-| Date | Action | Summary |
-|------|--------|---------|
+| Date       | Action  | Summary                  |
+| ---------- | ------- | ------------------------ |
 | 2026-03-31 | Created | Initial module CLAUDE.md |
 
 ---
@@ -62,43 +62,44 @@ app/
 
 Each feature follows: `api/`, `components/` (or `ui/`), `hooks/`, `services/`, `types/`, `index.ts`
 
-| Feature | Path | Description |
-|---------|------|-------------|
-| **Chat** | `features/chat/` | Core chat interface, execution panels, message rendering, tool visualization, file/artifact viewers, model selector |
-| **Home** | `features/home/` | Home page with model selector, quick actions, project cards |
-| **Projects** | `features/projects/` | Project CRUD, task history, task management |
-| **Capabilities** | `features/capabilities/` | Hub for skills, plugins, MCP, env vars, slash commands, sub-agents, personalization, presets |
-| **Scheduled Tasks** | `features/scheduled-tasks/` | CRUD for cron-based recurring tasks |
-| **Memories** | `features/memories/` | Memory management UI |
-| **Search** | `features/search/` | Global search |
-| **Settings** | `features/settings/` | App settings |
-| **Onboarding** | `features/onboarding/` | First-run experience |
-| **Task Composer** | `features/task-composer/` | Task creation flow |
-| **User** | `features/user/` | User profile/management |
-| **Voice** | `features/voice/` | Voice input |
-| **Connectors** | `features/connectors/` | External connectors |
-| **Attachments** | `features/attachments/` | File attachment handling |
+| Feature             | Path                        | Description                                                                                                         |
+| ------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Chat**            | `features/chat/`            | Core chat interface, execution panels, message rendering, tool visualization, file/artifact viewers, model selector |
+| **Home**            | `features/home/`            | Home page with model selector, quick actions, project cards                                                         |
+| **Projects**        | `features/projects/`        | Project CRUD, task history, task management                                                                         |
+| **Capabilities**    | `features/capabilities/`    | Hub for skills, plugins, MCP, env vars, slash commands, sub-agents, personalization, presets                        |
+| **Scheduled Tasks** | `features/scheduled-tasks/` | CRUD for cron-based recurring tasks                                                                                 |
+| **Memories**        | `features/memories/`        | Memory management UI                                                                                                |
+| **Search**          | `features/search/`          | Global search                                                                                                       |
+| **Settings**        | `features/settings/`        | App settings                                                                                                        |
+| **Onboarding**      | `features/onboarding/`      | First-run experience                                                                                                |
+| **Task Composer**   | `features/task-composer/`   | Task creation flow                                                                                                  |
+| **User**            | `features/user/`            | User profile/management                                                                                             |
+| **Voice**           | `features/voice/`           | Voice input                                                                                                         |
+| **Connectors**      | `features/connectors/`      | External connectors                                                                                                 |
+| **Attachments**     | `features/attachments/`     | File attachment handling                                                                                            |
 
 ### Component Layers
 
-| Layer | Path | Purpose |
-|-------|------|---------|
-| UI Primitives | `components/ui/` | 80+ shadcn/ui-based components (button, dialog, tabs, etc.) |
-| Shared | `components/shared/` | Cross-feature components (markdown, cards, error boundary, theme) |
-| Shell | `components/shell/` | App shell, sidebar, navigation |
+| Layer         | Path                 | Purpose                                                           |
+| ------------- | -------------------- | ----------------------------------------------------------------- |
+| UI Primitives | `components/ui/`     | 80+ shadcn/ui-based components (button, dialog, tabs, etc.)       |
+| Shared        | `components/shared/` | Cross-feature components (markdown, cards, error boundary, theme) |
+| Shell         | `components/shell/`  | App shell, sidebar, navigation                                    |
 
 ### Cross-Cutting
 
-| Path | Purpose |
-|------|---------|
-| `hooks/` | Global hooks (mobile detection, theme, pagination, language) |
-| `lib/` | Utilities, i18n, errors, markdown, startup preload |
-| `services/api-client.ts` | Global API client |
-| `types/` | Global shared types |
+| Path                     | Purpose                                                      |
+| ------------------------ | ------------------------------------------------------------ |
+| `hooks/`                 | Global hooks (mobile detection, theme, pagination, language) |
+| `lib/`                   | Utilities, i18n, errors, markdown, startup preload           |
+| `services/api-client.ts` | Global API client                                            |
+| `types/`                 | Global shared types                                          |
 
 ## API Proxy
 
 `app/api/v1/[...path]/route.ts` proxies all API calls to Backend:
+
 - Reads `BACKEND_URL` / `POCO_BACKEND_URL` / `POCO_API_URL` (default: `http://localhost:8000`)
 - Strips hop-by-hop headers, adds forwarding headers
 - Supports GET, POST, PUT, PATCH, DELETE, OPTIONS
@@ -119,26 +120,28 @@ Each feature follows: `api/`, `components/` (or `ui/`), `hooks/`, `services/`, `
 
 ## Key Configuration
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Dependencies, scripts |
-| `app/globals.css` | CSS variables (colors, shadows, radius) -- design system |
-| `lib/i18n/settings.ts` | i18n configuration |
-| `lib/i18n/locales/{lng}/translation.json` | Translation files |
+| File                                      | Purpose                                                  |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `package.json`                            | Dependencies, scripts                                    |
+| `app/globals.css`                         | CSS variables (colors, shadows, radius) -- design system |
+| `lib/i18n/settings.ts`                    | i18n configuration                                       |
+| `lib/i18n/locales/{lng}/translation.json` | Translation files                                        |
 
 ## Internationalization
 
 6 supported languages: English (`en`), Chinese (`zh`), German (`de`), French (`fr`), Japanese (`ja`), Russian (`ru`).
 
 All user-facing text must use `useT()` hook:
+
 ```tsx
 const { t } = useT();
-<Button>{t("sidebar.newTask")}</Button>
+<Button>{t("sidebar.newTask")}</Button>;
 ```
 
 ## Design System
 
 Tailwind CSS v4 with CSS variables in `app/globals.css`:
+
 - Colors: `var(--background)`, `var(--foreground)`, `var(--primary)`, `var(--border)`, etc.
 - Shadows: `var(--shadow-sm)`, `var(--shadow-md)`, `var(--shadow-lg)`, etc.
 - Border radius: `var(--radius)`
@@ -149,29 +152,29 @@ Do NOT hardcode colors or write raw CSS without using these variables.
 
 **Framework**: Vitest 4 + @testing-library/react + @testing-library/jest-dom + jsdom
 
-| Command | Purpose |
-|---------|---------|
-| `pnpm test` | Run all tests |
-| `pnpm test:watch` | Watch mode |
-| `pnpm test:coverage` | Coverage report (Istanbul) |
-| `pnpm test:ci` | CI mode (JSON + default reporter) |
+| Command              | Purpose                           |
+| -------------------- | --------------------------------- |
+| `pnpm test`          | Run all tests                     |
+| `pnpm test:watch`    | Watch mode                        |
+| `pnpm test:coverage` | Coverage report (Istanbul)        |
+| `pnpm test:ci`       | CI mode (JSON + default reporter) |
 
 ### Test Structure
 
-| Layer | Path | What's Tested |
-|-------|------|---------------|
-| Unit | `tests/lib/**/*.test.ts` | Pure functions (utils, errors, clipboard) |
-| Hook | `tests/features/*/hooks/*.test.ts` | React hooks (renderHook + fakeTimers) |
-| Component | `tests/components/**/*.test.tsx` | UI components (render + userEvent) |
-| Integration | `tests/integration/**/*.test.ts` | API client (fetch mocking) |
+| Layer       | Path                               | What's Tested                             |
+| ----------- | ---------------------------------- | ----------------------------------------- |
+| Unit        | `tests/lib/**/*.test.ts`           | Pure functions (utils, errors, clipboard) |
+| Hook        | `tests/features/*/hooks/*.test.ts` | React hooks (renderHook + fakeTimers)     |
+| Component   | `tests/components/**/*.test.tsx`   | UI components (render + userEvent)        |
+| Integration | `tests/integration/**/*.test.ts`   | API client (fetch mocking)                |
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `vitest.config.ts` | Vitest configuration (jsdom, globals, coverage) |
-| `tests/setup.ts` | Global mocks (next/navigation, matchMedia, observers) |
-| `tests/setup.d.ts` | Vitest globals type reference |
+| File               | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| `vitest.config.ts` | Vitest configuration (jsdom, globals, coverage)       |
+| `tests/setup.ts`   | Global mocks (next/navigation, matchMedia, observers) |
+| `tests/setup.d.ts` | Vitest globals type reference                         |
 
 ### Writing Tests
 
@@ -183,6 +186,7 @@ Do NOT hardcode colors or write raw CSS without using these variables.
 ## Quality Gates
 
 Before submitting changes:
+
 1. `pnpm lint` must pass
 2. `pnpm build` must pass
 3. `pnpm test` must pass

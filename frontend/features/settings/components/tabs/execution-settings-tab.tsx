@@ -32,7 +32,8 @@ const EMPTY_SETTINGS: ExecutionSettings = {
 
 export function ExecutionSettingsTab() {
   const { t } = useT("translation");
-  const [settings, setSettings] = React.useState<ExecutionSettings>(EMPTY_SETTINGS);
+  const [settings, setSettings] =
+    React.useState<ExecutionSettings>(EMPTY_SETTINGS);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -47,7 +48,10 @@ export function ExecutionSettingsTab() {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("[ExecutionSettingsTab] Failed to load settings", error);
+          console.error(
+            "[ExecutionSettingsTab] Failed to load settings",
+            error,
+          );
         }
       } finally {
         if (!cancelled) {
@@ -107,7 +111,8 @@ export function ExecutionSettingsTab() {
               ...current,
               workspace: {
                 ...current.workspace,
-                checkout_strategy: value as ExecutionSettings["workspace"]["checkout_strategy"],
+                checkout_strategy:
+                  value as ExecutionSettings["workspace"]["checkout_strategy"],
               },
             }))
           }
@@ -153,7 +158,9 @@ export function ExecutionSettingsTab() {
                     ...current,
                     hooks: {
                       pipeline: current.hooks.pipeline.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, enabled: checked } : item,
+                        itemIndex === index
+                          ? { ...item, enabled: checked }
+                          : item,
                       ),
                     },
                   }))
@@ -166,7 +173,11 @@ export function ExecutionSettingsTab() {
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+          {isSaving ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 size-4" />
+          )}
           {t("settings.execution.save")}
         </Button>
       </div>

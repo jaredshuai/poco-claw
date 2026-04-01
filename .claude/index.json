@@ -35,11 +35,21 @@
         "directory": "backend/app/models/",
         "count": 24,
         "keyModels": [
-          "AgentSession", "AgentRun", "AgentMessage",
-          "Project", "ToolExecution", "UsageLog",
-          "Skill", "Plugin", "McpServer", "SlashCommand",
-          "SubAgent", "UserEnvVar", "AgentScheduledTask",
-          "Deliverable", "UserInputRequest"
+          "AgentSession",
+          "AgentRun",
+          "AgentMessage",
+          "Project",
+          "ToolExecution",
+          "UsageLog",
+          "Skill",
+          "Plugin",
+          "McpServer",
+          "SlashCommand",
+          "SubAgent",
+          "UserEnvVar",
+          "AgentScheduledTask",
+          "Deliverable",
+          "UserInputRequest"
         ]
       },
       "tests": {
@@ -154,16 +164,31 @@
       "entry": "frontend/app/page.tsx",
       "claudeMd": "frontend/CLAUDE.md",
       "features": [
-        "chat", "home", "projects", "capabilities", "scheduled-tasks",
-        "memories", "search", "settings", "onboarding", "task-composer",
-        "user", "voice", "connectors", "attachments"
+        "chat",
+        "home",
+        "projects",
+        "capabilities",
+        "scheduled-tasks",
+        "memories",
+        "search",
+        "settings",
+        "onboarding",
+        "task-composer",
+        "user",
+        "voice",
+        "connectors",
+        "attachments"
       ],
       "routes": {
         "proxyRoute": "frontend/app/api/v1/[...path]/route.ts",
         "appRoutes": [
-          "home", "chat/[id]", "projects/[id]",
-          "capabilities", "capabilities/scheduled-tasks",
-          "capabilities/scheduled-tasks/[taskId]", "memories"
+          "home",
+          "chat/[id]",
+          "projects/[id]",
+          "capabilities",
+          "capabilities/scheduled-tasks",
+          "capabilities/scheduled-tasks/[taskId]",
+          "memories"
         ]
       },
       "tests": {
@@ -207,17 +232,32 @@
         "docker/frontend/Dockerfile"
       ],
       "services": [
-        "postgres", "mem0-postgres", "mem0-neo4j",
-        "rustfs", "backend", "executor-manager", "executor", "frontend"
+        "postgres",
+        "mem0-postgres",
+        "mem0-neo4j",
+        "rustfs",
+        "backend",
+        "executor-manager",
+        "executor",
+        "frontend"
       ]
     },
     "ci": {
       "workflows": [
-        "ci-ruff", "ci-pyrefly", "ci-pytest",
-        "ci-eslint", "ci-prettier", "ci-frontend-build",
-        "ci-gitleaks", "ci-actionlint", "ci-markdownlint",
-        "ci-pr-title", "docker-images", "labeler",
-        "docs-sync", "close-stale-issues"
+        "ci-ruff",
+        "ci-pyrefly",
+        "ci-pytest",
+        "ci-eslint",
+        "ci-prettier",
+        "ci-frontend-build",
+        "ci-gitleaks",
+        "ci-actionlint",
+        "ci-markdownlint",
+        "ci-pr-title",
+        "docker-images",
+        "labeler",
+        "docs-sync",
+        "close-stale-issues"
       ]
     },
     "docs": {
@@ -257,7 +297,16 @@
     }
   ],
   "ignoreStats": {
-    "rules": [".venv", "node_modules", ".git", "__pycache__", ".env", ".factory", "oss_data", "tmp_workspace"],
+    "rules": [
+      ".venv",
+      "node_modules",
+      ".git",
+      "__pycache__",
+      ".env",
+      ".factory",
+      "oss_data",
+      "tmp_workspace"
+    ],
     "skippedDirectories": [
       "backend/.venv",
       "executor/.venv",

@@ -6,8 +6,8 @@
 
 ## Changelog
 
-| Date | Action | Summary |
-|------|--------|---------|
+| Date       | Action  | Summary                  |
+| ---------- | ------- | ------------------------ |
 | 2026-03-31 | Created | Initial module CLAUDE.md |
 
 ---
@@ -32,10 +32,10 @@
 
 All endpoints under `/api/v1/`. Single router: `app/api/v1/task.py`.
 
-| Endpoint | Description |
-|----------|-------------|
+| Endpoint            | Description                    |
+| ------------------- | ------------------------------ |
 | `POST /api/v1/task` | Receive task execution request |
-| `GET /health` | Health check |
+| `GET /health`       | Health check                   |
 
 The task endpoint receives a `TaskConfig` with session ID, prompt, model config, hooks, workspace info, and callback URL.
 
@@ -44,29 +44,33 @@ The task endpoint receives a `TaskConfig` with session ID, prompt, model config,
 The hook system provides plugin-based extensibility during agent execution.
 
 **Base**: `app/hooks/base.py`
+
 - `AgentHook` (ABC) with lifecycle methods: `on_setup`, `on_agent_response`, `on_teardown`, `on_error`
 - `ExecutionContext` carries session ID, working directory, and current state
 
 **Manager**: `app/hooks/manager.py`
+
 - `HookManager` orchestrates hook execution in sequence (teardown in reverse)
 
 **Built-in Hooks**:
 
-| Hook | File | Purpose |
-|------|------|---------|
-| CallbackHook | `callback.py` | Send progress callbacks to Executor Manager |
-| ComputerHook | `computer.py` | Browser/computer use tool execution |
-| TodoHook | `todo.py` | Track todo list progress |
-| WorkspaceHook | `workspace.py` | Workspace file operations |
-| RunSnapshotHook | `run_snapshot.py` | Capture run state snapshots |
+| Hook            | File              | Purpose                                     |
+| --------------- | ----------------- | ------------------------------------------- |
+| CallbackHook    | `callback.py`     | Send progress callbacks to Executor Manager |
+| ComputerHook    | `computer.py`     | Browser/computer use tool execution         |
+| TodoHook        | `todo.py`         | Track todo list progress                    |
+| WorkspaceHook   | `workspace.py`    | Workspace file operations                   |
+| RunSnapshotHook | `run_snapshot.py` | Capture run state snapshots                 |
 
 ## Key Dependencies and Configuration
 
 **Dependencies** (from `pyproject.toml`):
+
 - `claude-agent-sdk==0.1.48` -- Core AI agent SDK
 - FastAPI, httpx, SQLAlchemy, uvicorn, websockets
 
 **Environment** (set by Executor Manager):
+
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` -- LLM provider credentials
 - `ANTHROPIC_BASE_URL` -- API base URL
 - `DEFAULT_MODEL` -- Model to use
@@ -77,6 +81,7 @@ The hook system provides plugin-based extensibility during agent execution.
 ### AgentExecutor (`app/core/engine.py`)
 
 The main engine that:
+
 1. Creates a `ClaudeSDKClient` with configured options
 2. Sets up `HookManager` with selected hooks
 3. Manages execution context with session ID, trace IDs
@@ -114,13 +119,13 @@ Viewport size parsing and formatting for computer use.
 
 All schemas in `app/schemas/`:
 
-| Schema File | Purpose |
-|-------------|---------|
-| `request.py` | Task execution request (`TaskConfig`) |
-| `response.py` | Standardized response wrapper |
-| `callback.py` | Callback payload structures |
-| `state.py` | Agent execution state (`AgentCurrentState`, `BrowserState`) |
-| `enums.py` | Status and type enumerations |
+| Schema File   | Purpose                                                     |
+| ------------- | ----------------------------------------------------------- |
+| `request.py`  | Task execution request (`TaskConfig`)                       |
+| `response.py` | Standardized response wrapper                               |
+| `callback.py` | Callback payload structures                                 |
+| `state.py`    | Agent execution state (`AgentCurrentState`, `BrowserState`) |
+| `enums.py`    | Status and type enumerations                                |
 
 ## Testing and Quality
 

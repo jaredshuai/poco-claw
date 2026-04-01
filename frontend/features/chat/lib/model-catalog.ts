@@ -71,13 +71,12 @@ export function buildModelCatalogOptions(
   const orderedModels = getOrderedModels(modelConfig);
   const defaultModelOption =
     orderedModels.find((model) => model.model_id === defaultModel) ?? null;
-  const defaultOptionKey =
-    defaultModelOption
-      ? buildOptionKey(
-          defaultModelOption.provider_id,
-          defaultModelOption.model_id,
-        )
-      : "";
+  const defaultOptionKey = defaultModelOption
+    ? buildOptionKey(
+        defaultModelOption.provider_id,
+        defaultModelOption.model_id,
+      )
+    : "";
 
   return orderedModels.map((model) => {
     const optionKey = buildOptionKey(model.provider_id, model.model_id);

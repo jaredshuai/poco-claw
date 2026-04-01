@@ -181,15 +181,13 @@ describe("api-client", () => {
     });
 
     it("should throw ApiError for non-200 code in envelope", async () => {
-      global.fetch = vi
-        .fn()
-        .mockResolvedValue(
-          createMockResponse({
-            code: 500,
-            message: "Server Error",
-            data: null,
-          }),
-        );
+      global.fetch = vi.fn().mockResolvedValue(
+        createMockResponse({
+          code: 500,
+          message: "Server Error",
+          data: null,
+        }),
+      );
 
       await expect(apiFetch("/test")).rejects.toThrow(ApiError);
       await expect(apiFetch("/test")).rejects.toThrow("Server Error");

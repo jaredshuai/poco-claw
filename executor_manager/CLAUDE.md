@@ -6,8 +6,8 @@
 
 ## Changelog
 
-| Date | Action | Summary |
-|------|--------|---------|
+| Date       | Action  | Summary                  |
+| ---------- | ------- | ------------------------ |
 | 2026-03-31 | Created | Initial module CLAUDE.md |
 
 ---
@@ -35,17 +35,17 @@
 
 All endpoints under `/api/v1/`. Router registry in `app/api/v1/__init__.py`.
 
-| Domain | Router File | Key Operations |
-|--------|-------------|----------------|
-| Tasks | `tasks.py` | Create, get status, cancel tasks |
-| Executor | `executor.py` | Executor container management |
-| Callback | `callback.py` | Forward callbacks to Backend |
-| Computer | `computer.py` | Computer use forwarding |
-| Workspace | `workspace.py` | Workspace operations |
-| Skills Upload | `skills_upload.py` | Upload skill files |
-| Schedules | `schedules.py` | Schedule management |
-| User Input Requests | `user_input_requests.py` | Forward user input requests |
-| Memories | `memories.py` | Memory operations |
+| Domain              | Router File              | Key Operations                   |
+| ------------------- | ------------------------ | -------------------------------- |
+| Tasks               | `tasks.py`               | Create, get status, cancel tasks |
+| Executor            | `executor.py`            | Executor container management    |
+| Callback            | `callback.py`            | Forward callbacks to Backend     |
+| Computer            | `computer.py`            | Computer use forwarding          |
+| Workspace           | `workspace.py`           | Workspace operations             |
+| Skills Upload       | `skills_upload.py`       | Upload skill files               |
+| Schedules           | `schedules.py`           | Schedule management              |
+| User Input Requests | `user_input_requests.py` | Forward user input requests      |
+| Memories            | `memories.py`            | Memory operations                |
 
 ## Key Architecture
 
@@ -74,6 +74,7 @@ All endpoints under `/api/v1/`. Router registry in `app/api/v1/__init__.py`.
 ### Pull Modes
 
 Three queue-based pull modes:
+
 - **Immediate** -- Real-time task dispatch (`TASK_PULL_IMMEDIATE_*`)
 - **Scheduled** -- Cron-based dispatch (`TASK_PULL_SCHEDULED_*`)
 - **Nightly** -- Off-peak batch processing (`TASK_PULL_NIGHTLY_*`)
@@ -81,6 +82,7 @@ Three queue-based pull modes:
 ## Key Dependencies and Configuration
 
 **Dependencies** (from `pyproject.toml`):
+
 - FastAPI, Uvicorn, Pydantic Settings
 - APScheduler -- Job scheduling
 - Docker SDK -- Container management
@@ -89,52 +91,52 @@ Three queue-based pull modes:
 
 **Critical Configuration** (`app/core/settings.py`):
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `ANTHROPIC_API_KEY` | (required) | Anthropic API key |
-| `DEFAULT_MODEL` | `claude-sonnet-4-20250514` | Default LLM model |
-| `BACKEND_URL` | `http://localhost:8000` | Backend service URL |
-| `CALLBACK_BASE_URL` | `http://localhost:8001` | This service's URL for callbacks |
-| `MAX_EXECUTOR_CONTAINERS` | 10 | Container pool limit |
-| `EXECUTOR_IMAGE` | `ghcr.io/poco-ai/poco-executor:lite` | Executor Docker image |
-| `EXECUTOR_BROWSER_IMAGE` | `ghcr.io/poco-ai/poco-executor:full` | Browser-enabled executor image |
-| `WORKSPACE_ROOT` | `/var/lib/opencowork/workspaces` | Workspace storage path |
-| `S3_*` | (varies) | S3-compatible storage config |
-| `TASK_PULL_*` | (varies) | Pull mode intervals |
-| `SCHEDULED_TASKS_ENABLED` | true | Enable cron dispatch |
-| Multi-provider keys: `GLM_*`, `MINIMAX_*`, `DEEPSEEK_*`, `OPENAI_*` | -- | Additional LLM provider credentials |
+| Setting                                                             | Default                              | Description                         |
+| ------------------------------------------------------------------- | ------------------------------------ | ----------------------------------- |
+| `ANTHROPIC_API_KEY`                                                 | (required)                           | Anthropic API key                   |
+| `DEFAULT_MODEL`                                                     | `claude-sonnet-4-20250514`           | Default LLM model                   |
+| `BACKEND_URL`                                                       | `http://localhost:8000`              | Backend service URL                 |
+| `CALLBACK_BASE_URL`                                                 | `http://localhost:8001`              | This service's URL for callbacks    |
+| `MAX_EXECUTOR_CONTAINERS`                                           | 10                                   | Container pool limit                |
+| `EXECUTOR_IMAGE`                                                    | `ghcr.io/poco-ai/poco-executor:lite` | Executor Docker image               |
+| `EXECUTOR_BROWSER_IMAGE`                                            | `ghcr.io/poco-ai/poco-executor:full` | Browser-enabled executor image      |
+| `WORKSPACE_ROOT`                                                    | `/var/lib/opencowork/workspaces`     | Workspace storage path              |
+| `S3_*`                                                              | (varies)                             | S3-compatible storage config        |
+| `TASK_PULL_*`                                                       | (varies)                             | Pull mode intervals                 |
+| `SCHEDULED_TASKS_ENABLED`                                           | true                                 | Enable cron dispatch                |
+| Multi-provider keys: `GLM_*`, `MINIMAX_*`, `DEEPSEEK_*`, `OPENAI_*` | --                                   | Additional LLM provider credentials |
 
 ## Service Layer
 
-| Service | File | Purpose |
-|---------|------|---------|
-| `BackendClient` | `backend_client.py` | HTTP client to Backend API |
-| `ExecutorClient` | `executor_client.py` | HTTP client to Executor containers |
-| `ContainerPool` | `container_pool.py` | Docker container pool management |
-| `ConfigResolver` | `config_resolver.py` | Multi-provider credential resolution |
-| `RunPullService` | `run_pull_service.py` | Background run polling and dispatch |
-| `TaskService` | `task_service.py` | Task business logic |
-| `CallbackService` | `callback_service.py` | Callback forwarding |
-| `WorkspaceManager` | `workspace_manager.py` | Workspace CRUD |
-| `WorkspaceExportService` | `workspace_export_service.py` | Workspace archival to S3 |
-| `StorageService` | `storage_service.py` | S3 operations |
-| `CleanupService` | `cleanup_service.py` | Workspace cleanup |
-| `ComputerService` | `computer_service.py` | Computer use forwarding |
-| `ScheduledTaskDispatchService` | `scheduled_task_dispatch_service.py` | Cron task dispatch |
-| Stagers: `SkillStager`, `PluginStager`, `AttachmentStager`, `ClaudeMdStager`, `SlashCommandStager`, `SubAgentStager` | Various | Asset staging for executor |
+| Service                                                                                                              | File                                 | Purpose                              |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------ |
+| `BackendClient`                                                                                                      | `backend_client.py`                  | HTTP client to Backend API           |
+| `ExecutorClient`                                                                                                     | `executor_client.py`                 | HTTP client to Executor containers   |
+| `ContainerPool`                                                                                                      | `container_pool.py`                  | Docker container pool management     |
+| `ConfigResolver`                                                                                                     | `config_resolver.py`                 | Multi-provider credential resolution |
+| `RunPullService`                                                                                                     | `run_pull_service.py`                | Background run polling and dispatch  |
+| `TaskService`                                                                                                        | `task_service.py`                    | Task business logic                  |
+| `CallbackService`                                                                                                    | `callback_service.py`                | Callback forwarding                  |
+| `WorkspaceManager`                                                                                                   | `workspace_manager.py`               | Workspace CRUD                       |
+| `WorkspaceExportService`                                                                                             | `workspace_export_service.py`        | Workspace archival to S3             |
+| `StorageService`                                                                                                     | `storage_service.py`                 | S3 operations                        |
+| `CleanupService`                                                                                                     | `cleanup_service.py`                 | Workspace cleanup                    |
+| `ComputerService`                                                                                                    | `computer_service.py`                | Computer use forwarding              |
+| `ScheduledTaskDispatchService`                                                                                       | `scheduled_task_dispatch_service.py` | Cron task dispatch                   |
+| Stagers: `SkillStager`, `PluginStager`, `AttachmentStager`, `ClaudeMdStager`, `SlashCommandStager`, `SubAgentStager` | Various                              | Asset staging for executor           |
 
 ## Schemas
 
-| Schema File | Purpose |
-|-------------|---------|
-| `task.py` | Task request/response |
-| `callback.py` | Callback payloads |
-| `computer.py` | Computer use schemas |
-| `memory.py` | Memory operation schemas |
-| `schedule.py` | Schedule schemas |
-| `user_input_request.py` | User input schemas |
-| `workspace.py` | Workspace schemas |
-| `response.py` | Standardized response wrapper |
+| Schema File             | Purpose                       |
+| ----------------------- | ----------------------------- |
+| `task.py`               | Task request/response         |
+| `callback.py`           | Callback payloads             |
+| `computer.py`           | Computer use schemas          |
+| `memory.py`             | Memory operation schemas      |
+| `schedule.py`           | Schedule schemas              |
+| `user_input_request.py` | User input schemas            |
+| `workspace.py`          | Workspace schemas             |
+| `response.py`           | Standardized response wrapper |
 
 ## Testing and Quality
 

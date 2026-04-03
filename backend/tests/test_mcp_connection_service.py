@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy.exc import IntegrityError
 

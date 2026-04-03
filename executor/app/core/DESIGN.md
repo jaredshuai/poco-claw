@@ -8,12 +8,12 @@
 
 每个核心类只负责一个明确的功能：
 
-| 类 | 职责 | 边界 |
-|---|---|---|
-| `AgentExecutor` | 代理生命周期 | 不处理 HTTP/API |
-| `WorkspaceManager` | 文件系统与 Git | 不涉及执行逻辑 |
-| `PermissionEngine` | 权限决策 | 不执行动作 |
-| `*Client` | 外部通信 | 只做 HTTP 调用 |
+| 类                 | 职责           | 边界            |
+| ------------------ | -------------- | --------------- |
+| `AgentExecutor`    | 代理生命周期   | 不处理 HTTP/API |
+| `WorkspaceManager` | 文件系统与 Git | 不涉及执行逻辑  |
+| `PermissionEngine` | 权限决策       | 不执行动作      |
+| `*Client`          | 外部通信       | 只做 HTTP 调用  |
 
 ### 2. 依赖注入
 
@@ -55,6 +55,7 @@ class AgentExecutor:
 **决策**：`PermissionEngine` 独立于 `AgentExecutor`，通过 `evaluate()` 方法返回 `PermissionDecision`。
 
 **理由**：
+
 - 测试隔离：权限规则测试不依赖 SDK
 - 扩展性：未来可替换为远程策略服务
 - 性能：规则编译可缓存
@@ -66,6 +67,7 @@ class AgentExecutor:
 **决策**：`WorkspaceManager.prepare()` 和 `cleanup()` 声明为 `async`，内部使用 `asyncio.to_thread()` 包装阻塞调用。
 
 **理由**：
+
 - 与 `AgentExecutor.execute()` 保持一致
 - 不阻塞事件循环
 - 未来可替换为异步 Git 库
@@ -77,6 +79,7 @@ class AgentExecutor:
 **决策**：`CallbackClient` 只负责 HTTP POST，业务逻辑由 `CallbackHook` 处理。
 
 **理由**：
+
 - 单一职责
 - 可替换传输层（如 WebSocket）
 - 错误处理隔离
@@ -94,6 +97,7 @@ if parsed_endpoint.scheme not in ("http", "https"):
 ```
 
 **理由**：
+
 - 纵深防御：环境变量由可信 Manager 注入
 - 防止配置错误
 - 消除 SAST 扫描警告
@@ -104,11 +108,11 @@ if parsed_endpoint.scheme not in ("http", "https"):
 
 `WorkspaceManager` 现已支持多种 checkout 策略：
 
-| 策略 | 说明 | 适用场景 |
-|------|------|----------|
-| `clone` | 完整克隆（默认） | 小型仓库、首次克隆 |
-| `worktree` | 从缓存主仓库创建 worktree | 多分支并行开发 |
-| `sparse-clone` | 浅克隆 + sparse checkout | 大仓库、只需部分目录 |
+| 策略           | 说明                      | 适用场景             |
+| -------------- | ------------------------- | -------------------- |
+| `clone`        | 完整克隆（默认）          | 小型仓库、首次克隆   |
+| `worktree`     | 从缓存主仓库创建 worktree | 多分支并行开发       |
+| `sparse-clone` | 浅克隆 + sparse checkout  | 大仓库、只需部分目录 |
 
 **核心实现**：
 

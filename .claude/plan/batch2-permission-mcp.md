@@ -12,13 +12,13 @@
 
 Batch 1 已完成"字段预埋"，但未打通闭环：
 
-| 组件 | 现状 | 缺口 |
-|------|------|------|
-| `PermissionEngine` | 基础实现存在 | 只支持精确工具名匹配，无优先级/组合/audit-only |
-| `tool_executions.policy_*` | 列已存在 | 从未被填充，始终为空 |
-| `agent_run_mcp_connections` | 表已存在 | 只有 current snapshot，无 transition 验证，无历史 |
-| `permission_policy_snapshot` | 列已存在 | 从未被填充 |
-| MCP 状态生产者 | 无 | executor 没有任何 mcp_status 生产逻辑 |
+| 组件                         | 现状         | 缺口                                              |
+| ---------------------------- | ------------ | ------------------------------------------------- |
+| `PermissionEngine`           | 基础实现存在 | 只支持精确工具名匹配，无优先级/组合/audit-only    |
+| `tool_executions.policy_*`   | 列已存在     | 从未被填充，始终为空                              |
+| `agent_run_mcp_connections`  | 表已存在     | 只有 current snapshot，无 transition 验证，无历史 |
+| `permission_policy_snapshot` | 列已存在     | 从未被填充                                        |
+| MCP 状态生产者               | 无           | executor 没有任何 mcp_status 生产逻辑             |
 
 ---
 
@@ -27,6 +27,7 @@ Batch 1 已完成"字段预埋"，但未打通闭环：
 ### 权限引擎
 
 三层架构：
+
 1. `PresetPolicyCompiler`：把 `permission_mode` 编译成 preset rules（保持 SDK 兼容）
 2. `PermissionContextBuilder`：构建标准化 `PermissionContext`（含 tool_category/paths/network/mcp）
 3. `PermissionEvaluator`：优先级规则匹配，支持 audit-only / enforce 模式
@@ -37,11 +38,13 @@ Batch 1 已完成"字段预埋"，但未打通闭环：
 ### MCP 状态机
 
 事件源 + 投影模式：
+
 - `agent_run_mcp_connections`：current snapshot（保留）
 - `agent_run_mcp_connection_events`：append-only transition history（新增）
 - `health` 字段：`healthy | degraded`（与 lifecycle state 分离）
 
 状态转换路径：
+
 ```
 requested → staged → launching → connected → terminated
                   ↘ failed ↗
@@ -49,6 +52,7 @@ requested → staged → launching → connected → terminated
 ```
 
 事件源分工：
+
 - backend/task enqueue → `requested`
 - executor_manager staging → `staged`
 - executor SDK 启动 → `launching` → `connected` / `failed`
@@ -134,6 +138,7 @@ class PermissionPolicy(BaseModel):
 ```
 
 **修改文件**：`backend/app/schemas/execution_settings.py`
+
 - `permissions: dict[str, Any]` → `permissions: PermissionPolicy`
 
 **预期产物**：强类型策略 schema，向后兼容（空 dict → 默认 PermissionPolicy）
@@ -231,9 +236,11 @@ async def can_use_tool(tool_name, input_data, context):
 ```
 
 **修改文件**：`executor/app/hooks/callback.py`
+
 - 新增 `record_permission_event()` 方法，通过 callback API 发送审计事件
 
 **修改文件**：`backend/app/api/v1/internal.py`（或新建 internal callback 端点）
+
 - 接收权限审计事件，写入 `permission_audit_events` 表
 
 **预期产物**：audit-only 模式下权限决策被记录，不影响执行
@@ -264,10 +271,12 @@ class CallbackHook:
 ```
 
 **修改文件**：`executor/app/core/engine.py`
+
 - 在 SDK MCP 启动前后调用 `on_mcp_state_change`
 - 在 teardown 时发送 `terminated`
 
 **修改文件**：`executor_manager/app/services/run_pull_service.py`
+
 - 在 staging 完成后通过 backend API 写入 `staged` 事件
 
 **预期产物**：MCP 状态从 executor 侧生产，backend 侧接收并持久化
@@ -358,10 +367,12 @@ class McpConnectionService:
 ```
 
 **修改文件**：`backend/app/api/v1/execution_settings.py`
+
 - `GET /api/v1/execution-settings/permissions` — 获取权限策略
 - `PATCH /api/v1/execution-settings/permissions` — 更新权限策略
 
 **修改文件**：`backend/app/api/v1/internal.py`
+
 - 新增 `POST /internal/mcp-transition` — executor_manager 发送 MCP 状态转换
 - 新增 `POST /internal/permission-audit` — executor 发送权限审计事件
 
@@ -403,6 +414,7 @@ permissions/
 ```
 
 关键 UX 决策：
+
 - Preset 选择器：4 个内建模式（default/acceptEdits/plan/bypassPermissions）
 - 自定义规则：在 preset 基础上叠加，优先级可调
 - audit-only 模式：默认开启，显示"仅记录，不拦截"提示
@@ -413,11 +425,13 @@ permissions/
 ### Step 10：前端 MCP 状态可视化
 
 **修改文件**：`frontend/features/chat/components/execution/chat-panel/mcp-status-card.tsx`
+
 - 升级为使用 `agent_run_mcp_connections` API 数据
 - 状态指示器：`requested`(灰) → `staged`(蓝) → `launching`(黄闪) → `connected`(绿) → `failed`(红) → `terminated`(灰)
 - `degraded` 用 `health` overlay 显示（绿底黄点）
 
 **新建文件**：`frontend/features/chat/components/execution/chat-panel/mcp-state-machine-card.tsx`
+
 - 展开视图：显示 transition history 时间线
 - 错误信息：`failed` 状态显示 `last_error`
 - 重连提示：`failed` 状态显示重连次数
@@ -426,57 +440,61 @@ permissions/
 
 ## 关键文件清单
 
-| 文件 | 操作 | 说明 |
-|------|------|------|
-| `backend/alembic/versions/<hash>_batch2_*.py` | 新建 | 迁移：permission_audit_events + mcp_connection_events + health 列 |
-| `backend/app/schemas/permission_policy.py` | 新建 | 强类型权限策略 schema |
-| `backend/app/schemas/execution_settings.py` | 修改 | permissions 字段改为 PermissionPolicy |
-| `backend/app/models/permission_audit_event.py` | 新建 | 权限审计事件模型 |
-| `backend/app/models/agent_run_mcp_connection_event.py` | 新建 | MCP 转换事件模型 |
-| `backend/app/services/mcp_connection_service.py` | 修改 | 增加 transition 验证和 history |
-| `backend/app/api/v1/runs_mcp.py` | 新建 | MCP 状态查询 API |
-| `backend/app/api/v1/internal.py` | 修改 | 新增 mcp-transition 和 permission-audit 端点 |
-| `executor/app/core/permission_engine.py` | 修改 | 三层架构升级 |
-| `executor/app/core/engine.py` | 修改 | audit 记录 + MCP 状态生产 |
-| `executor/app/hooks/callback.py` | 修改 | 新增 record_permission_event + on_mcp_state_change |
-| `executor_manager/app/services/config_resolver.py` | 修改 | 回写 permission_policy_snapshot |
-| `executor_manager/app/services/run_pull_service.py` | 修改 | 发送 staged 事件 |
-| `frontend/features/capabilities/permissions/` | 新建 | 权限规则编辑器 |
-| `frontend/features/chat/components/execution/chat-panel/mcp-status-card.tsx` | 修改 | 升级状态可视化 |
-| `frontend/features/chat/components/execution/chat-panel/mcp-state-machine-card.tsx` | 新建 | MCP 历史时间线 |
+| 文件                                                                                | 操作 | 说明                                                              |
+| ----------------------------------------------------------------------------------- | ---- | ----------------------------------------------------------------- |
+| `backend/alembic/versions/<hash>_batch2_*.py`                                       | 新建 | 迁移：permission_audit_events + mcp_connection_events + health 列 |
+| `backend/app/schemas/permission_policy.py`                                          | 新建 | 强类型权限策略 schema                                             |
+| `backend/app/schemas/execution_settings.py`                                         | 修改 | permissions 字段改为 PermissionPolicy                             |
+| `backend/app/models/permission_audit_event.py`                                      | 新建 | 权限审计事件模型                                                  |
+| `backend/app/models/agent_run_mcp_connection_event.py`                              | 新建 | MCP 转换事件模型                                                  |
+| `backend/app/services/mcp_connection_service.py`                                    | 修改 | 增加 transition 验证和 history                                    |
+| `backend/app/api/v1/runs_mcp.py`                                                    | 新建 | MCP 状态查询 API                                                  |
+| `backend/app/api/v1/internal.py`                                                    | 修改 | 新增 mcp-transition 和 permission-audit 端点                      |
+| `executor/app/core/permission_engine.py`                                            | 修改 | 三层架构升级                                                      |
+| `executor/app/core/engine.py`                                                       | 修改 | audit 记录 + MCP 状态生产                                         |
+| `executor/app/hooks/callback.py`                                                    | 修改 | 新增 record_permission_event + on_mcp_state_change                |
+| `executor_manager/app/services/config_resolver.py`                                  | 修改 | 回写 permission_policy_snapshot                                   |
+| `executor_manager/app/services/run_pull_service.py`                                 | 修改 | 发送 staged 事件                                                  |
+| `frontend/features/capabilities/permissions/`                                       | 新建 | 权限规则编辑器                                                    |
+| `frontend/features/chat/components/execution/chat-panel/mcp-status-card.tsx`        | 修改 | 升级状态可视化                                                    |
+| `frontend/features/chat/components/execution/chat-panel/mcp-state-machine-card.tsx` | 新建 | MCP 历史时间线                                                    |
 
 ---
 
 ## 风险与缓解
 
-| 风险 | 严重度 | 缓解措施 |
-|------|--------|----------|
-| audit-only 模式下 callback 失败导致审计丢失 | 中 | 审计失败不影响执行，fire-and-forget + 本地日志兜底 |
-| MCP 状态生产者缺失导致状态永远是 requested | 高 | executor 侧先实现 launching/connected/failed，staged 可后补 |
-| `execution_settings.permissions` schema 变更破坏现有数据 | 高 | 空 dict → 默认 PermissionPolicy，向后兼容适配器 |
-| transition 验证过严导致合法状态被拒绝 | 中 | 非法转换静默忽略（warn log），不抛异常 |
-| 前端 permission editor 误操作导致任务不可执行 | 高 | 默认 audit-only，enforce 需要显式开启；规则测试模拟器 |
+| 风险                                                     | 严重度 | 缓解措施                                                    |
+| -------------------------------------------------------- | ------ | ----------------------------------------------------------- |
+| audit-only 模式下 callback 失败导致审计丢失              | 中     | 审计失败不影响执行，fire-and-forget + 本地日志兜底          |
+| MCP 状态生产者缺失导致状态永远是 requested               | 高     | executor 侧先实现 launching/connected/failed，staged 可后补 |
+| `execution_settings.permissions` schema 变更破坏现有数据 | 高     | 空 dict → 默认 PermissionPolicy，向后兼容适配器             |
+| transition 验证过严导致合法状态被拒绝                    | 中     | 非法转换静默忽略（warn log），不抛异常                      |
+| 前端 permission editor 误操作导致任务不可执行            | 高     | 默认 audit-only，enforce 需要显式开启；规则测试模拟器       |
 
 ---
 
 ## 测试策略
 
 ### Backend
+
 - `permission_audit_events` CRUD
 - `McpConnectionService.record_transition()` 矩阵测试（合法/非法/幂等）
 - `PermissionPolicy` schema 向后兼容（空 dict 解析）
 
 ### Executor
+
 - `PermissionEngine` 优先级规则匹配
 - `PresetPolicyCompiler` 各 preset 映射
 - audit-only 模式不拦截
 - plan mode 前置检查不被新规则覆盖
 
 ### Executor Manager
+
 - `config_resolver` 回写 `permission_policy_snapshot`
 - `run_pull_service` 发送 `staged` 事件
 
 ### Frontend
+
 - `pnpm --dir frontend lint`
 - `pnpm --dir frontend build`
 - `pnpm --dir frontend test --run`

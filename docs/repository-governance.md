@@ -68,11 +68,25 @@
   - 必须通过已配置 checks
   - 必须解决 PR 对话
 
+### 2.3 Fork / Upstream 隔离规则
+
+为避免 fork 开发过程误操作上游仓库，仓库治理明确规定：
+
+- `origin` 视为个人 fork，是唯一允许默认执行写操作的远端。
+- `upstream` 视为只读远端，仅允许 `fetch`、`pull --ff-only`、`log`、`show`、`diff` 等读取类操作。
+- 默认禁止任何会对上游仓库状态产生影响的操作，包括但不限于：
+  - 向 `upstream` 推送 commit、tag 或 branch
+  - 以 `upstream` 为目标创建、更新、合并、关闭、重开或评论 Pull Request
+  - 在 `upstream` 上创建、编辑、关闭、重开、评论或打标签 issue / PR
+  - 修改 `upstream` 的 release、workflow、deployment、repository settings 或其他托管配置
+- AI 代理默认不得执行任何 upstream 写操作；如确有需要，必须停止并交由仓库维护者人工执行。
+
 ## 3. Pull Request 规范
 
 ### 3.1 拟采用规则
 
 - 所有代码改动通过 PR 合并。
+- AI 代理或自动化默认只允许向 `origin` 创建 PR，不允许以 `upstream` 为目标仓库创建 PR。
 - PR 标题使用 Conventional Commits：
   - `<type>(<optional-scope>): <summary>`
 - 允许的 `type`：

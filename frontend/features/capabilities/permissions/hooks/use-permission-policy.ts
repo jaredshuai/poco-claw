@@ -43,7 +43,9 @@ export function usePermissionPolicy() {
         setPolicy(saved);
         toast.success(t("permissions.toasts.saved", "Permission policy saved"));
       } catch {
-        toast.error(t("permissions.toasts.saveFailed", "Failed to save policy"));
+        toast.error(
+          t("permissions.toasts.saveFailed", "Failed to save policy"),
+        );
       } finally {
         setIsSaving(false);
       }

@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from sqlalchemy.exc import IntegrityError
 
@@ -34,9 +34,12 @@ def test_record_transition_same_state_duplicate_is_noop() -> None:
     existing.state = "staged"
     service = McpConnectionService()
 
-    with patch(
-        "app.services.mcp_connection_service.AgentRunMcpConnectionRepository"
-    ) as mock_repo, patch("app.services.mcp_connection_service.logger") as mock_logger:
+    with (
+        patch(
+            "app.services.mcp_connection_service.AgentRunMcpConnectionRepository"
+        ) as mock_repo,
+        patch("app.services.mcp_connection_service.logger") as mock_logger,
+    ):
         mock_repo.get_by_run_and_server_name.return_value = existing
 
         service.record_transition(

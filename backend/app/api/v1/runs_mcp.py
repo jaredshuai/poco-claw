@@ -1,13 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.deps import get_current_user_id, get_db
-from app.schemas.mcp_connection import McpConnectionResponse
-from app.schemas.permission_policy import PermissionAuditEventResponse
 from app.schemas.response import Response
 from app.services.mcp_connection_service import McpConnectionService
 from app.services.run_service import RunService
@@ -34,11 +33,44 @@ def list_mcp_connections(
     run_id: uuid.UUID,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
-) -> Response:
+) -> JSONResponse:
     _ensure_run_belongs_to_user(db, run_id, user_id)
     service = McpConnectionService()
     connections = service.list_run_connections(db, run_id)
     return Response.success(data=[c.model_dump(mode="json") for c in connections])
+
+
+@router.get("/{run_id}/mcp-connection-events")
+def list_mcp_connection_events(
+    run_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    _ensure_run_belongs_to_user(db, run_id, user_id)
+    from app.models.agent_run_mcp_connection_event import AgentRunMcpConnectionEvent
+
+    events = (
+        db.query(AgentRunMcpConnectionEvent)
+        .filter(AgentRunMcpConnectionEvent.run_id == run_id)
+        .order_by(AgentRunMcpConnectionEvent.created_at.asc())
+        .all()
+    )
+    return Response.success(
+        data=[
+            {
+                "id": str(e.id),
+                "connection_id": str(e.connection_id),
+                "run_id": str(e.run_id),
+                "from_state": e.from_state,
+                "to_state": e.to_state,
+                "event_source": e.event_source,
+                "error_message": e.error_message,
+                "metadata": e.metadata_,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in events
+        ]
+    )
 
 
 @router.get("/{run_id}/permission-audit")
@@ -46,7 +78,7 @@ def list_permission_audit(
     run_id: uuid.UUID,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
-) -> Response:
+) -> JSONResponse:
     _ensure_run_belongs_to_user(db, run_id, user_id)
     from app.models.permission_audit_event import PermissionAuditEvent
 

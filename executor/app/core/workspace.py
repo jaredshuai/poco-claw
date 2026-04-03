@@ -205,7 +205,13 @@ class WorkspaceManager:
         self._worktree_paths.append(worktree_path)
         return worktree_path
 
-    def _clone_or_checkout(self, repo_url: str, repo_path: Path, config: TaskConfig, git_env: dict[str, str]) -> None:
+    def _clone_or_checkout(
+        self,
+        repo_url: str,
+        repo_path: Path,
+        config: TaskConfig,
+        git_env: dict[str, str],
+    ) -> None:
         if not repo_path.exists() or not is_repository(repo_path):
             try:
                 clone(
@@ -424,10 +430,10 @@ esac
 
         exclude_path = repo_path / ".git" / "info" / "exclude"
         exclude_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         existing = self._read_existing_excludes(exclude_path)
         to_add = [p for p in patterns if p not in existing]
-        
+
         self._append_excludes(exclude_path, to_add)
 
     def _ensure_inputs_dir(self, repo_path: Path) -> None:

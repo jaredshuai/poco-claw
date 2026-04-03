@@ -326,9 +326,7 @@ class ConfigResolver:
                         run_id, metadata_writeback
                     )
             except Exception as exc:
-                logger.warning(
-                    "Failed to write back run metadata: %s", exc, extra=ctx
-                )
+                logger.warning("Failed to write back run metadata: %s", exc, extra=ctx)
 
         return resolved
 

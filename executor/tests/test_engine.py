@@ -75,7 +75,9 @@ class TestAgentExecutorBuildInputHint(unittest.TestCase):
     def test_no_input_files(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 config = MagicMock(spec=TaskConfig)
                 config.input_files = None
 
@@ -85,7 +87,9 @@ class TestAgentExecutorBuildInputHint(unittest.TestCase):
     def test_empty_input_files(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 config = MagicMock(spec=TaskConfig)
                 config.input_files = []
 
@@ -95,7 +99,9 @@ class TestAgentExecutorBuildInputHint(unittest.TestCase):
     def test_with_input_files(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 config = MagicMock(spec=TaskConfig)
 
                 file1 = MagicMock()
@@ -123,7 +129,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_no_plugins_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 result = executor._discover_plugins()
@@ -132,7 +140,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_with_valid_plugin(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 # Create a valid plugin structure
@@ -150,7 +160,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_with_multiple_plugins_sorted(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 plugins_dir = Path(tmpdir) / ".claude_data" / "plugins"
@@ -173,7 +185,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_with_invalid_plugin_no_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 # Create a plugin directory without manifest
@@ -188,7 +202,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_skips_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 plugins_dir = Path(tmpdir) / ".claude_data" / "plugins"
@@ -206,7 +222,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_handles_permission_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 plugins_dir = Path(tmpdir) / ".claude_data" / "plugins"
@@ -222,7 +240,9 @@ class TestAgentExecutorDiscoverPlugins(unittest.TestCase):
     def test_skips_files_in_plugins_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(Path, "home", return_value=Path(tmpdir)):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.workspace.root_path = Path(tmpdir)
 
                 plugins_dir = Path(tmpdir) / ".claude_data" / "plugins"
@@ -241,7 +261,9 @@ class TestAgentExecutorInjectPlaywrightMcp(unittest.TestCase):
     def test_injects_when_not_present(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
 
                 mcp_servers = {}
                 result = executor._inject_playwright_mcp(mcp_servers)
@@ -252,7 +274,9 @@ class TestAgentExecutorInjectPlaywrightMcp(unittest.TestCase):
     def test_skips_when_already_present(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
 
                 mcp_servers = {"__poco_playwright": {"command": "existing"}}
                 result = executor._inject_playwright_mcp(mcp_servers)
@@ -271,7 +295,9 @@ class TestAgentExecutorInjectPlaywrightMcp(unittest.TestCase):
                     "PLAYWRIGHT_MCP_IMAGE_RESPONSES": "allow",
                 },
             ):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
 
                 mcp_servers = {}
                 result = executor._inject_playwright_mcp(mcp_servers)
@@ -289,7 +315,9 @@ class TestAgentExecutorInjectMemoryMcp(unittest.TestCase):
     def test_no_memory_client(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.memory_mcp_server = None
 
                 mcp_servers = {}
@@ -300,7 +328,9 @@ class TestAgentExecutorInjectMemoryMcp(unittest.TestCase):
     def test_injects_memory_mcp(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.memory_mcp_server = {"command": "test"}
 
                 mcp_servers = {}
@@ -313,7 +343,9 @@ class TestAgentExecutorInjectMemoryMcp(unittest.TestCase):
     def test_skips_if_already_present(self) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
-                executor = AgentExecutor(config=ExecutorConfig(session_id="session-123"), hooks=[])
+                executor = AgentExecutor(
+                    config=ExecutorConfig(session_id="session-123"), hooks=[]
+                )
                 executor.memory_mcp_server = {"command": "new"}
 
                 from app.core.memory import MEMORY_MCP_SERVER_KEY
@@ -325,11 +357,15 @@ class TestAgentExecutorInjectMemoryMcp(unittest.TestCase):
 
 
 class TestAgentExecutorPermissionAsk(unittest.TestCase):
-    def test_permission_ask_request_uses_frontend_compatible_question_payload(self) -> None:
+    def test_permission_ask_request_uses_frontend_compatible_question_payload(
+        self,
+    ) -> None:
         with patch.object(Path, "home", return_value=Path("/home/user")):
             with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
                 user_input_client = MagicMock()
-                user_input_client.create_request = AsyncMock(return_value={"id": "req-1"})
+                user_input_client.create_request = AsyncMock(
+                    return_value={"id": "req-1"}
+                )
                 user_input_client.wait_for_answer = AsyncMock(
                     return_value={"answers": {"approved": "true"}}
                 )

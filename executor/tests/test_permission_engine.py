@@ -216,9 +216,7 @@ def test_path_pattern_no_match_skipped() -> None:
         plan_approved=True,
     )
 
-    decision = engine.evaluate(
-        "Edit", {"file_path": "test.txt"}, {"cwd": "/workspace"}
-    )
+    decision = engine.evaluate("Edit", {"file_path": "test.txt"}, {"cwd": "/workspace"})
     assert decision.action == "allow"
 
 
@@ -295,9 +293,7 @@ def test_mcp_server_match() -> None:
         plan_approved=True,
     )
 
-    decision = engine.evaluate(
-        "mcp__dangerous-server__run", {}, {}
-    )
+    decision = engine.evaluate("mcp__dangerous-server__run", {}, {})
     assert decision.action == "deny"
     assert decision.rule_id == "deny-dangerous-mcp"
 

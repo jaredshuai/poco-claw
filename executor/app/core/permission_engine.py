@@ -47,7 +47,9 @@ _PATH_INPUT_KEYS = ("file_path", "path", "file")
 _URL_INPUT_KEYS = ("url", "endpoint", "host", "hostname", "target")
 _MCP_TOOL_PREFIX_RE = re.compile(r"^mcp__([^_]+)__")
 _URL_RE = re.compile(r"https?://([^/\s\"']+)")
-_HOSTNAME_RE = re.compile(r"(?:^|\s)(?:curl|wget|ssh|nc|ncat)\s+.*?([a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,})")
+_HOSTNAME_RE = re.compile(
+    r"(?:^|\s)(?:curl|wget|ssh|nc|ncat)\s+.*?([a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,})"
+)
 
 
 def _normalize_path(raw_path: str, cwd: str) -> str | None:

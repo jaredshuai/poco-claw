@@ -50,6 +50,7 @@ from app.schemas.request import TaskConfig
 from app.schemas.state import BrowserState
 from app.utils.browser import format_viewport_size, parse_viewport_size
 
+
 @dataclass
 class ExecutorConfig:
     session_id: str
@@ -59,6 +60,7 @@ class ExecutorConfig:
     memory_client: MemoryClient | None = None
     request_id: str | None = None
     trace_id: str | None = None
+
 
 load_dotenv()
 
@@ -95,7 +97,9 @@ class AgentExecutor:
         self.user_input_client = config.user_input_client
         self.memory_client = config.memory_client
         self.memory_mcp_server = (
-            create_memory_mcp_server(config.memory_client) if config.memory_client else None
+            create_memory_mcp_server(config.memory_client)
+            if config.memory_client
+            else None
         )
         self._request_id = config.request_id
         self._trace_id = config.trace_id
@@ -164,7 +168,9 @@ class AgentExecutor:
             )
         return None
 
-    async def _handle_ask_user_question(self, input_data: dict) -> PermissionResultAllow | PermissionResultDeny:
+    async def _handle_ask_user_question(
+        self, input_data: dict
+    ) -> PermissionResultAllow | PermissionResultDeny:
         user_input_client = self.user_input_client
         if user_input_client is None:
             return PermissionResultDeny(message="User input client not configured")
@@ -177,7 +183,9 @@ class AgentExecutor:
             created = await user_input_client.create_request(request_payload)
             request_id = created.get("id")
             if not request_id:
-                return PermissionResultDeny(message="Failed to create user input request")
+                return PermissionResultDeny(
+                    message="Failed to create user input request"
+                )
             result = await user_input_client.wait_for_answer(
                 request_id=request_id,
                 timeout_seconds=60,
@@ -195,7 +203,9 @@ class AgentExecutor:
             }
         )
 
-    async def _handle_exit_plan_mode(self, input_data: dict) -> PermissionResultAllow | PermissionResultDeny:
+    async def _handle_exit_plan_mode(
+        self, input_data: dict
+    ) -> PermissionResultAllow | PermissionResultDeny:
         user_input_client = self.user_input_client
         if user_input_client is None:
             return PermissionResultDeny(message="User input client not configured")
@@ -212,7 +222,9 @@ class AgentExecutor:
             created = await user_input_client.create_request(request_payload)
             request_id = created.get("id")
             if not request_id:
-                return PermissionResultDeny(message="Failed to create plan approval request")
+                return PermissionResultDeny(
+                    message="Failed to create plan approval request"
+                )
             result = await user_input_client.wait_for_answer(
                 request_id=request_id,
                 timeout_seconds=600,
@@ -228,7 +240,9 @@ class AgentExecutor:
 
         answers = result.get("answers") or {}
         approved_raw = answers.get("approved")
-        approved = isinstance(approved_raw, str) and approved_raw.strip().lower() == "true"
+        approved = (
+            isinstance(approved_raw, str) and approved_raw.strip().lower() == "true"
+        )
         if not approved:
             return PermissionResultDeny(
                 message="Plan not approved",
@@ -286,7 +300,9 @@ class AgentExecutor:
             created = await user_input_client.create_request(request_payload)
             request_id = created.get("id")
             if not request_id:
-                return PermissionResultDeny(message="Failed to create permission ask request")
+                return PermissionResultDeny(
+                    message="Failed to create permission ask request"
+                )
             result = await user_input_client.wait_for_answer(
                 request_id=request_id,
                 timeout_seconds=120,
@@ -299,9 +315,13 @@ class AgentExecutor:
 
         answers = result.get("answers") or {}
         approved_raw = answers.get("approved")
-        approved = isinstance(approved_raw, str) and approved_raw.strip().lower() == "true"
+        approved = (
+            isinstance(approved_raw, str) and approved_raw.strip().lower() == "true"
+        )
         if not approved:
-            return PermissionResultDeny(message=f"User denied permission for tool '{tool_name}'")
+            return PermissionResultDeny(
+                message=f"User denied permission for tool '{tool_name}'"
+            )
 
         return PermissionResultAllow(updated_input=input_data)
 
@@ -397,7 +417,9 @@ class AgentExecutor:
                 )
 
                 audit_mode = permission_engine.policy.get("mode") == "audit"
-                override_result = self._check_audit_override(decision, audit_mode, input_data)
+                override_result = self._check_audit_override(
+                    decision, audit_mode, input_data
+                )
                 if override_result is not None:
                     return override_result
 

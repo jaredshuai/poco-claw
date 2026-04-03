@@ -33,7 +33,9 @@ export function PermissionPolicyEditor({
 }: PermissionPolicyEditorProps) {
   const { t } = useT("translation");
   const [editorOpen, setEditorOpen] = React.useState(false);
-  const [editingRule, setEditingRule] = React.useState<PermissionRule | null>(null);
+  const [editingRule, setEditingRule] = React.useState<PermissionRule | null>(
+    null,
+  );
 
   const handleAddRule = (rule: PermissionRule) => {
     onChange({ ...policy, rules: [...policy.rules, rule] });
@@ -78,7 +80,10 @@ export function PermissionPolicyEditor({
         <div className="space-y-1">
           <Label>{t("permissions.preset.label", "Preset Source")}</Label>
           <p className="text-xs text-muted-foreground">
-            {t("permissions.preset.hint", "Base permission mode inherited from Claude Code presets")}
+            {t(
+              "permissions.preset.hint",
+              "Base permission mode inherited from Claude Code presets",
+            )}
           </p>
         </div>
         <Select
@@ -105,7 +110,10 @@ export function PermissionPolicyEditor({
           <div className="space-y-0.5">
             <Label>{t("permissions.rules.title", "Custom Rules")}</Label>
             <p className="text-xs text-muted-foreground">
-              {t("permissions.rules.hint", "Rules are evaluated by priority (lower number = higher priority)")}
+              {t(
+                "permissions.rules.hint",
+                "Rules are evaluated by priority (lower number = higher priority)",
+              )}
             </p>
           </div>
           <Button size="sm" variant="outline" onClick={openAdd}>

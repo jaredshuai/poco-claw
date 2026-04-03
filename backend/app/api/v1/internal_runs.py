@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, require_internal_token
-from app.models.agent_run import AgentRun
 from app.repositories.run_repository import RunRepository
 
 router = APIRouter(prefix="/internal/runs", tags=["internal-runs"])

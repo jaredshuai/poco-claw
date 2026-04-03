@@ -107,7 +107,8 @@ export function McpStateMachineCard({ runId }: McpStateMachineCardProps) {
                   variant="outline"
                   className={cn(
                     "text-xs",
-                    STATE_COLORS[conn.state] ?? "bg-muted text-muted-foreground",
+                    STATE_COLORS[conn.state] ??
+                      "bg-muted text-muted-foreground",
                   )}
                 >
                   {conn.state}
@@ -122,10 +123,7 @@ export function McpStateMachineCard({ runId }: McpStateMachineCardProps) {
                     {conn.last_error}
                   </div>
                 )}
-                <McpTransitionTimeline
-                  runId={runId}
-                  connectionId={conn.id}
-                />
+                <McpTransitionTimeline runId={runId} connectionId={conn.id} />
               </div>
             )}
           </div>
@@ -182,17 +180,16 @@ export function McpTransitionTimeline({
         {events.map((ev) => (
           <div key={ev.id} className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground/50 font-mono shrink-0">
-              {ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : ""}
+              {ev.created_at
+                ? new Date(ev.created_at).toLocaleTimeString()
+                : ""}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               {ev.from_state && (
                 <>
                   <Badge
                     variant="outline"
-                    className={cn(
-                      "text-xs",
-                      STATE_COLORS[ev.from_state] ?? "",
-                    )}
+                    className={cn("text-xs", STATE_COLORS[ev.from_state] ?? "")}
                   >
                     {ev.from_state}
                   </Badge>

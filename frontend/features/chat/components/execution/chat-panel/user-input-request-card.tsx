@@ -27,6 +27,12 @@ interface QuestionState {
   otherSelected: boolean;
 }
 
+const EMPTY_QUESTION_STATE: QuestionState = {
+  selected: [],
+  otherText: "",
+  otherSelected: false,
+};
+
 type CompletionState = "idle" | "submitting" | "success" | "error";
 
 const MAX_TOOL_INPUT_PARSE_DEPTH = 2;
@@ -73,7 +79,9 @@ function normalizeQuestions(rawQuestions: unknown[]): UserInputQuestion[] {
           if (!label) continue;
 
           options.push({
-            ...(typeof option.value === "string" ? { value: option.value } : {}),
+            ...(typeof option.value === "string"
+              ? { value: option.value }
+              : {}),
             label,
             description:
               typeof option.description === "string" ? option.description : "",
@@ -284,14 +292,20 @@ export function UserInputRequestCard({
   const setSelected = (questionKey: string, values: string[]) => {
     setQuestionState((prev) => ({
       ...prev,
-      [questionKey]: { ...prev[questionKey], selected: values },
+      [questionKey]: {
+        ...(prev[questionKey] ?? EMPTY_QUESTION_STATE),
+        selected: values,
+      },
     }));
   };
 
   const setOtherText = (questionKey: string, value: string) => {
     setQuestionState((prev) => ({
       ...prev,
-      [questionKey]: { ...prev[questionKey], otherText: value },
+      [questionKey]: {
+        ...(prev[questionKey] ?? EMPTY_QUESTION_STATE),
+        otherText: value,
+      },
     }));
   };
 
@@ -299,9 +313,11 @@ export function UserInputRequestCard({
     setQuestionState((prev) => ({
       ...prev,
       [questionKey]: {
-        ...prev[questionKey],
+        ...(prev[questionKey] ?? EMPTY_QUESTION_STATE),
         otherSelected: selected,
-        otherText: selected ? prev[questionKey].otherText : "",
+        otherText: selected
+          ? (prev[questionKey] ?? EMPTY_QUESTION_STATE).otherText
+          : "",
       },
     }));
   };
@@ -475,7 +491,10 @@ export function UserInputRequestCard({
                       <Checkbox
                         checked={isOtherSelected(question)}
                         onCheckedChange={(checked) =>
-                          toggleOtherSelected(question.question, !!checked)
+                          toggleOtherSelected(
+                            getQuestionKey(question),
+                            !!checked,
+                          )
                         }
                         className="mt-0.5 size-5 [&_[data-slot=checkbox-indicator]_svg]:size-4"
                       />
@@ -486,10 +505,14 @@ export function UserInputRequestCard({
                         {isOtherSelected(question) && (
                           <Input
                             value={
-                              questionState[question.question]?.otherText || ""
+                              questionState[getQuestionKey(question)]
+                                ?.otherText || ""
                             }
                             onChange={(e) =>
-                              setOtherText(question.question, e.target.value)
+                              setOtherText(
+                                getQuestionKey(question),
+                                e.target.value,
+                              )
                             }
                             placeholder={t("chat.askUserOtherPlaceholder")}
                             className="mt-2"
@@ -506,7 +529,8 @@ export function UserInputRequestCard({
                     value={
                       isOtherSelected(question)
                         ? "other"
-                        : questionState[getQuestionKey(question)]?.selected[0] || ""
+                        : questionState[getQuestionKey(question)]
+                            ?.selected[0] || ""
                     }
                     onValueChange={(value) => {
                       if (value === "other") {
@@ -548,10 +572,14 @@ export function UserInputRequestCard({
                         {isOtherSelected(question) && (
                           <Input
                             value={
-                              questionState[getQuestionKey(question)]?.otherText || ""
+                              questionState[getQuestionKey(question)]
+                                ?.otherText || ""
                             }
                             onChange={(e) =>
-                              setOtherText(getQuestionKey(question), e.target.value)
+                              setOtherText(
+                                getQuestionKey(question),
+                                e.target.value,
+                              )
                             }
                             placeholder={t("chat.askUserOtherPlaceholder")}
                             className="mt-2"

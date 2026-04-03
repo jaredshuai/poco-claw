@@ -22,21 +22,28 @@ export function PolicyModeToggle({ mode, onChange }: PolicyModeToggleProps) {
         </Label>
         <p className="text-xs text-muted-foreground">
           {isEnforce
-            ? t("permissions.mode.enforceHint", "Rules actively block or allow tool calls")
-            : t("permissions.mode.auditHint", "Rules are evaluated but not enforced — decisions are logged only")}
+            ? t(
+                "permissions.mode.enforceHint",
+                "Rules actively block or allow tool calls",
+              )
+            : t(
+                "permissions.mode.auditHint",
+                "Rules are evaluated but not enforced — decisions are logged only",
+              )}
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant={isEnforce ? "destructive" : "secondary"} className="text-xs">
+        <Badge
+          variant={isEnforce ? "destructive" : "secondary"}
+          className="text-xs"
+        >
           {isEnforce
             ? t("permissions.mode.enforce", "Enforce")
             : t("permissions.mode.audit", "Audit only")}
         </Badge>
         <Switch
           checked={isEnforce}
-          onCheckedChange={(checked) =>
-            onChange(checked ? "enforce" : "audit")
-          }
+          onCheckedChange={(checked) => onChange(checked ? "enforce" : "audit")}
         />
       </div>
     </div>

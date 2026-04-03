@@ -100,9 +100,15 @@ export function RuleEditor({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="allow">{t("permissions.rule.allow", "Allow")}</SelectItem>
-                  <SelectItem value="deny">{t("permissions.rule.deny", "Deny")}</SelectItem>
-                  <SelectItem value="ask">{t("permissions.rule.ask", "Ask")}</SelectItem>
+                  <SelectItem value="allow">
+                    {t("permissions.rule.allow", "Allow")}
+                  </SelectItem>
+                  <SelectItem value="deny">
+                    {t("permissions.rule.deny", "Deny")}
+                  </SelectItem>
+                  <SelectItem value="ask">
+                    {t("permissions.rule.ask", "Ask")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -125,14 +131,19 @@ export function RuleEditor({
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t("permissions.rule.tools", "Tools (comma-separated)")}</Label>
+            <Label>
+              {t("permissions.rule.tools", "Tools (comma-separated)")}
+            </Label>
             <Input
               placeholder="Bash, Write, Edit"
               value={arrayToTags(rule.match.tools)}
               onChange={(e) =>
                 setRule((r) => ({
                   ...r,
-                  match: { ...r.match, tools: tagsToArray(e.target.value) || null },
+                  match: {
+                    ...r.match,
+                    tools: tagsToArray(e.target.value) || null,
+                  },
                 }))
               }
             />
@@ -153,10 +164,17 @@ export function RuleEditor({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder={t("permissions.rule.anyCategory", "Any category")} />
+                <SelectValue
+                  placeholder={t(
+                    "permissions.rule.anyCategory",
+                    "Any category",
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t("permissions.rule.anyCategory", "Any category")}</SelectItem>
+                <SelectItem value="">
+                  {t("permissions.rule.anyCategory", "Any category")}
+                </SelectItem>
                 {TOOL_CATEGORIES.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -167,25 +185,40 @@ export function RuleEditor({
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t("permissions.rule.pathPatterns", "Path Patterns (comma-separated)")}</Label>
+            <Label>
+              {t(
+                "permissions.rule.pathPatterns",
+                "Path Patterns (comma-separated)",
+              )}
+            </Label>
             <Input
               placeholder="/tmp/**, /home/**"
               value={arrayToTags(rule.match.path_patterns)}
               onChange={(e) =>
                 setRule((r) => ({
                   ...r,
-                  match: { ...r.match, path_patterns: tagsToArray(e.target.value) || null },
+                  match: {
+                    ...r.match,
+                    path_patterns: tagsToArray(e.target.value) || null,
+                  },
                 }))
               }
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t("permissions.rule.reason", "Reason / Description")}</Label>
+            <Label>
+              {t("permissions.rule.reason", "Reason / Description")}
+            </Label>
             <Input
-              placeholder={t("permissions.rule.reasonPlaceholder", "Why this rule exists")}
+              placeholder={t(
+                "permissions.rule.reasonPlaceholder",
+                "Why this rule exists",
+              )}
               value={rule.reason}
-              onChange={(e) => setRule((r) => ({ ...r, reason: e.target.value }))}
+              onChange={(e) =>
+                setRule((r) => ({ ...r, reason: e.target.value }))
+              }
             />
           </div>
 
@@ -204,9 +237,7 @@ export function RuleEditor({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel", "Cancel")}
           </Button>
-          <Button onClick={handleSave}>
-            {t("common.save", "Save")}
-          </Button>
+          <Button onClick={handleSave}>{t("common.save", "Save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

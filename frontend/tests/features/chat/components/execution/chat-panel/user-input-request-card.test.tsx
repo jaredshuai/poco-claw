@@ -64,8 +64,55 @@ describe("UserInputRequestCard", () => {
     render(<UserInputRequestCard request={request} onSubmit={onSubmit} />);
 
     await user.click(screen.getByText("Approve"));
-    await user.click(screen.getByRole("button", { name: "chat.askUserSubmit" }));
+    await user.click(
+      screen.getByRole("button", { name: "chat.askUserSubmit" }),
+    );
 
     expect(onSubmit).toHaveBeenCalledWith({ approved: "true" });
+  });
+
+  it("uses question id for multi-select other answers", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    const request: UserInputRequest = {
+      id: "req-2",
+      session_id: "session-1",
+      tool_name: "Task",
+      tool_input: {
+        questions: [
+          {
+            id: "paths",
+            header: "Select paths",
+            question: "Which paths should be included?",
+            multiSelect: true,
+            options: [
+              {
+                label: "src",
+                description: "Include src",
+              },
+            ],
+          },
+        ],
+      },
+      status: "pending",
+      answers: null,
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    render(<UserInputRequestCard request={request} onSubmit={onSubmit} />);
+
+    await user.click(screen.getByText("chat.askUserOtherOption"));
+    await user.type(
+      screen.getByPlaceholderText("chat.askUserOtherPlaceholder"),
+      "docs",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "chat.askUserSubmit" }),
+    );
+
+    expect(onSubmit).toHaveBeenCalledWith({ paths: "docs" });
   });
 });

@@ -24,7 +24,11 @@ describe("McpHistorySection", () => {
 
   it("does not render when MCP history should be hidden", () => {
     render(
-      <McpHistorySection sessionId="session-1" sessionTime={null} show={false} />,
+      <McpHistorySection
+        sessionId="session-1"
+        sessionTime={null}
+        show={false}
+      />,
     );
 
     expect(screen.queryByTestId("mcp-history-card")).not.toBeInTheDocument();

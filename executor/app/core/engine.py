@@ -50,8 +50,6 @@ from app.schemas.request import TaskConfig
 from app.schemas.state import BrowserState
 from app.utils.browser import format_viewport_size, parse_viewport_size
 
-from dataclasses import dataclass
-
 @dataclass
 class ExecutorConfig:
     session_id: str
@@ -125,12 +123,13 @@ class AgentExecutor:
             (h for h in self.hooks.hooks if isinstance(h, CallbackHook)),
             None,
         )
-        if callback_hook is not None:
+        if isinstance(callback_hook, CallbackHook):
             audit_input = input_data
+            active_callback_hook = callback_hook
 
             async def _fire_and_forget_audit() -> None:
                 try:
-                    await callback_hook.record_permission_event(
+                    await active_callback_hook.record_permission_event(
                         ctx,
                         tool_name=tool_name,
                         tool_input=audit_input,
@@ -166,17 +165,20 @@ class AgentExecutor:
         return None
 
     async def _handle_ask_user_question(self, input_data: dict) -> PermissionResultAllow | PermissionResultDeny:
+        user_input_client = self.user_input_client
+        if user_input_client is None:
+            return PermissionResultDeny(message="User input client not configured")
         try:
             request_payload = {
                 "session_id": self.session_id,
                 "tool_name": "AskUserQuestion",
                 "tool_input": input_data,
             }
-            created = await self.user_input_client.create_request(request_payload)
+            created = await user_input_client.create_request(request_payload)
             request_id = created.get("id")
             if not request_id:
                 return PermissionResultDeny(message="Failed to create user input request")
-            result = await self.user_input_client.wait_for_answer(
+            result = await user_input_client.wait_for_answer(
                 request_id=request_id,
                 timeout_seconds=60,
             )
@@ -194,6 +196,9 @@ class AgentExecutor:
         )
 
     async def _handle_exit_plan_mode(self, input_data: dict) -> PermissionResultAllow | PermissionResultDeny:
+        user_input_client = self.user_input_client
+        if user_input_client is None:
+            return PermissionResultDeny(message="User input client not configured")
         try:
             plan_expires_at = (
                 datetime.now(timezone.utc) + timedelta(minutes=10)
@@ -204,11 +209,11 @@ class AgentExecutor:
                 "tool_input": input_data,
                 "expires_at": plan_expires_at,
             }
-            created = await self.user_input_client.create_request(request_payload)
+            created = await user_input_client.create_request(request_payload)
             request_id = created.get("id")
             if not request_id:
                 return PermissionResultDeny(message="Failed to create plan approval request")
-            result = await self.user_input_client.wait_for_answer(
+            result = await user_input_client.wait_for_answer(
                 request_id=request_id,
                 timeout_seconds=600,
             )
@@ -236,6 +241,9 @@ class AgentExecutor:
         self, tool_name: str, input_data: dict, decision: PermissionDecision
     ) -> PermissionResultAllow | PermissionResultDeny:
         """Request user approval for a tool use that matched an 'ask' permission rule."""
+        user_input_client = self.user_input_client
+        if user_input_client is None:
+            return PermissionResultDeny(message="User input client not configured")
         try:
             preview = ""
             if tool_name == "Bash":
@@ -275,11 +283,11 @@ class AgentExecutor:
                     "preview": preview,
                 },
             }
-            created = await self.user_input_client.create_request(request_payload)
+            created = await user_input_client.create_request(request_payload)
             request_id = created.get("id")
             if not request_id:
                 return PermissionResultDeny(message="Failed to create permission ask request")
-            result = await self.user_input_client.wait_for_answer(
+            result = await user_input_client.wait_for_answer(
                 request_id=request_id,
                 timeout_seconds=120,
             )

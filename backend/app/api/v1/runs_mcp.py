@@ -1,13 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.deps import get_current_user_id, get_db
-from app.schemas.mcp_connection import McpConnectionResponse
-from app.schemas.permission_policy import PermissionAuditEventResponse
 from app.schemas.response import Response
 from app.services.mcp_connection_service import McpConnectionService
 from app.services.run_service import RunService
@@ -34,7 +33,7 @@ def list_mcp_connections(
     run_id: uuid.UUID,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
-) -> Response:
+) -> JSONResponse:
     _ensure_run_belongs_to_user(db, run_id, user_id)
     service = McpConnectionService()
     connections = service.list_run_connections(db, run_id)
@@ -46,7 +45,7 @@ def list_mcp_connection_events(
     run_id: uuid.UUID,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
-) -> Response:
+) -> JSONResponse:
     _ensure_run_belongs_to_user(db, run_id, user_id)
     from app.models.agent_run_mcp_connection_event import AgentRunMcpConnectionEvent
 
@@ -79,7 +78,7 @@ def list_permission_audit(
     run_id: uuid.UUID,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
-) -> Response:
+) -> JSONResponse:
     _ensure_run_belongs_to_user(db, run_id, user_id)
     from app.models.permission_audit_event import PermissionAuditEvent
 

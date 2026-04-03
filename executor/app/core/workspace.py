@@ -81,7 +81,7 @@ class WorkspaceManager:
             if self.system_claude_home.is_symlink():
                 self.system_claude_home.unlink()
             else:
-                await asyncio.to_thread(shutil.rmtree, self.system_claude_home)
+                await asyncio.to_thread(self._remove_tree, self.system_claude_home)
 
         self.system_claude_home.symlink_to(self.persistent_claude_data)
 
@@ -120,6 +120,10 @@ class WorkspaceManager:
                     worktree_prune(cwd=main_repo)
                 except Exception:
                     pass
+
+    @staticmethod
+    def _remove_tree(path: Path) -> None:
+        shutil.rmtree(path)
 
     def _prepare_repository(self, config: TaskConfig) -> Path:
         strategy = (getattr(config, "workspace_strategy", None) or "clone").strip()

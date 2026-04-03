@@ -23,11 +23,16 @@ const ACTION_COLORS: Record<string, string> = {
 
 function matchSummary(rule: PermissionRule): string {
   const parts: string[] = [];
-  if (rule.match.tools?.length) parts.push(`tools: ${rule.match.tools.join(", ")}`);
-  if (rule.match.tool_categories?.length) parts.push(`cat: ${rule.match.tool_categories.join(", ")}`);
-  if (rule.match.path_patterns?.length) parts.push(`paths: ${rule.match.path_patterns.join(", ")}`);
-  if (rule.match.network_patterns?.length) parts.push(`net: ${rule.match.network_patterns.join(", ")}`);
-  if (rule.match.mcp_servers?.length) parts.push(`mcp: ${rule.match.mcp_servers.join(", ")}`);
+  if (rule.match.tools?.length)
+    parts.push(`tools: ${rule.match.tools.join(", ")}`);
+  if (rule.match.tool_categories?.length)
+    parts.push(`cat: ${rule.match.tool_categories.join(", ")}`);
+  if (rule.match.path_patterns?.length)
+    parts.push(`paths: ${rule.match.path_patterns.join(", ")}`);
+  if (rule.match.network_patterns?.length)
+    parts.push(`net: ${rule.match.network_patterns.join(", ")}`);
+  if (rule.match.mcp_servers?.length)
+    parts.push(`mcp: ${rule.match.mcp_servers.join(", ")}`);
   return parts.length ? parts.join(" · ") : "*";
 }
 
@@ -37,7 +42,10 @@ export function RuleList({ rules, onEdit, onDelete, onToggle }: RuleListProps) {
   if (rules.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border/60 py-8 text-center text-sm text-muted-foreground">
-        {t("permissions.rules.empty", "No custom rules — using preset defaults")}
+        {t(
+          "permissions.rules.empty",
+          "No custom rules — using preset defaults",
+        )}
       </div>
     );
   }

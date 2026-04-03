@@ -268,16 +268,17 @@ class PermissionEngine:
                     reason=f"Tool '{tool_name}' is not allowed in plan mode before approval",
                 )
 
+        pctx = PermissionContextBuilder.build(tool_name, tool_input, context)
+        if pctx.invalid_paths:
+            return PermissionDecision(
+                action="deny",
+                rule_id="preset:path:outside_cwd",
+                reason="Path escapes current working directory",
+            )
+
         # Custom rules (sorted by priority, deny wins at same priority)
         rules = self.policy.get("rules")
         if isinstance(rules, list):
-            pctx = PermissionContextBuilder.build(tool_name, tool_input, context)
-            if pctx.invalid_paths:
-                return PermissionDecision(
-                    action="deny",
-                    rule_id="preset:path:outside_cwd",
-                    reason="Path escapes current working directory",
-                )
             sorted_rules = sorted(
                 (r for r in rules if isinstance(r, dict) and r.get("enabled", True)),
                 key=lambda r: _safe_priority(r),

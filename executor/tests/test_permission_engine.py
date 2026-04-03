@@ -373,3 +373,14 @@ def test_path_escape_denied_even_without_matching_rule() -> None:
     assert traversal.rule_id == "preset:path:outside_cwd"
     assert outside_root.action == "deny"
     assert outside_root.rule_id == "preset:path:outside_cwd"
+
+
+def test_path_escape_denied_when_policy_has_no_rules_key() -> None:
+    engine = PermissionEngine.from_permission_mode("default", plan_approved=True)
+
+    decision = engine.evaluate(
+        "Read", {"file_path": "../../etc/shadow"}, {"cwd": "/workspace"}
+    )
+
+    assert decision.action == "deny"
+    assert decision.rule_id == "preset:path:outside_cwd"

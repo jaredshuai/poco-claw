@@ -162,17 +162,23 @@ def _extract_messages(value: Any) -> list[dict[str, Any]]:
     return messages
 
 
-def create_memory_mcp_server(memory_client: MemoryClient) -> McpSdkServerConfig:
-    """Create an in-process SDK MCP server for memory management."""
+def _require_string(args: dict[str, Any], key: str) -> str | None:
+    """Extract and strip a non-empty string from args, or return None."""
+    val = args.get(key)
+    return val.strip() if isinstance(val, str) and val.strip() else None
 
+def _require_memory_id(args: dict[str, Any]) -> str | None:
+    """Extract a validated memory_id from args."""
+    return _require_string(args, "memory_id")
+
+def _build_crud_tools(memory_client: MemoryClient) -> list[Any]:
     @tool(
         "memory_create",
         "Create one user-level memory from plain text",
         {"text": str},
     )
     async def memory_create(args: dict[str, Any]) -> dict[str, Any]:
-        raw_text = args.get("text")
-        text = raw_text.strip() if isinstance(raw_text, str) else None
+        text = _require_string(args, "text")
         if text:
             return await _run_tool(
                 "memory_create",
@@ -195,6 +201,127 @@ def create_memory_mcp_server(memory_client: MemoryClient) -> McpSdkServerConfig:
         )
 
     @tool(
+        "memory_get",
+        "Get one memory by id",
+        {"memory_id": str},
+    )
+    async def memory_get(args: dict[str, Any]) -> dict[str, Any]:
+        memory_id = _require_memory_id(args)
+        if not memory_id:
+            return _format_tool_result(
+                "memory_get_error",
+                {"error": "memory_id must be a non-empty string"},
+            )
+        return await _run_tool(
+            "memory_get",
+            memory_client.get_memory(memory_id),
+        )
+
+    @tool(
+        "memory_update",
+        "Update one memory by id",
+        {"memory_id": str, "text": str},
+    )
+    async def memory_update(args: dict[str, Any]) -> dict[str, Any]:
+        memory_id = _require_memory_id(args)
+        text = _require_string(args, "text")
+        if not memory_id:
+            return _format_tool_result(
+                "memory_update_error",
+                {"error": "memory_id must be a non-empty string"},
+            )
+        if not text:
+            return _format_tool_result(
+                "memory_update_error",
+                {"error": "text must be a non-empty string"},
+            )
+        return await _run_tool(
+            "memory_update",
+            memory_client.update_memory(
+                memory_id=memory_id,
+                text=text,
+            ),
+        )
+
+    @tool(
+        "memory_delete",
+        "Delete one memory by id",
+        {"memory_id": str},
+    )
+    async def memory_delete(args: dict[str, Any]) -> dict[str, Any]:
+        memory_id = _require_memory_id(args)
+        if not memory_id:
+            return _format_tool_result(
+                "memory_delete_error",
+                {"error": "memory_id must be a non-empty string"},
+            )
+        return await _run_tool(
+            "memory_delete",
+            memory_client.delete_memory(memory_id),
+        )
+
+    @tool(
+        "memory_delete_all",
+        "Delete all user-level memories",
+        {},
+    )
+    async def memory_delete_all(args: dict[str, Any]) -> dict[str, Any]:
+        _ = args
+        return await _run_tool(
+            "memory_delete_all",
+            memory_client.delete_all_memories(),
+        )
+
+    return [memory_create, memory_get, memory_update, memory_delete, memory_delete_all]
+
+def _build_query_tools(memory_client: MemoryClient) -> list[Any]:
+    @tool(
+        "memory_search",
+        "Search user-level memories",
+        {"query": str},
+    )
+    async def memory_search(args: dict[str, Any]) -> dict[str, Any]:
+        query = _require_string(args, "query")
+        if not query:
+            return _format_tool_result(
+                "memory_search_error",
+                {"error": "query must be a non-empty string"},
+            )
+        return await _run_tool(
+            "memory_search",
+            memory_client.search_memories(query=query),
+        )
+
+    @tool(
+        "memory_list",
+        "List user-level memories",
+        {},
+    )
+    async def memory_list(args: dict[str, Any]) -> dict[str, Any]:
+        _ = args
+        return await _run_tool("memory_list", memory_client.list_memories())
+
+    @tool(
+        "memory_history",
+        "Get memory history by id",
+        {"memory_id": str},
+    )
+    async def memory_history(args: dict[str, Any]) -> dict[str, Any]:
+        memory_id = _require_memory_id(args)
+        if not memory_id:
+            return _format_tool_result(
+                "memory_history_error",
+                {"error": "memory_id must be a non-empty string"},
+            )
+        return await _run_tool(
+            "memory_history",
+            memory_client.get_memory_history(memory_id),
+        )
+
+    return [memory_search, memory_list, memory_history]
+
+def _build_conversation_tools(memory_client: MemoryClient) -> list[Any]:
+    @tool(
         "memory_create_conversation",
         "Create user-level memories from a conversation",
         {"messages": list},
@@ -211,133 +338,16 @@ def create_memory_mcp_server(memory_client: MemoryClient) -> McpSdkServerConfig:
             memory_client.create_memories(messages=messages),
         )
 
-    @tool(
-        "memory_search",
-        "Search user-level memories",
-        {"query": str},
-    )
-    async def memory_search(args: dict[str, Any]) -> dict[str, Any]:
-        query = args.get("query")
-        if not isinstance(query, str) or not query.strip():
-            return _format_tool_result(
-                "memory_search_error",
-                {"error": "query must be a non-empty string"},
-            )
-        return await _run_tool(
-            "memory_search",
-            memory_client.search_memories(query=query.strip()),
-        )
+    return [memory_create_conversation]
 
-    @tool(
-        "memory_list",
-        "List user-level memories",
-        {},
-    )
-    async def memory_list(args: dict[str, Any]) -> dict[str, Any]:
-        _ = args
-        return await _run_tool("memory_list", memory_client.list_memories())
-
-    @tool(
-        "memory_get",
-        "Get one memory by id",
-        {"memory_id": str},
-    )
-    async def memory_get(args: dict[str, Any]) -> dict[str, Any]:
-        memory_id = args.get("memory_id")
-        if not isinstance(memory_id, str) or not memory_id.strip():
-            return _format_tool_result(
-                "memory_get_error",
-                {"error": "memory_id must be a non-empty string"},
-            )
-        return await _run_tool(
-            "memory_get",
-            memory_client.get_memory(memory_id.strip()),
-        )
-
-    @tool(
-        "memory_update",
-        "Update one memory by id",
-        {"memory_id": str, "text": str},
-    )
-    async def memory_update(args: dict[str, Any]) -> dict[str, Any]:
-        memory_id = args.get("memory_id")
-        text = args.get("text")
-        if not isinstance(memory_id, str) or not memory_id.strip():
-            return _format_tool_result(
-                "memory_update_error",
-                {"error": "memory_id must be a non-empty string"},
-            )
-        if not isinstance(text, str) or not text.strip():
-            return _format_tool_result(
-                "memory_update_error",
-                {"error": "text must be a non-empty string"},
-            )
-        return await _run_tool(
-            "memory_update",
-            memory_client.update_memory(
-                memory_id=memory_id.strip(),
-                text=text.strip(),
-            ),
-        )
-
-    @tool(
-        "memory_history",
-        "Get memory history by id",
-        {"memory_id": str},
-    )
-    async def memory_history(args: dict[str, Any]) -> dict[str, Any]:
-        memory_id = args.get("memory_id")
-        if not isinstance(memory_id, str) or not memory_id.strip():
-            return _format_tool_result(
-                "memory_history_error",
-                {"error": "memory_id must be a non-empty string"},
-            )
-        return await _run_tool(
-            "memory_history",
-            memory_client.get_memory_history(memory_id.strip()),
-        )
-
-    @tool(
-        "memory_delete",
-        "Delete one memory by id",
-        {"memory_id": str},
-    )
-    async def memory_delete(args: dict[str, Any]) -> dict[str, Any]:
-        memory_id = args.get("memory_id")
-        if not isinstance(memory_id, str) or not memory_id.strip():
-            return _format_tool_result(
-                "memory_delete_error",
-                {"error": "memory_id must be a non-empty string"},
-            )
-        return await _run_tool(
-            "memory_delete",
-            memory_client.delete_memory(memory_id.strip()),
-        )
-
-    @tool(
-        "memory_delete_all",
-        "Delete all user-level memories",
-        {},
-    )
-    async def memory_delete_all(args: dict[str, Any]) -> dict[str, Any]:
-        _ = args
-        return await _run_tool(
-            "memory_delete_all",
-            memory_client.delete_all_memories(),
-        )
-
+def create_memory_mcp_server(memory_client: MemoryClient) -> McpSdkServerConfig:
+    """Create an in-process SDK MCP server for memory management."""
     return create_sdk_mcp_server(
         name=MEMORY_MCP_SERVER_KEY,
         version="1.0.0",
         tools=[
-            memory_create,
-            memory_create_conversation,
-            memory_list,
-            memory_search,
-            memory_get,
-            memory_update,
-            memory_history,
-            memory_delete,
-            memory_delete_all,
+            *_build_crud_tools(memory_client),
+            *_build_query_tools(memory_client),
+            *_build_conversation_tools(memory_client),
         ],
     )

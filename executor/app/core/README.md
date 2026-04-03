@@ -37,6 +37,17 @@ executor/app/core/
 - **会话持久化**：`.claude_data/` 目录隔离
 - **Git excludes**：自动排除 VCS/构建产物
 
+### MemoryClient + MCP Server (`memory.py`)
+
+长期记忆存储的 HTTP 客户端和 MCP 工具集：
+
+- **MemoryClient**：通过 manager 代理 API 管理 CRUD + 查询操作
+- **MCP Server**：将 memory 操作暴露为 SDK 内置 MCP 工具（`memory_create`、`memory_search` 等 9 个）
+- **工具构建**：按职责分组（CRUD / Query / Conversation），闭包模式捕获 client 实例
+- **输入校验**：`_require_string` / `_require_memory_id` / `_extract_messages` 统一验证
+
+架构：`SDK Agent → MCP Tool Call → MemoryClient → Manager Proxy API → mem0`
+
 ### PermissionEngine (`permission_engine.py`)
 
 优先级规则评估引擎：

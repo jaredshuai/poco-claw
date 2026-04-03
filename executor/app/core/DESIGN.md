@@ -123,6 +123,41 @@ if parsed_endpoint.scheme not in ("http", "https"):
 
 **缓存路径**：`<workspace>/.cache/repos/<repo_hash>/`
 
+### D5: Memory MCP Server 闭包构建模式
+
+**背景**：Memory 工具需要通过 MCP 协议暴露给 SDK Agent，但工具数量较多（9 个），直接在一个函数中定义会过于臃肿。
+
+**决策**：按职责将工具构建拆分为三个工厂函数，每个返回闭包列表：
+
+```python
+_build_crud_tools(client)          # create, get, update, delete, delete_all
+_build_query_tools(client)          # search, list, history
+_build_conversation_tools(client)   # create_conversation
+```
+
+**理由**：
+
+- 单一职责：每个工厂函数只关注一类操作
+- 可测试性：每类工具可独立测试
+- 扩展性：新增工具只需在对应工厂中追加
+
+### D6: Memory 代理架构
+
+**背景**：Executor 容器不直接访问 mem0 服务，必须通过 Executor Manager 代理。
+
+**决策**：`MemoryClient` 封装 HTTP 请求，所有操作走 `POST /api/v1/memories/*` 代理端点。
+
+**理由**：
+
+- 网络隔离：Executor 在容器内，无法直连 mem0
+- 凭证管理：Manager 统一持有 mem0 API Key
+- 可观测性：Manager 可记录所有 memory 操作的审计日志
+
+**已知限制**：
+
+- 每次 HTTP 请求创建新的 `httpx.AsyncClient`（无连接池复用）
+- 工具参数校验为手动实现，未使用 SDK schema 校验
+
 ## 未来规划
 
 ### Workspace 架构重构

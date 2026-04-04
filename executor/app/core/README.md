@@ -7,6 +7,7 @@
 ```
 executor/app/core/
 ├── engine.py           # AgentExecutor - 主执行引擎
+├── mcp_config.py       # Playwright MCP 配置构建器
 ├── workspace.py        # WorkspaceManager - 工作区与 Git 仓库管理
 ├── permission_engine.py # PermissionEngine - 权限规则评估引擎
 ├── memory.py           # MemoryClient - 长期记忆存储客户端
@@ -27,7 +28,7 @@ executor/app/core/
 - **Hook 集成**：通过 `HookManager` 注入扩展点
 - **工具权限**：集成 `PermissionEngine` 进行工具调用决策
 - **Memory MCP**：可选的长期记忆存储
-- **浏览器自动化**：CDP 端点健康检查与 viewport 配置
+- **浏览器自动化**：通过 `mcp_config.py` 构建 Playwright MCP 配置，包含 CDP 端点健康检查与 viewport 配置
 
 ### WorkspaceManager (`workspace.py`)
 

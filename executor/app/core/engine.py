@@ -6,7 +6,6 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
 
 from claude_agent_sdk import ClaudeAgentOptions
 from claude_agent_sdk.client import ClaudeSDKClient
@@ -26,6 +25,7 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
+from app.core.mcp_config import inject_playwright_mcp
 from app.core.memory import (
     MEMORY_MCP_SERVER_KEY,
     MemoryClient,
@@ -48,7 +48,6 @@ from app.hooks.manager import HookManager
 from app.prompts import build_prompt_appendix
 from app.schemas.request import TaskConfig
 from app.schemas.state import BrowserState
-from app.utils.browser import format_viewport_size, parse_viewport_size
 
 
 @dataclass
@@ -588,74 +587,8 @@ class AgentExecutor:
         return configs
 
     def _inject_playwright_mcp(self, mcp_servers: dict) -> dict:
-        """Inject built-in Playwright MCP (CDP mode) for browser-enabled tasks.
-
-        This keeps the Playwright MCP concept/config hidden from end users: they only toggle `browser_enabled`, and the executor wires the MCP server internally.
-        """
-
-        # TODO: Refactor this injection path to use a structured MCP config builder.
-        key = "__poco_playwright"
-        if key in mcp_servers:
-            return mcp_servers
-
-        cdp_endpoint = (
-            os.environ.get("POCO_BROWSER_CDP_ENDPOINT", "http://127.0.0.1:9222").strip()
-            or "http://127.0.0.1:9222"
-        )
-        # Security: validate scheme to prevent SSRF-like misconfiguration
-        parsed_endpoint = urlparse(cdp_endpoint)
-        if parsed_endpoint.scheme not in ("http", "https"):
-            raise ValueError(
-                f"Invalid CDP endpoint scheme: {parsed_endpoint.scheme}. "
-                "Only http/https are allowed."
-            )
-
-        viewport_raw = (os.environ.get("POCO_BROWSER_VIEWPORT_SIZE") or "").strip()
-        viewport = parse_viewport_size(viewport_raw) or (1366, 768)
-        viewport_size = format_viewport_size(*viewport)
-        output_mode = (
-            (os.environ.get("PLAYWRIGHT_MCP_OUTPUT_MODE") or "").strip().lower()
-        )
-        if output_mode not in {"file", "stdout"}:
-            output_mode = "file"
-        image_responses = (
-            (os.environ.get("PLAYWRIGHT_MCP_IMAGE_RESPONSES") or "").strip().lower()
-        )
-        if image_responses not in {"allow", "omit"}:
-            image_responses = "omit"
-        playwright_launch_command = (
-            "exec npx -y @playwright/mcp@latest "
-            f"--cdp-endpoint {cdp_endpoint!r} "
-            "--caps vision "
-            f"--viewport-size {viewport_size!r} "
-            f"--output-mode {output_mode!r} "
-            f"--image-responses {image_responses!r}"
-        )
-
-        # Wait for Chrome's CDP endpoint before starting the MCP server to avoid flakiness on startup.
-        wait_then_start = f"""
-python3 - <<'PY'
-import time
-import urllib.request
-
-url = {cdp_endpoint!r} + "/json/version"
-deadline = time.time() + 15
-while time.time() < deadline:
-    try:
-        with urllib.request.urlopen(url, timeout=3.0) as resp:
-            resp.read()
-        break
-    except Exception:
-        time.sleep(0.1)
-else:
-    raise SystemExit("CDP endpoint not ready: " + url)
-PY
-{playwright_launch_command}
-""".strip()
-
-        injected = dict(mcp_servers)
-        injected[key] = {"command": "bash", "args": ["-lc", wait_then_start]}
-        return injected
+        """Inject built-in Playwright MCP (CDP mode) for browser-enabled tasks."""
+        return inject_playwright_mcp(mcp_servers)
 
     def _inject_memory_mcp(self, mcp_servers: dict) -> dict:
         """Inject built-in memory MCP server for user-level memory tools."""

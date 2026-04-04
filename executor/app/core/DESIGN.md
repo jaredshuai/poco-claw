@@ -102,6 +102,28 @@ if parsed_endpoint.scheme not in ("http", "https"):
 - 防止配置错误
 - 消除 SAST 扫描警告
 
+### D7: Playwright MCP 配置构建器
+
+**背景**：`AgentExecutor._inject_playwright_mcp()` 同时承担执行流程编排和 Playwright MCP 配置构建，环境变量解析、CDP 就绪等待脚本以及 SSRF 校验全部内联在 `engine.py`。
+
+**决策**：提取 `app.core.mcp_config` 模块，暴露 `build_playwright_mcp_config()` 与 `inject_playwright_mcp()`；`AgentExecutor` 仅保留委托入口 `_inject_playwright_mcp()`。
+
+**理由**：
+
+- 保持 `AgentExecutor` 聚焦执行编排
+- 独立测试 Playwright MCP 配置构建与安全校验
+- 为未来增加其他内置 MCP builder 预留统一落点
+
+**权衡**：
+
+- 增加一个模块边界
+- 仍保留 shell 启动脚本字符串拼装，避免本次重构扩大行为面
+
+**假设**：
+
+- 浏览器相关环境变量继续由 Executor Manager 或运行时注入
+- 浏览器启用场景继续使用 `bash -lc` 启动 MCP
+
 ## 已实现功能
 
 ### Batch 3: Workspace 策略扩展 (2026-04-02)

@@ -1,5 +1,5 @@
 ---
-description: REQUIRED — external AI headless; CI/format/lint fix runs also via headless wrapper (claude -p / codex exec)
+description: REQUIRED — headless AI + permissions (Claude bypassPermissions; Codex sandbox/approval; Gemini/Qwen yolo)
 alwaysApply: true
 ---
 
@@ -32,10 +32,10 @@ claude -p --permission-mode bypassPermissions "cd <REPO_ROOT> && <exact shell co
 
 Use **`--permission-mode bypassPermissions`** on Claude Code when the inner commands need **Node / pnpm / npx** (see **§E**). If the executor is Codex, follow `codex exec` sandbox docs instead.
 
-or
+or (see **§F** for Codex flags — **sandbox** + **approval** matter for `pnpm`):
 
 ```text
-codex exec "cd <REPO_ROOT> && <same commands>"
+codex exec --sandbox workspace-write --ask-for-approval never "cd <REPO_ROOT> && <same commands>"
 ```
 
 The orchestrator’s job is to **compose** the quoted string and **invoke** one such command via `Shell` — **not** to run `pnpm exec prettier --write ...` as the top-level command itself.
@@ -85,3 +85,54 @@ claude -p --permission-mode bypassPermissions "<single shell pipeline, e.g. cd r
 **Docs (official):** [Permission modes](https://code.claude.com/docs/en/permission-modes) · [Headless / non-interactive](https://code.claude.com/en/headless) · [Permissions](https://code.claude.com/en/permissions) · [Sandboxing](https://code.claude.com/en/sandboxing)
 
 **Orchestrator behavior:** When composing a `claude -p` line that runs **pnpm/node**, **include** `--permission-mode bypassPermissions` in the same invocation unless the user forbids it or the environment is untrusted.
+
+---
+
+## F. Codex / Gemini / Qwen — **similar** issues (sandbox / approvals)
+
+Headless runs **cannot** answer interactive prompts. Each tool uses different flags; **pnpm / npm / node** often need **write access** + **non-interactive approval** (or explicit auto-approve).
+
+### OpenAI **Codex** (`codex exec`)
+
+- **Sandbox** (`--sandbox` / `-s`): `read-only` | `workspace-write` | `danger-full-access`.  
+  - `read-only` blocks **writes** (including many `pnpm`/`npm` operations that touch `node_modules` or caches). Use **`workspace-write`** for normal repo work, or **`danger-full-access`** only in isolated/trusted environments.
+- **Approvals** (`--ask-for-approval` / `-a`): `untrusted` | `on-request` | `never`.  
+  - For **non-interactive** headless runs, use **`never`** so Codex does not wait for a human (see [CLI reference](https://developers.openai.com/codex/cli/reference/)).
+- **`--full-auto`**: shortcut that sets **workspace-write** + **`on-request`**; still oriented toward interactive friction — prefer explicit **`--sandbox workspace-write --ask-for-approval never`** for unattended scripts.
+- **`--dangerously-bypass-approvals-and-sandbox`** / **`--yolo`**: disables approvals and sandbox — **only** in externally hardened environments.
+
+**Docs:** [Sandboxing](https://developers.openai.com/codex/concepts/sandboxing/) · [CLI reference](https://developers.openai.com/codex/cli/reference/) · [Non-interactive (`codex exec`)](https://developers.openai.com/codex/noninteractive/)
+
+**Example (trusted local):**
+
+```text
+codex exec --sandbox workspace-write --ask-for-approval never "cd e:/codespace/poco-claw/frontend && pnpm exec tsc --noEmit"
+```
+
+### **Gemini CLI** (`gemini -p`)
+
+- **`--yolo` / `-y`**: auto-approve actions (per [headless docs](https://google-gemini.github.io/gemini-cli/docs/cli/headless.html)); combine with **`gemini -p "…"`** for automation when tools would otherwise need confirmation.
+- **`--approval-mode`**: e.g. `auto_edit` (see same table in headless configuration options).
+- **Sandboxing** is a **separate** layer (`-s` / `--sandbox`, `GEMINI_SANDBOX`, Docker/Seatbelt, etc.) — see [Sandboxing in the Gemini CLI](https://google-gemini.github.io/gemini-cli/docs/sandbox.html). If shell commands are blocked or isolated, adjust sandbox settings — not the same mechanism as Claude’s `bypassPermissions`.
+
+### **Qwen Code** (`qwen -p`)
+
+- **`--yolo` / `-y`** or **`--approval-mode yolo`**: auto-approve **edits and shell** — intended for **CI/CD and batch scripts** (see [Headless](https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/) and [Approval mode](https://qwenlm.github.io/qwen-code-docs/en/users/features/approval-mode/)).
+- Default / stricter modes in headless can **fail** when a tool needs approval and there is no interactive user — use **`yolo`** (or **auto-edit** if only file edits are auto-approved) for unattended runs.
+
+**Example:**
+
+```text
+qwen -p --yolo "cd e:/codespace/poco-claw/frontend && pnpm exec tsc --noEmit"
+```
+
+### Orchestrator summary
+
+| Tool | Typical “pnpm blocked / stuck” fix |
+|------|-------------------------------------|
+| Claude | `-p --permission-mode bypassPermissions` (§E) |
+| Codex | `--sandbox workspace-write` + `--ask-for-approval never` (or `--yolo` only if justified) |
+| Gemini | `-p` + `--yolo` or `--approval-mode auto_edit` + sandbox docs if needed |
+| Qwen | `-p` + `--yolo` or `--approval-mode yolo` |
+
+All of these trade **safety** for **automation** — use only on **trusted** machines and repos.

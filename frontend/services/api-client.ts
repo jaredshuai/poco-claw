@@ -299,7 +299,9 @@ function logApi(
 // Core fetch wrapper
 // ---------------------------------------------------------------------------
 
-export type ApiFetchOptions = RequestInit & {
+export type ApiFetchOptions = Omit<RequestInit, "body"> & {
+  /** Plain objects are JSON-stringified by `normalizeBody` before `fetch`. */
+  body?: unknown;
   timeoutMs?: number;
   next?: {
     revalidate?: number;

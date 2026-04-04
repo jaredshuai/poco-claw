@@ -30,10 +30,10 @@ const createMockSession = (
   overrides: Partial<ExecutionSession> = {},
 ): ExecutionSession => ({
   session_id: "test-session-id",
+  time: "2024-01-01T00:00:00Z",
   status: "running",
   progress: 50,
-  created_at: "2024-01-01T00:00:00Z",
-  updated_at: "2024-01-01T00:01:00Z",
+  state_patch: {},
   ...overrides,
 });
 

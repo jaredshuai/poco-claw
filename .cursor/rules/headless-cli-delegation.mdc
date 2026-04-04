@@ -1,34 +1,58 @@
 ---
-description: REQUIRED — external AI must be invoked headless (claude -p, codex exec, gemini/qwen -p); no copy-paste handoff
+description: REQUIRED — external AI headless; CI/format/lint fix runs also via headless wrapper (claude -p / codex exec)
 alwaysApply: true
 ---
 
-# Headless CLI — **mandatory** for external AI
+# Headless CLI — **mandatory**
 
-When work is delegated to **Claude Code**, **OpenAI Codex**, **Gemini CLI**, or **Qwen Code**, execution **must** use **non-interactive (headless) mode only**. The agent **must** run the corresponding CLI via the terminal (e.g. Cursor `Shell` tool) with the full prompt in the command line or stdin — **not** by asking the user to copy prompts into another app, and **not** by relying on interactive TUI sessions for those tools.
+## A. External AI (Claude / Codex / Gemini / Qwen)
 
-## Required commands (no substitutes)
+When work is delegated to **Claude Code**, **OpenAI Codex**, **Gemini CLI**, or **Qwen Code**, execution **must** use **non-interactive (headless) mode only**. The agent **must** run the corresponding CLI via the terminal (e.g. Cursor `Shell`) with the full prompt in the command line — **not** asking the user to paste into another app, and **not** using interactive TUI for automation.
 
 | Tool | **Must use** | **Do not use for automation** |
 |------|----------------|--------------------------------|
-| Claude Code | `claude -p "…"` (or `--print`) | Interactive `claude` without `-p` |
-| OpenAI Codex | `codex exec "…"` | Interactive Codex TUI for scripted tasks |
-| Gemini CLI | `gemini -p "…"` / `gemini --prompt "…"` | Interactive `gemini` UI for handoffs |
-| Qwen Code | `qwen -p "…"` | Interactive `qwen` for handoffs |
+| Claude Code | `claude -p "…"` | Interactive `claude` without `-p` |
+| OpenAI Codex | `codex exec "…"` | Interactive Codex TUI |
+| Gemini CLI | `gemini -p "…"` | Interactive `gemini` |
+| Qwen Code | `qwen -p "…"` | Interactive `qwen` |
 
-**Note:** `codex exec` uses **`codex exec`**, not `codex -p` for “print” — in Codex, `-p` is typically **profile**, not headless print.
+**Note:** In Codex, `-p` is often **profile**, not print — use **`codex exec`** for non-interactive runs.
 
-## Agent behavior
+---
 
-1. **Prefer** `Shell` in the repo (or `--add-dir`) to invoke `claude -p`, `codex exec`, `gemini -p`, or `qwen -p` with the complete task text.
-2. **Forbidden** as the default handoff: “please paste this prompt into Claude/Gemini/…” for tasks that can run headless.
-3. If a CLI is missing or auth fails, report the error; then either fall back to **in-agent** editing in Cursor or give **minimal** manual steps.
+## B. CI / format / autofix — **also headless** (user requirement)
 
-## What this rule does **not** restrict
+Any **mutating** or **fixer** work that changes files to unblock CI or satisfy linters **must** be executed **inside a headless wrapper**, not by the orchestrator running raw `pnpm` / `prettier` / `eslint --fix` / `ruff format` directly.
 
-- Normal commands (`pnpm`, `uv`, `pytest`, `git`, `tsc`, etc.) are **not** required to go through `claude -p` — run them directly.
-- File edits and searches **inside this Cursor session** use the built-in tools as usual.
+**Required pattern** (pick one executor; Claude Code is the default when unsure):
 
-## Safety
+```text
+claude -p "cd <REPO_ROOT> && <exact shell commands, e.g. pnpm exec prettier --write path/to/file.md && git status>"
+```
 
-- Do not add `--dangerously-skip-permissions` (or equivalent) unless the user explicitly asks and the environment is trusted.
+or
+
+```text
+codex exec "cd <REPO_ROOT> && <same commands>"
+```
+
+The orchestrator’s job is to **compose** the quoted string and **invoke** one such command via `Shell` — **not** to run `pnpm exec prettier --write ...` as the top-level command itself.
+
+**Examples of “must wrap”:** `prettier --write`, `eslint --fix`, `ruff check --fix`, `ruff format`, any scripted apply that edits tracked files for CI green.
+
+---
+
+## C. What may still run **directly** (read-only / inspection)
+
+These **do not** need a `claude -p` wrapper:
+
+- **Read-only Git / GitHub**: `git status`, `git log`, `git diff` (no write), `gh run list`, `gh run view --log-failed`
+- **Read-only verification** (no file writes): `pnpm exec tsc --noEmit`, `pnpm lint` **without** `--fix`, `pytest`, `vitest run` (assuming tests do not rewrite sources)
+
+If a command might **write** files (including caches outside the rule’s intent), treat it as section **B**.
+
+---
+
+## D. Safety
+
+Do not add `--dangerously-skip-permissions` (or equivalent) unless the user explicitly asks and the environment is trusted.

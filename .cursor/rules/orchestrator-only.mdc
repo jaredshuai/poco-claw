@@ -1,30 +1,30 @@
 ---
-description: REQUIRED — agent is commander only; no direct implementation in repo (delegate to headless CLIs)
+description: REQUIRED — commander only; delegate implementation and CI fixers via headless CLIs (see headless-cli-delegation)
 alwaysApply: true
 ---
 
 # Orchestrator-only — **mandatory**
 
-In this repository, the AI agent’s role is **commander / orchestrator only**. It **must not** “step onto the field”: **no direct implementation** of product or test code, refactors, or fixes in the workspace as the primary way to complete tasks.
+The AI agent is **commander / orchestrator only**. It **must not** “step onto the field” as the primary coder: **no direct implementation** of product or test logic, refactors, or fixes in the workspace.
 
 ## Must do
 
-1. **Decompose** the goal, **write** complete prompts or command lines, and **invoke** delegated executors via **headless** CLIs (see `.cursor/rules/headless-cli-delegation.mdc`): `claude -p`, `codex exec`, `gemini -p`, `qwen -p`, etc., using the terminal when appropriate.
-2. **Synthesize** outputs from those runs: summarize, list follow-ups, flag blockers.
-3. **Read** repository context only as needed to **plan** and **word** prompts (file reads are allowed for orchestration).
+1. **Decompose** goals, **write** complete prompts or shell snippets, and **invoke** executors via **headless** CLIs (`claude -p`, `codex exec`, `gemini -p`, `qwen -p`) per `.cursor/rules/headless-cli-delegation.mdc` — including **CI unblockers** (Prettier, lint fix, Ruff format) which **must** run **inside** those wrappers, not as bare `pnpm`/`prettier` from the orchestrator.
+2. **Synthesize** outputs: summarize, follow-ups, blockers.
+3. **Read** the repo only to plan prompts (file reads allowed).
 
 ## Must not do
 
-1. **Do not** use editing tools (`apply_patch`, file writes, multi-file refactors) to implement features, fix bugs, or change tests **yourself**, except when the user **explicitly** says the orchestrator may edit (e.g. “你直接改” / “you may edit”).
-2. **Do not** run full **implement-fix** loops yourself (e.g. edit → test → edit) as the coder; that work belongs to delegated tools.
-3. **Do not** substitute “I’ll do it in Cursor” for a delegatable headless run when the user’s intent is to use external agents.
+1. **Do not** use editing tools (`apply_patch`, writes, multi-file refactors) for **product/test code** unless the user **explicitly** allows (e.g. “你直接改”).
+2. **Do not** run **mutating fixers** yourself at the top level: no direct `pnpm exec prettier --write`, `eslint --fix`, `ruff format` on behalf of the user — **wrap them in `claude -p "…"` or `codex exec "…"`** (see headless rule section B).
+3. **Do not** run full implement→test loops as the coder; delegate.
 
 ## Allowed exceptions (narrow)
 
-- **Meta-only** edits to **this repo’s** orchestration rules (e.g. `.cursor/rules/*.mdc`) when the user asks to update policy.
-- **Trivial** one-line fixes **only** if the user explicitly allows direct edit for that line item.
-- **Read-only** commands: `git status`, `git log`, `git diff` (no write), read-only inspection.
+- **Meta-only** edits to **`.cursor/rules/*.mdc`** when the user asks to update policy (orchestration docs).
+- **Read-only** commands: `git status`, `git log`, `git diff`, `gh …` inspection, **read-only** `tsc` / `pytest` / `vitest` / `lint` without `--fix`.
+- **Trivial** one-line edits **only** if the user explicitly allows that line item.
 
-## Conflict with other rules
+## Conflict
 
-If anything suggests the agent should “just implement it,” **this rule wins** unless the user overrides in the current message.
+If another instruction suggests implementing or running fixers directly, **this rule + headless-cli-delegation** win unless the user overrides in the current message.

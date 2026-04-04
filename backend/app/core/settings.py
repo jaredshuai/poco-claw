@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +8,21 @@ class Settings(BaseSettings):
     app_name: str = Field(default="OpenCoWork Backend")
     app_version: str = Field(default="0.1.0")
     debug: bool = Field(default=False)
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def coerce_debug_from_env(cls, value: object) -> bool | object:
+        """Map env strings to bool; unknown strings (e.g. 'release') become False."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in ("true", "1", "yes", "on"):
+                return True
+            if normalized in ("false", "0", "no", "off", ""):
+                return False
+            return False
+        return value
     log_level: str | None = Field(default=None, alias="LOG_LEVEL")
     log_sql: bool = Field(default=False, alias="LOG_SQL")
     uvicorn_access_log: bool = Field(default=False, alias="UVICORN_ACCESS_LOG")

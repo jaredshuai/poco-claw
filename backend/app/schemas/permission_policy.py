@@ -36,6 +36,16 @@ class PermissionPolicy(BaseModel):
         return cls.model_validate(data)
 
 
+class PermissionPolicyUpdateRequest(BaseModel):
+    """Partial update — only set fields are merged into the existing policy."""
+
+    version: str | None = None
+    mode: Literal["audit", "enforce"] | None = None
+    default_action: Literal["allow", "deny"] | None = None
+    preset_source: str | None = None
+    rules: list[PermissionRule] | None = None
+
+
 class PermissionAuditEventResponse(BaseModel):
     id: str
     run_id: str

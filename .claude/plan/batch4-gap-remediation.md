@@ -10,13 +10,13 @@
 
 ## 三方交叉验证结论
 
-| 缺口 | Gemini 判断 | Qwen 判断 | Claude 验证 | 结论 |
-|------|------------|-----------|-------------|------|
-| Git 错误类缺失 | ❌ 缺失 | ❌ 缺失 | ✅ 已存在 (`github.py:23-29`, `gitlab.py:24-30`) | **无需修复** |
-| i18n 翻译键缺失 | ❌ 缺失 | — | ✅ 已存在 (`translation.json:1593-1605`) | **无需修复** |
-| Frontend 类型定义 | ❌ 缺失 | ❌ 缺失 | ❌ 确认缺失 | **需修复** |
-| Permissions API | ❌ 缺失 | ❌ 缺失 | ❌ 确认缺失 | **需修复** |
-| Engine MCP TODO | ⚠️ 需重构 | ⚠️ 需重构 | ⚠️ 非关键，`engine.py:596` | **可选改进** |
+| 缺口              | Gemini 判断 | Qwen 判断 | Claude 验证                                      | 结论         |
+| ----------------- | ----------- | --------- | ------------------------------------------------ | ------------ |
+| Git 错误类缺失    | ❌ 缺失     | ❌ 缺失   | ✅ 已存在 (`github.py:23-29`, `gitlab.py:24-30`) | **无需修复** |
+| i18n 翻译键缺失   | ❌ 缺失     | —         | ✅ 已存在 (`translation.json:1593-1605`)         | **无需修复** |
+| Frontend 类型定义 | ❌ 缺失     | ❌ 缺失   | ❌ 确认缺失                                      | **需修复**   |
+| Permissions API   | ❌ 缺失     | ❌ 缺失   | ❌ 确认缺失                                      | **需修复**   |
+| Engine MCP TODO   | ⚠️ 需重构   | ⚠️ 需重构 | ⚠️ 非关键，`engine.py:596`                       | **可选改进** |
 
 ---
 
@@ -47,13 +47,18 @@ export interface ExecutionSettings {
   };
   permissions: Record<string, unknown>;
   workspace: {
-    checkout_strategy?: "clone" | "worktree" | "sparse-clone" | "sparse-worktree";
+    checkout_strategy?:
+      | "clone"
+      | "worktree"
+      | "sparse-clone"
+      | "sparse-worktree";
   };
   skills: Record<string, unknown>;
 }
 ```
 
 **验证**：
+
 ```bash
 cd frontend && pnpm tsc --noEmit
 ```
@@ -92,6 +97,7 @@ async def update_permission_policy(
 ```
 
 **验证**：
+
 ```bash
 cd backend && uv run pytest tests/ -v -k "execution_settings"
 ```
@@ -103,6 +109,7 @@ cd backend && uv run pytest tests/ -v -k "execution_settings"
 **问题**：`engine.py:596` 有 TODO 注释，Playwright MCP 注入逻辑内联在 engine 中。
 
 **文件**：
+
 - `executor/app/core/mcp_config.py`（新建）
 - `executor/app/core/engine.py`（修改）
 
@@ -114,21 +121,21 @@ cd backend && uv run pytest tests/ -v -k "execution_settings"
 
 ## 关键文件
 
-| 文件 | 操作 | 说明 |
-|------|------|------|
-| `frontend/features/settings/types/index.ts` | 新建 | ExecutionSettings 类型定义 |
-| `backend/app/api/v1/execution_settings.py` | 修改 | 追加 /permissions 端点 |
-| `executor/app/core/mcp_config.py` | 新建（可选） | MCP 配置 builder |
+| 文件                                        | 操作         | 说明                       |
+| ------------------------------------------- | ------------ | -------------------------- |
+| `frontend/features/settings/types/index.ts` | 新建         | ExecutionSettings 类型定义 |
+| `backend/app/api/v1/execution_settings.py`  | 修改         | 追加 /permissions 端点     |
+| `executor/app/core/mcp_config.py`           | 新建（可选） | MCP 配置 builder           |
 
 ---
 
 ## 风险与缓解
 
-| 风险 | 缓解措施 |
-|------|----------|
+| 风险                         | 缓解措施                                   |
+| ---------------------------- | ------------------------------------------ |
 | 类型定义与后端 schema 不一致 | 以 `ExecutionSettings` Pydantic model 为准 |
-| Permissions API 认证问题 | 复用 `get_current_user_id` 依赖 |
-| Step 3 重构引入回归 | 可跳过，不影响当前功能 |
+| Permissions API 认证问题     | 复用 `get_current_user_id` 依赖            |
+| Step 3 重构引入回归          | 可跳过，不影响当前功能                     |
 
 ---
 

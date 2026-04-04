@@ -1,5 +1,19 @@
 # Batch 4: 缺口修补 + 前端类型闭环
 
+## Status（闭环 — 2026-04-04）
+
+| 项                         | 状态     | 说明                                                                                                                       |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Step 1 前端类型            | **完成** | `ExecutionSettings` 等定义在 `frontend/features/settings/types.ts`（与初稿 `types/index.ts` 不同，模块解析为同名 `types`） |
+| Step 2 Permissions API     | **完成** | `GET/PATCH .../execution-settings/permissions` 已实现                                                                      |
+| Step 3 MCP builder（可选） | **完成** | `executor/app/core/mcp_config.py` 已落地并与 engine 集成                                                                   |
+| 本地验证                   | **通过** | `pnpm tsc --noEmit`；backend `test_execution_settings_service`；executor 全量 pytest                                       |
+| 远端 CI（抽样）            | **通过** | `main` 上 Prettier、Markdownlint、GitLeaks 等近期 run 为 `success`                                                         |
+
+下方「交叉验证」表保留为**当时扫描快照**；以本表为当前事实来源。
+
+---
+
 ## Context
 
 **问题**：Batch 1-3 核心功能已全部完成并提交。三路并行扫描（Claude + Gemini + Qwen）发现若干残留缺口，其中两个确认需要修复。

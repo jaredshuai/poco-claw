@@ -1,28 +1,34 @@
 ---
-description: Delegate to Claude/Codex/Gemini/Qwen via headless CLIs instead of copy-paste prompts
+description: REQUIRED — external AI must be invoked headless (claude -p, codex exec, gemini/qwen -p); no copy-paste handoff
 alwaysApply: true
 ---
 
-# Headless CLI delegation
+# Headless CLI — **mandatory** for external AI
 
-When a task should be run by **Claude Code**, **OpenAI Codex**, **Gemini CLI**, or **Qwen Code** from the terminal (orchestration, one-shot reviews, scripted runs), use **non-interactive / headless** invocations. Do not default to asking the user to paste long prompts into other UIs.
+When work is delegated to **Claude Code**, **OpenAI Codex**, **Gemini CLI**, or **Qwen Code**, execution **must** use **non-interactive (headless) mode only**. The agent **must** run the corresponding CLI via the terminal (e.g. Cursor `Shell` tool) with the full prompt in the command line or stdin — **not** by asking the user to copy prompts into another app, and **not** by relying on interactive TUI sessions for those tools.
 
-## Preferred commands
+## Required commands (no substitutes)
 
-| Tool | Headless entry | Notes |
-|------|----------------|--------|
-| Claude Code | `claude -p "…"` | `--print`; add `--add-dir <path>` when the task needs repo access; optional `--output-format json` for parsing. |
-| OpenAI Codex | `codex exec "…"` | Not `codex -p` for “print” — `-p` is often **profile**. Use `--json` for JSONL events; `--ephemeral` when sessions should not persist. |
-| Gemini CLI | `gemini -p "…"` or `gemini --prompt "…"` | Optional `--output-format json`; stdin pipes supported. |
-| Qwen Code | `qwen -p "…"` | Optional `--output-format json` or `stream-json`; `--continue` / `--resume` for follow-ups. |
+| Tool | **Must use** | **Do not use for automation** |
+|------|----------------|--------------------------------|
+| Claude Code | `claude -p "…"` (or `--print`) | Interactive `claude` without `-p` |
+| OpenAI Codex | `codex exec "…"` | Interactive Codex TUI for scripted tasks |
+| Gemini CLI | `gemini -p "…"` / `gemini --prompt "…"` | Interactive `gemini` UI for handoffs |
+| Qwen Code | `qwen -p "…"` | Interactive `qwen` for handoffs |
 
-## Execution habits
+**Note:** `codex exec` uses **`codex exec`**, not `codex -p` for “print” — in Codex, `-p` is typically **profile**, not headless print.
 
-- Run from the relevant workspace directory (e.g. repo root) unless the prompt scopes otherwise.
-- On **Windows PowerShell**, set env vars in separate statements (e.g. `$env:FOO = "bar"; command`) — avoid bash-only `FOO=bar cmd` in one line.
-- Respect cost and safety: use sandbox / approval flags appropriate to the environment; do not use `--dangerously-skip-permissions` unless the user explicitly requests it in a trusted sandbox.
+## Agent behavior
 
-## When this does not apply
+1. **Prefer** `Shell` in the repo (or `--add-dir`) to invoke `claude -p`, `codex exec`, `gemini -p`, or `qwen -p` with the complete task text.
+2. **Forbidden** as the default handoff: “please paste this prompt into Claude/Gemini/…” for tasks that can run headless.
+3. If a CLI is missing or auth fails, report the error; then either fall back to **in-agent** editing in Cursor or give **minimal** manual steps.
 
-- Editing files **directly in Cursor** in the current agent session (normal tool use) does not require spawning an external CLI.
-- If a required CLI is missing or auth fails, report the error and fall back to in-agent work or clear manual steps.
+## What this rule does **not** restrict
+
+- Normal commands (`pnpm`, `uv`, `pytest`, `git`, `tsc`, etc.) are **not** required to go through `claude -p` — run them directly.
+- File edits and searches **inside this Cursor session** use the built-in tools as usual.
+
+## Safety
+
+- Do not add `--dangerously-skip-permissions` (or equivalent) unless the user explicitly asks and the environment is trusted.

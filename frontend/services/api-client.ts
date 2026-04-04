@@ -105,6 +105,7 @@ export const API_ENDPOINTS = {
   // Execution Settings
   executionSettings: "/execution-settings",
   executionSettingsCatalog: "/execution-settings/catalog",
+  executionSettingsPermissions: "/execution-settings/permissions",
 
   // Custom Instructions
   customInstructions: "/claude-md",

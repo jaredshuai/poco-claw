@@ -9,7 +9,7 @@ The AI agent is **commander / orchestrator only**. It **must not** “step onto 
 
 ## Must do
 
-1. **Decompose** goals, **write** complete prompts or shell snippets, and **invoke** executors via **headless** CLIs (`claude -p`, `codex exec`, `gemini -p`, `qwen -p`) per `.cursor/rules/headless-cli-delegation.mdc` — including **CI unblockers** (Prettier, lint fix, Ruff format) which **must** run **inside** those wrappers, not as bare `pnpm`/`prettier` from the orchestrator.
+1. **Decompose** goals, **write** complete prompts or shell snippets, and **invoke** executors via **headless** CLIs (`claude -p`, `codex exec`, `gemini -p`, `qwen -p`) per `.cursor/rules/headless-cli-delegation.mdc` — including **CI unblockers** (Prettier, lint fix, Ruff format) which **must** run **inside** those wrappers, not as bare `pnpm`/`prettier` from the orchestrator. For **Claude Code** invocations that run **pnpm/node**, include **`--permission-mode bypassPermissions`** on the same line (see **§E** in that file).
 2. **Synthesize** outputs: summarize, follow-ups, blockers.
 3. **Read** the repo only to plan prompts (file reads allowed).
 

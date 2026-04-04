@@ -27,8 +27,10 @@ Any **mutating** or **fixer** work that changes files to unblock CI or satisfy l
 **Required pattern** (pick one executor; Claude Code is the default when unsure):
 
 ```text
-claude -p "cd <REPO_ROOT> && <exact shell commands, e.g. pnpm exec prettier --write path/to/file.md && git status>"
+claude -p --permission-mode bypassPermissions "cd <REPO_ROOT> && <exact shell commands, e.g. pnpm exec prettier --write path/to/file.md && git status>"
 ```
+
+Use **`--permission-mode bypassPermissions`** on Claude Code when the inner commands need **Node / pnpm / npx** (see **§E**). If the executor is Codex, follow `codex exec` sandbox docs instead.
 
 or
 
@@ -55,4 +57,31 @@ If a command might **write** files (including caches outside the rule’s intent
 
 ## D. Safety
 
-Do not add `--dangerously-skip-permissions` (or equivalent) unless the user explicitly asks and the environment is trusted.
+- **`--permission-mode bypassPermissions`** is equivalent to **`--dangerously-skip-permissions`** (per Claude Code docs). Use **only** on a **trusted** dev machine / repo clone — never as a blanket habit for untrusted input.
+- For locked-down automation (e.g. CI), prefer **`--permission-mode dontAsk`** plus explicit `permissions.allow` rules in Claude Code settings instead of bypass.
+
+---
+
+## E. Claude Code `-p` and **permission blocks** (pnpm / node / Bash)
+
+**Symptom:** Headless `claude -p "…"` reports that **pnpm / npx / node** (or similar) is blocked by the permission system — non-interactive runs cannot click “Allow”.
+
+**Cause:** Default permission modes require approval for many shell actions; `-p` has no interactive prompt, so execution stops or skips.
+
+**Fix (trusted local — default for this workflow):** pass **`--permission-mode bypassPermissions`** together with **`-p`**:
+
+```text
+claude -p --permission-mode bypassPermissions "<single shell pipeline, e.g. cd repo/frontend && pnpm exec tsc --noEmit && pnpm lint && pnpm test>"
+```
+
+**Alternatives:**
+
+| Goal | Flag / approach |
+|------|------------------|
+| Skip prompts; dev machine only | `--permission-mode bypassPermissions` or `--dangerously-skip-permissions` (same class — use sparingly) |
+| Scripted / allowlist-only | `--permission-mode dontAsk` + narrow `permissions.allow` in Claude Code `settings.json` |
+| No Claude involvement | Run `pnpm` / `uv` / `pytest` **outside** `claude -p` (orchestrator terminal only for read-only verify) |
+
+**Docs (official):** [Permission modes](https://code.claude.com/docs/en/permission-modes) · [Headless / non-interactive](https://code.claude.com/en/headless) · [Permissions](https://code.claude.com/en/permissions) · [Sandboxing](https://code.claude.com/en/sandboxing)
+
+**Orchestrator behavior:** When composing a `claude -p` line that runs **pnpm/node**, **include** `--permission-mode bypassPermissions` in the same invocation unless the user forbids it or the environment is untrusted.

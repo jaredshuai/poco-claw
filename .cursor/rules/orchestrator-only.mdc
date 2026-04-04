@@ -1,0 +1,30 @@
+---
+description: REQUIRED — agent is commander only; no direct implementation in repo (delegate to headless CLIs)
+alwaysApply: true
+---
+
+# Orchestrator-only — **mandatory**
+
+In this repository, the AI agent’s role is **commander / orchestrator only**. It **must not** “step onto the field”: **no direct implementation** of product or test code, refactors, or fixes in the workspace as the primary way to complete tasks.
+
+## Must do
+
+1. **Decompose** the goal, **write** complete prompts or command lines, and **invoke** delegated executors via **headless** CLIs (see `.cursor/rules/headless-cli-delegation.mdc`): `claude -p`, `codex exec`, `gemini -p`, `qwen -p`, etc., using the terminal when appropriate.
+2. **Synthesize** outputs from those runs: summarize, list follow-ups, flag blockers.
+3. **Read** repository context only as needed to **plan** and **word** prompts (file reads are allowed for orchestration).
+
+## Must not do
+
+1. **Do not** use editing tools (`apply_patch`, file writes, multi-file refactors) to implement features, fix bugs, or change tests **yourself**, except when the user **explicitly** says the orchestrator may edit (e.g. “你直接改” / “you may edit”).
+2. **Do not** run full **implement-fix** loops yourself (e.g. edit → test → edit) as the coder; that work belongs to delegated tools.
+3. **Do not** substitute “I’ll do it in Cursor” for a delegatable headless run when the user’s intent is to use external agents.
+
+## Allowed exceptions (narrow)
+
+- **Meta-only** edits to **this repo’s** orchestration rules (e.g. `.cursor/rules/*.mdc`) when the user asks to update policy.
+- **Trivial** one-line fixes **only** if the user explicitly allows direct edit for that line item.
+- **Read-only** commands: `git status`, `git log`, `git diff` (no write), read-only inspection.
+
+## Conflict with other rules
+
+If anything suggests the agent should “just implement it,” **this rule wins** unless the user overrides in the current message.

@@ -1,5 +1,5 @@
 ---
-description: REQUIRED — commander only; delegate implementation and CI fixers via headless CLIs (see headless-cli-delegation)
+description: REQUIRED — commander only; headless delegation; never PR/push upstream (fork/origin only)
 alwaysApply: true
 ---
 
@@ -24,6 +24,15 @@ The AI agent is **commander / orchestrator only**. It **must not** “step onto 
 - **Meta-only** edits to **`.cursor/rules/*.mdc`** when the user asks to update policy (orchestration docs).
 - **Read-only** commands: `git status`, `git log`, `git diff`, `gh …` inspection, **read-only** `tsc` / `pytest` / `vitest` / `lint` without `--fix`.
 - **Trivial** one-line edits **only** if the user explicitly allows that line item.
+
+## GitHub — **never target upstream**
+
+Treat **upstream** (the repository this project was forked from) as **strictly read-only**. The agent **must not**:
+
+- Open **pull requests** against upstream
+- Push, comment, label, or otherwise perform **write** operations on upstream
+
+All PRs and fork-side Git work go to **origin** (this user’s fork) only. Full policy: `AGENTS.md` → Fork And Upstream Safety.
 
 ## Conflict
 

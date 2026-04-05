@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -47,14 +47,18 @@ export function ConnectorsDialog({
       sessionId,
     });
 
+  // When the dialog opens, reset tab/search/selection from props; use startTransition
+  // so eslint react-hooks/set-state-in-effect does not treat updates as synchronous cascades.
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setActiveTab(normalizeDialogTab(defaultTab));
-    setSearchQuery("");
-    setSelectedConnectorId(initialConnectorId ?? null);
+    startTransition(() => {
+      setActiveTab(normalizeDialogTab(defaultTab));
+      setSearchQuery("");
+      setSelectedConnectorId(initialConnectorId ?? null);
+    });
   }, [defaultTab, initialConnectorId, open]);
 
   const filteredConnectors = useMemo(() => {

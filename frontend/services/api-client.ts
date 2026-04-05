@@ -71,6 +71,9 @@ export const API_ENDPOINTS = {
   sessionWorkspaceSubmitSkill: (sessionId: string) =>
     `/sessions/${sessionId}/workspace/submit-skill`,
 
+  // User account
+  usersMe: "/users/me",
+
   // User Input Requests
   userInputRequests: "/user-input-requests",
   userInputRequest: (requestId: string) => `/user-input-requests/${requestId}`,

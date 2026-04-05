@@ -34,6 +34,7 @@ from app.models.sub_agent import SubAgent
 from app.models.tool_execution import ToolExecution
 from app.models.usage_log import UsageLog
 from app.models.user_input_request import UserInputRequest
+from app.models.user_account import UserAccount
 from app.models.user_execution_setting import UserExecutionSetting
 from app.models.user_mcp_install import UserMcpInstall
 from app.models.user_plugin_install import UserPluginInstall
@@ -73,6 +74,7 @@ __all__ = [
     "ToolExecution",
     "UsageLog",
     "UserInputRequest",
+    "UserAccount",
     "UserExecutionSetting",
     "UserMcpInstall",
     "UserPluginInstall",

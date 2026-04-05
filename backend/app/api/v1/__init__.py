@@ -52,6 +52,7 @@ from app.api.v1 import (
     usage,
     user_input_requests,
     user_mcp_installs,
+    users,
 )
 from app.core.settings import get_settings
 from app.schemas.response import Response
@@ -70,6 +71,7 @@ api_v1_router.include_router(memories.router)
 api_v1_router.include_router(projects.router)
 api_v1_router.include_router(tool_executions.router)
 api_v1_router.include_router(usage.router)
+api_v1_router.include_router(users.router)
 api_v1_router.include_router(attachments.router)
 api_v1_router.include_router(audio.router)
 api_v1_router.include_router(capability_recommendations.router)

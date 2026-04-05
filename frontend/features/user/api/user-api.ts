@@ -1,33 +1,31 @@
-import type { UserProfile, UserCredits } from "@/features/user/types";
+import type { UserCredits, UserProfile } from "@/features/user/types";
+import { API_ENDPOINTS, apiClient } from "@/services/api-client";
 
-// Mock user profile - TODO: Replace with real API call
-// Note: planName and credits values should be translated by the caller using i18n keys:
-// - user.plan.free / user.plan.pro / user.plan.team
-// - user.credits.unlimited
-const DEFAULT_USER_PROFILE: UserProfile = {
-  id: "default-user",
-  email: "user@poco.com",
-  avatar: "",
-  plan: "free",
-  planName: "user.plan.free", // Translation key, should be resolved by caller
-};
+/** Response body `data` from GET /api/v1/users/me (standard envelope unwrapped by apiFetch). */
+export interface UserMeResponse {
+  profile: UserProfile;
+  credits: UserCredits;
+}
 
-const DEFAULT_USER_CREDITS: UserCredits = {
-  total: "user.credits.unlimited", // Translation key, should be resolved by caller
-  free: "user.credits.unlimited", // Translation key, should be resolved by caller
-  dailyRefreshCurrent: 9999,
-  dailyRefreshMax: 9999,
-  refreshTime: "08:00",
-};
+/**
+ * Loads profile and credits in a single request (preferred over separate getProfile/getCredits).
+ */
+async function getMe(): Promise<UserMeResponse> {
+  return apiClient.get<UserMeResponse>(API_ENDPOINTS.usersMe);
+}
 
 export const userService = {
+  getMe,
+
+  /** Returns profile only; performs one GET /users/me. */
   getProfile: async (): Promise<UserProfile> => {
-    // TODO: Replace with real API call
-    return DEFAULT_USER_PROFILE;
+    const me = await getMe();
+    return me.profile;
   },
 
+  /** Returns credits only; performs one GET /users/me. */
   getCredits: async (): Promise<UserCredits> => {
-    // TODO: Replace with real API call
-    return DEFAULT_USER_CREDITS;
+    const me = await getMe();
+    return me.credits;
   },
 };

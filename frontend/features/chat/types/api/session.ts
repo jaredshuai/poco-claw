@@ -91,11 +91,25 @@ export interface SessionStateResponse {
   updated_at: string;
 }
 
+export type MessageFeedbackVote = "like" | "dislike" | "none";
+
+export interface MessageFeedbackRequest {
+  vote: MessageFeedbackVote;
+}
+
+export interface MessageFeedbackResponse {
+  message_id: number;
+  vote: MessageFeedbackVote;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MessageResponse {
   id: number;
   role: string;
   content: Record<string, unknown>;
   text_preview?: string | null;
+  feedback_vote?: MessageFeedbackVote;
   attachments?: InputFile[] | null;
   created_at: string; // ISO datetime
   updated_at: string; // ISO datetime

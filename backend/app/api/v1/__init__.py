@@ -28,6 +28,7 @@ from app.api.v1 import (
     internal_runs,
     memories,
     mcp_servers,
+    message_feedback,
     messages,
     plugin_imports,
     plugin_installs,
@@ -67,6 +68,7 @@ api_v1_router.include_router(schedules.router)
 api_v1_router.include_router(callback.router)
 api_v1_router.include_router(deliverables.router)
 api_v1_router.include_router(messages.router)
+api_v1_router.include_router(message_feedback.router)
 api_v1_router.include_router(memories.router)
 api_v1_router.include_router(projects.router)
 api_v1_router.include_router(tool_executions.router)

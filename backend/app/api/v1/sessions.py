@@ -344,9 +344,8 @@ async def get_session_messages(
             error_code=ErrorCode.FORBIDDEN,
             message="Session does not belong to the user",
         )
-    messages = message_service.get_messages(db, session_id)
     return Response.success(
-        data=[MessageResponse.model_validate(m) for m in messages],
+        data=message_service.get_message_responses(db, session_id, user_id=user_id),
         message="Messages retrieved successfully",
     )
 
@@ -373,6 +372,7 @@ async def get_session_messages_delta(
     payload = message_service.get_messages_delta(
         db,
         session_id,
+        user_id=user_id,
         after_message_id=after_message_id,
         limit=limit,
     )

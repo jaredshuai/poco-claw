@@ -31,6 +31,6 @@ async def get_message(
             message="Message does not belong to the user",
         )
     return Response.success(
-        data=MessageResponse.model_validate(message),
+        data=message_service.get_message_response(db, message_id, user_id=user_id),
         message="Message retrieved successfully",
     )

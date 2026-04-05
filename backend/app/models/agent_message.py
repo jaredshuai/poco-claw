@@ -8,6 +8,7 @@ from app.models import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.agent_session import AgentSession
+    from app.models.message_feedback import MessageFeedback
     from app.models.tool_execution import ToolExecution
 
 
@@ -41,4 +42,8 @@ class AgentMessage(Base, TimestampMixin):
     tool_result_executions: Mapped[list["ToolExecution"]] = relationship(
         back_populates="result_message",
         foreign_keys="ToolExecution.result_message_id",
+    )
+    feedback_entries: Mapped[list["MessageFeedback"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
     )

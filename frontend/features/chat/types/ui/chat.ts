@@ -1,4 +1,4 @@
-import type { InputFile } from "../api/session";
+import type { InputFile, MessageFeedbackVote } from "../api/session";
 
 /**
  * Chat-related UI types (frontend-specific)
@@ -60,6 +60,7 @@ export type ChatMessage = {
   content: string | MessageBlock[];
   status: MessageStatus;
   timestamp?: string;
+  feedbackVote?: MessageFeedbackVote;
   metadata?: {
     model?: string;
     tokensUsed?: number;

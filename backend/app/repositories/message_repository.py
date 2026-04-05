@@ -1,9 +1,11 @@
 import uuid
 from typing import Any
 
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.models.agent_message import AgentMessage
+from app.models.agent_session import AgentSession
 
 
 class MessageRepository:
@@ -32,6 +34,27 @@ class MessageRepository:
         """Gets a message by ID."""
         return (
             session_db.query(AgentMessage).filter(AgentMessage.id == message_id).first()
+        )
+
+    @staticmethod
+    def get_by_id_for_user(
+        session_db: Session,
+        message_id: int,
+        user_id: str,
+    ) -> AgentMessage | None:
+        """Gets a message by ID only when it belongs to the user's session."""
+        return (
+            session_db.query(AgentMessage)
+            .join(
+                AgentSession,
+                and_(
+                    AgentSession.id == AgentMessage.session_id,
+                    AgentSession.user_id == user_id,
+                    AgentSession.is_deleted.is_(False),
+                ),
+            )
+            .filter(AgentMessage.id == message_id)
+            .first()
         )
 
     @staticmethod

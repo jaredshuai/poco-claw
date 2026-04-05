@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.input_file import InputFile
+from app.schemas.message_feedback import MessageFeedbackVote
 
 
 class InputFileWithUrl(InputFile):
@@ -19,6 +20,7 @@ class MessageResponse(BaseModel):
     role: str
     content: dict[str, Any]
     text_preview: str | None
+    feedback_vote: MessageFeedbackVote = "none"
     created_at: datetime
     updated_at: datetime
 

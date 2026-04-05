@@ -19,10 +19,13 @@ import { TypingIndicator } from "./typing-indicator";
 import type {
   ChatMessage,
   MessageBlock,
+  MessageFeedbackResponse,
+  MessageFeedbackVote,
   UsageResponse,
 } from "@/features/chat/types";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/client";
+import { apiClient, API_ENDPOINTS } from "@/services/api-client";
 import {
   type AssistantDeliverableCardData,
   DeliverableCardGroup,
@@ -73,8 +76,15 @@ export function AssistantMessage({
 }: AssistantMessageProps) {
   const { t } = useT("translation");
   const [isCopied, setIsCopied] = React.useState(false);
-  const [isLiked, setIsLiked] = React.useState(false);
+  const [feedbackVote, setFeedbackVote] = React.useState<MessageFeedbackVote>(
+    message.feedbackVote ?? "none",
+  );
+  const [isFeedbackPending, setIsFeedbackPending] = React.useState(false);
   const isStreaming = message.status === "streaming";
+
+  React.useEffect(() => {
+    setFeedbackVote(message.feedbackVote ?? "none");
+  }, [message.feedbackVote, message.id]);
 
   // Helper function to extract text content from message
   const getTextContent = (content: string | MessageBlock[]): string => {
@@ -108,9 +118,30 @@ export function AssistantMessage({
     }
   };
 
-  const onLike = () => {
-    setIsLiked(!isLiked);
-    // TODO: Send feedback to API
+  const onLike = async () => {
+    const messageId = Number(message.id);
+    if (!Number.isInteger(messageId) || isFeedbackPending) {
+      return;
+    }
+
+    const previousVote = feedbackVote;
+    const nextVote: MessageFeedbackVote =
+      previousVote === "like" ? "none" : "like";
+
+    setFeedbackVote(nextVote);
+    setIsFeedbackPending(true);
+    try {
+      const result = await apiClient.put<MessageFeedbackResponse>(
+        API_ENDPOINTS.messageFeedback(messageId),
+        { vote: nextVote },
+      );
+      setFeedbackVote(result.vote);
+    } catch (err) {
+      setFeedbackVote(previousVote);
+      console.error("Failed to save message feedback", err);
+    } finally {
+      setIsFeedbackPending(false);
+    }
   };
 
   const usageJson = runUsage?.usage_json as
@@ -211,14 +242,17 @@ export function AssistantMessage({
             variant="ghost"
             size="icon"
             className={`size-7 hover:text-foreground ${
-              isLiked
+              feedbackVote === "like"
                 ? "text-primary hover:text-primary/90"
                 : "text-muted-foreground"
             }`}
             onClick={onLike}
+            disabled={isFeedbackPending || isStreaming}
             title={t("chat.likeResponse")}
           >
-            <ThumbsUp className={`size-3.5 ${isLiked ? "fill-current" : ""}`} />
+            <ThumbsUp
+              className={`size-3.5 ${feedbackVote === "like" ? "fill-current" : ""}`}
+            />
           </Button>
           <Button
             variant="ghost"

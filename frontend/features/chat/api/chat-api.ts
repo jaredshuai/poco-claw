@@ -418,6 +418,7 @@ export const chatService = {
         id: message.id,
         role: message.role,
         content: message.content,
+        feedback_vote: message.feedback_vote,
         created_at: message.created_at,
         updated_at: message.updated_at,
       }));

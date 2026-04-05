@@ -190,6 +190,7 @@ export const API_ENDPOINTS = {
 
   // Messages
   message: (messageId: number) => `/messages/${messageId}`,
+  messageFeedback: (messageId: number) => `/messages/${messageId}/feedback`,
 
   // Tool Executions
   toolExecution: (executionId: string) => `/tool-executions/${executionId}`,

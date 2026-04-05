@@ -8,6 +8,7 @@ from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.models.agent_message import AgentMessage
 from app.models.agent_run import AgentRun
+from app.repositories.message_feedback_repository import MessageFeedbackRepository
 from app.repositories.message_repository import MessageRepository
 from app.repositories.run_repository import RunRepository
 from app.schemas.input_file import InputFile
@@ -88,16 +89,17 @@ class MessageService:
 
     def _build_messages_with_files(
         self,
+        db: Session,
         messages: list[AgentMessage],
         *,
         user_id: str,
         message_id_to_attachments: dict[int, list[InputFile]],
     ) -> list[MessageWithFilesResponse]:
         storage_service = S3StorageService()
+        base_messages = self._build_message_responses(db, messages, user_id=user_id)
 
         result: list[MessageWithFilesResponse] = []
-        for msg in messages:
-            base = MessageResponse.model_validate(msg)
+        for msg, base in zip(messages, base_messages, strict=False):
             raw_attachments = message_id_to_attachments.get(msg.id) or []
             attachments = self._to_input_files_with_urls(
                 raw_attachments,
@@ -111,6 +113,57 @@ class MessageService:
                 )
             )
         return result
+
+    def _build_message_responses(
+        self,
+        db: Session,
+        messages: list[AgentMessage],
+        *,
+        user_id: str | None = None,
+    ) -> list[MessageResponse]:
+        vote_by_message_id: dict[int, str] = {}
+        if user_id and messages:
+            vote_by_message_id = MessageFeedbackRepository.list_votes_by_user_and_message_ids(
+                db,
+                user_id=user_id,
+                message_ids=[message.id for message in messages],
+            )
+        result: list[MessageResponse] = []
+        for message in messages:
+            result.append(
+                MessageResponse(
+                    id=message.id,
+                    role=message.role,
+                    content=message.content,
+                    text_preview=message.text_preview,
+                    feedback_vote=vote_by_message_id.get(message.id, "none"),
+                    created_at=message.created_at,
+                    updated_at=message.updated_at,
+                )
+            )
+        return result
+
+    def get_message_response(
+        self,
+        db: Session,
+        message_id: int,
+        *,
+        user_id: str | None = None,
+    ) -> MessageResponse:
+        """Gets a single message serialized for API responses."""
+        message = self.get_message(db, message_id)
+        return self._build_message_responses(db, [message], user_id=user_id)[0]
+
+    def get_message_responses(
+        self,
+        db: Session,
+        session_id: uuid.UUID,
+        *,
+        user_id: str | None = None,
+    ) -> list[MessageResponse]:
+        """Gets serialized messages for a session."""
+        messages = self.get_messages(db, session_id)
+        return self._build_message_responses(db, messages, user_id=user_id)
 
     def get_messages(self, db: Session, session_id: uuid.UUID) -> list[AgentMessage]:
         """Gets all messages for a session.
@@ -160,6 +213,7 @@ class MessageService:
             db, session_id
         )
         result = self._build_messages_with_files(
+            db,
             messages,
             user_id=user_id,
             message_id_to_attachments=message_id_to_attachments,
@@ -203,6 +257,7 @@ class MessageService:
         )
         message_id_to_attachments = self._collect_message_attachments(runs)
         items = self._build_messages_with_files(
+            db,
             messages,
             user_id=user_id,
             message_id_to_attachments=message_id_to_attachments,
@@ -220,6 +275,7 @@ class MessageService:
         db: Session,
         session_id: uuid.UUID,
         *,
+        user_id: str | None = None,
         after_message_id: int = 0,
         limit: int = 200,
     ) -> MessageDeltaResponse:
@@ -235,7 +291,7 @@ class MessageService:
         )
         has_more = len(fetched) > safe_limit
         messages = fetched[:safe_limit]
-        items = [MessageResponse.model_validate(message) for message in messages]
+        items = self._build_message_responses(db, messages, user_id=user_id)
 
         next_after_message_id = items[-1].id if items else safe_after_id or None
         return MessageDeltaResponse(

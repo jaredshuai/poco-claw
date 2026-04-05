@@ -20,6 +20,7 @@ from app.models.im import (
     WatchedSession,
 )
 from app.models.mcp_server import McpServer
+from app.models.message_feedback import MessageFeedback
 from app.models.memory_create_job import MemoryCreateJob
 from app.models.model_provider_setting import UserModelProviderSetting
 from app.models.pending_skill_creation import PendingSkillCreation
@@ -61,6 +62,7 @@ __all__ = [
     "DeliverableVersion",
     "ImEventOutbox",
     "McpServer",
+    "MessageFeedback",
     "MemoryCreateJob",
     "UserModelProviderSetting",
     "PendingSkillCreation",

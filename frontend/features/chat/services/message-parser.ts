@@ -10,6 +10,7 @@ import type {
   MessageBlock,
   InputFile,
   ConfigSnapshot,
+  MessageFeedbackVote,
 } from "@/features/chat/types";
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ export interface RawApiMessage {
   id: number;
   role: string;
   content: Record<string, unknown>;
+  feedback_vote?: MessageFeedbackVote | null;
   attachments?: InputFile[] | null;
   created_at: string;
   updated_at: string;
@@ -221,6 +223,7 @@ export function parseMessages(
             content: [],
             status: "completed",
             timestamp: msg.created_at,
+            feedbackVote: msg.feedback_vote ?? "none",
           };
           processedMessages.push(currentAssistantMessage);
         }
@@ -255,6 +258,7 @@ export function parseMessages(
             content: [],
             status: "completed",
             timestamp: msg.created_at,
+            feedbackVote: msg.feedback_vote ?? "none",
           };
           processedMessages.push(currentAssistantMessage);
         }
@@ -306,6 +310,7 @@ export function parseMessages(
             content: [],
             status: "completed",
             timestamp: msg.created_at,
+            feedbackVote: msg.feedback_vote ?? "none",
           };
           processedMessages.push(currentAssistantMessage);
         }
@@ -353,6 +358,7 @@ export function parseMessages(
           content: textContent,
           status: "completed",
           timestamp: msg.created_at,
+          feedbackVote: msg.feedback_vote ?? "none",
           attachments: msg.attachments ?? undefined,
         });
       } else {
@@ -370,6 +376,7 @@ export function parseMessages(
             content: textContent,
             status: "completed",
             timestamp: msg.created_at,
+            feedbackVote: msg.feedback_vote ?? "none",
           });
         }
       }

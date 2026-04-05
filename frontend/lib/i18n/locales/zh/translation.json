@@ -1888,12 +1888,25 @@
     "title": "连接器",
     "apps": "应用",
     "search": "搜索连接器",
+    "noResults": "没有匹配当前筛选条件的连接器。",
     "inDevelopment": "开发中",
     "details": "详情",
     "connectNow": "立即连接",
     "connected": "已连接",
     "enabled": "已启用",
-    "coreCapabilities": "核心能力"
+    "disabled": "已停用",
+    "available": "可启用",
+    "launching": "连接中",
+    "failed": "连接失败",
+    "unavailable": "暂不可用",
+    "status": "状态",
+    "latestError": "最近错误",
+    "coreCapabilities": "核心能力",
+    "officialWebsite": "官方网站",
+    "privacyPolicy": "隐私政策",
+    "reportIssue": "报告问题",
+    "mcp": "MCP",
+    "skills": "技能"
   },
   "connectorCapabilities": {
     "automation": {

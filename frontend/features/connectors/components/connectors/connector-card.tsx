@@ -1,11 +1,11 @@
 import { Shield, Globe, Info, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { Connector } from "../../constants/connectors";
 import { useT } from "@/lib/i18n/client";
+import type { ConnectorCatalogItem } from "@/features/connectors/lib/mcp-connector-state";
 
 interface ConnectorCardProps {
-  connector: Connector;
+  connector: ConnectorCatalogItem;
   isComingSoon?: boolean;
   onClick: () => void;
 }
@@ -15,23 +15,23 @@ interface ConnectorCardProps {
  */
 export function ConnectorCard({
   connector,
-  isComingSoon = true,
+  isComingSoon = connector.state === "coming-soon",
   onClick,
 }: ConnectorCardProps) {
   const { t } = useT("translation");
+
+  const stateLabel = getConnectorStateLabel(connector.state, t);
+
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "group flex items-start gap-4 p-5 rounded-2xl border transition-all duration-300",
+        "group flex w-full items-start gap-4 rounded-2xl border p-5 text-left transition-all duration-300",
         isComingSoon
-          ? "border-border/50 bg-muted/30 opacity-40 grayscale cursor-not-allowed"
-          : "border-border bg-card hover:bg-accent/50 hover:border-border hover:scale-[1.02] cursor-pointer shadow-lg",
+          ? "border-border/70 bg-muted/20 hover:bg-muted/30"
+          : "border-border bg-card shadow-lg hover:scale-[1.02] hover:border-border hover:bg-accent/50",
       )}
-      onClick={() => {
-        if (!isComingSoon) {
-          onClick();
-        }
-      }}
+      onClick={onClick}
     >
       <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted/50 border border-border group-hover:bg-muted group-hover:border-border transition-colors">
         <connector.icon className="size-6 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -44,9 +44,17 @@ export function ConnectorCard({
           {isComingSoon && (
             <Badge
               variant="outline"
-              className="text-[9px] h-4 bg-muted/30 border-border text-muted-foreground/60 px-1.5"
+              className="h-4 bg-muted/30 px-1.5 text-[9px] text-muted-foreground/70"
             >
               {t("connectors.inDevelopment")}
+            </Badge>
+          )}
+          {!isComingSoon && (
+            <Badge
+              variant="outline"
+              className="h-4 border-primary/20 bg-primary/5 px-1.5 text-[9px] text-primary"
+            >
+              {stateLabel}
             </Badge>
           )}
         </div>
@@ -54,8 +62,33 @@ export function ConnectorCard({
           {t(connector.descriptionKey)}
         </div>
       </div>
-    </div>
+    </button>
   );
+}
+
+function getConnectorStateLabel(
+  state: ConnectorCatalogItem["state"],
+  t: (key: string) => string,
+): string {
+  switch (state) {
+    case "connected":
+      return t("connectors.connected");
+    case "launching":
+      return t("connectors.launching");
+    case "failed":
+      return t("connectors.failed");
+    case "enabled":
+      return t("connectors.enabled");
+    case "disabled":
+      return t("connectors.disabled");
+    case "available":
+      return t("connectors.available");
+    case "unavailable":
+      return t("connectors.unavailable");
+    case "coming-soon":
+    default:
+      return t("connectors.inDevelopment");
+  }
 }
 
 /**

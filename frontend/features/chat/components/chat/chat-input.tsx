@@ -13,6 +13,7 @@ import {
   AVAILABLE_CONNECTORS,
   type ConnectorType,
 } from "@/features/connectors";
+import { ConnectorsDialog } from "@/features/connectors/components/connectors/connectors-dialog";
 import { toast } from "sonner";
 import { uploadAttachment } from "@/features/attachments/api/attachment-api";
 import type { InputFile } from "@/features/chat/types";
@@ -27,6 +28,7 @@ interface ChatInputProps {
   onSend: (attachments?: InputFile[]) => void;
   disabled?: boolean;
   hasMessages?: boolean;
+  sessionId?: string;
 }
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -37,6 +39,7 @@ export function ChatInput({
   onSend,
   disabled,
   hasMessages = false,
+  sessionId,
 }: ChatInputProps) {
   const { t } = useT("translation");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -44,6 +47,12 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<InputFile[]>([]);
+  const [connectorsDialogOpen, setConnectorsDialogOpen] = useState(false);
+  const [connectorsDialogTab, setConnectorsDialogTab] =
+    useState<ConnectorType>("mcp");
+  const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(
+    null,
+  );
   const slashAutocomplete = useSlashCommandAutocomplete({
     value,
     onChange,
@@ -278,17 +287,23 @@ export function ChatInput({
                     return sortedConnectors.map((connector) => (
                       <DropdownMenuItem
                         key={connector.id}
-                        disabled
-                        className="opacity-50 cursor-not-allowed"
+                        onSelect={() => {
+                          setConnectorsDialogTab(
+                            connector.type === "api" ? "app" : connector.type,
+                          );
+                          setSelectedConnectorId(connector.id);
+                          setConnectorsDialogOpen(true);
+                        }}
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex items-center gap-2">
                             <connector.icon className="size-4" />
                             <span>{connector.title}</span>
                           </div>
-                          {/* TODO: Implement connection logic */}
                           <span className="text-xs font-medium">
-                            {t("hero.connect")}
+                            {connector.type === "mcp"
+                              ? t("hero.connect")
+                              : t("connectors.details")}
                           </span>
                         </div>
                       </DropdownMenuItem>
@@ -323,6 +338,13 @@ export function ChatInput({
           Enter {t("hints.send")}，Shift + Enter {t("hints.newLine")}
         </p>
       </div>
+      <ConnectorsDialog
+        open={connectorsDialogOpen}
+        onOpenChange={setConnectorsDialogOpen}
+        defaultTab={connectorsDialogTab}
+        initialConnectorId={selectedConnectorId ?? undefined}
+        sessionId={sessionId}
+      />
     </div>
   );
 }

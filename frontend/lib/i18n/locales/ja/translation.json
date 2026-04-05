@@ -3,6 +3,12 @@
   "description": "マルチサービスAIエージェント実行プラットフォーム",
   "home": "ホーム",
   "language": "言語",
+  "errors": {
+    "generic": {
+      "title": "問題が発生しました",
+      "description": "しばらくしてからもう一度お試しください。"
+    }
+  },
   "sidebar": {
     "newTask": "新しいタスク",
     "newTaskWithShortcut": "新しいタスク ({{shortcut}})",

@@ -3,6 +3,12 @@
   "description": "A multi-service AI agent execution platform",
   "home": "Home",
   "language": "Language",
+  "errors": {
+    "generic": {
+      "title": "Something went wrong",
+      "description": "Please try again in a moment."
+    }
+  },
   "sidebar": {
     "newTask": "New Task",
     "newTaskWithShortcut": "New Task ({{shortcut}})",

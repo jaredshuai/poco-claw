@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { toast } from "sonner";
 import {
   AppError,
   NetworkError,
@@ -18,6 +19,30 @@ import {
   isAppError,
   retryWithBackoff,
 } from "@/lib/errors/error-handler";
+import { reportToRum } from "@/lib/errors/reporter";
+
+vi.mock("@/lib/errors/reporter", () => ({
+  reportToRum: vi.fn(),
+}));
+
+vi.mock("@/lib/i18n/i18next", () => ({
+  default: {
+    t: vi.fn((key: string) => {
+      const translations: Record<string, string> = {
+        "errors.generic.title": "Something went wrong",
+        "errors.generic.description": "Please try again in a moment.",
+      };
+
+      return translations[key] ?? key;
+    }),
+  },
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  delete process.env.NEXT_PUBLIC_AEGIS_ID;
+  delete process.env.NEXT_PUBLIC_AEGIS_UIN;
+});
 
 describe("AppError classes", () => {
   describe("AppError", () => {
@@ -239,6 +264,20 @@ describe("logError", () => {
     consoleSpy.mockRestore();
   });
 
+  it("reports to RUM when an Aegis id is configured", () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = new AppError("Test error", "CODE");
+    const context = { type: "unit_test" };
+
+    process.env.NEXT_PUBLIC_AEGIS_ID = "rum-project-id";
+
+    logError(error, context);
+
+    expect(reportToRum).toHaveBeenCalledWith(error, context);
+
+    consoleSpy.mockRestore();
+  });
+
   it("handles errors without context", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -277,6 +316,26 @@ describe("handleError", () => {
   it("uses custom default message", () => {
     const result = handleError(null, { defaultMessage: "Custom error" });
     expect(result.message).toBe("Custom error");
+  });
+
+  it("shows the API error message in a toast when requested", () => {
+    handleError(new ApiError("Safe API failure", 400), {
+      log: false,
+      showToast: true,
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("Safe API failure");
+  });
+
+  it("shows a translated generic toast for unexpected failures", () => {
+    handleError(new Error("Unexpected failure"), {
+      log: false,
+      showToast: true,
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("Something went wrong", {
+      description: "Please try again in a moment.",
+    });
   });
 });
 

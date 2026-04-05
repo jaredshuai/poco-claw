@@ -74,6 +74,7 @@ export class ErrorBoundary extends Component<
     // Log error
     const nextJsInfo = errorInfo as NextJSErrorInfo;
     logError(error, {
+      type: "error_boundary",
       componentStack: errorInfo.componentStack,
       digest: nextJsInfo.digest,
     });

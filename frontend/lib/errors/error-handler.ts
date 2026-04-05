@@ -2,7 +2,13 @@
  * Global error handling utilities
  */
 
+import { toast } from "sonner";
+import i18next from "@/lib/i18n/i18next";
 import { AppError, NetworkError, ApiError, RateLimitError } from "./app-error";
+import { reportToRum } from "./reporter";
+
+const GENERIC_ERROR_TITLE = "errors.generic.title";
+const GENERIC_ERROR_DESCRIPTION = "errors.generic.description";
 
 /**
  * Parse API error response and create appropriate error
@@ -67,20 +73,23 @@ export function logError(
   error: unknown,
   context?: Record<string, unknown>,
 ): void {
+  const isDevelopment = process.env.NODE_ENV !== "production";
+  const shouldReportToRum =
+    process.env.NODE_ENV === "production" ||
+    Boolean(process.env.NEXT_PUBLIC_AEGIS_ID?.trim());
   const errorInfo = {
     error,
     context,
     timestamp: new Date().toISOString(),
   };
 
-  if (import.meta.env.DEV) {
+  if (isDevelopment) {
     console.error("[Error]", errorInfo);
   }
 
-  // TODO: Send to error tracking service (e.g., Sentry)
-  // if (typeof window !== "undefined" && window.Sentry) {
-  //   window.Sentry.captureException(error, { extra: context });
-  // }
+  if (shouldReportToRum) {
+    reportToRum(error, context);
+  }
 }
 
 /**
@@ -100,9 +109,21 @@ export function handleError(
     logError(appError);
   }
 
-  if (options?.showToast) {
-    // TODO: Show toast notification
-    // toast.error(appError.message);
+  if (options?.showToast && typeof window !== "undefined") {
+    if (appError instanceof ApiError && appError.message.trim()) {
+      toast.error(appError.message);
+    } else {
+      toast.error(
+        i18next.t(GENERIC_ERROR_TITLE, {
+          defaultValue: "Something went wrong",
+        }),
+        {
+          description: i18next.t(GENERIC_ERROR_DESCRIPTION, {
+            defaultValue: "Please try again in a moment.",
+          }),
+        },
+      );
+    }
   }
 
   return appError;

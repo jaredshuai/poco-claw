@@ -3,6 +3,12 @@
   "description": "多服务 AI 智能体执行平台",
   "home": "首页",
   "language": "语言",
+  "errors": {
+    "generic": {
+      "title": "出错了",
+      "description": "请稍后重试。"
+    }
+  },
   "sidebar": {
     "newTask": "新建任务",
     "newTaskWithShortcut": "新建任务 ({{shortcut}})",

@@ -1,5 +1,5 @@
 ---
-description: REQUIRED — commander only; headless delegation; never PR/push upstream (fork/origin only)
+description: REQUIRED — commander only; codebase understanding = ace-tool MCP; expensive vs headless; never upstream PR
 alwaysApply: true
 ---
 
@@ -9,9 +9,14 @@ The AI agent is **commander / orchestrator only**. It **must not** “step onto 
 
 ## Must do
 
-1. **Decompose** goals, **write** complete prompts or shell snippets, and **invoke** executors via **headless** CLIs (`claude -p`, `codex exec`, `gemini -p`, `qwen -p`) per `.cursor/rules/headless-cli-delegation.mdc` — including **CI unblockers** (Prettier, lint fix, Ruff format) which **must** run **inside** those wrappers, not as bare `pnpm`/`prettier` from the orchestrator. For **Claude Code** invocations that run **pnpm/node**, include **`--permission-mode bypassPermissions`** on the same line (see **§E** in that file).
+1. **Classify** each delegation:
+   - **Needs the user’s expensive / premium model** (e.g. deep architecture, long open-ended research, or the user **explicitly** asked to use their high-cost tool): **output a single self-contained prompt** inside a **Markdown fenced code block** for **one-click copy** into that tool. Include goal, constraints, paths, deliverable shape. **Security audit / security review** is **not** in this bucket — use **mode B** (headless) below.
+   - **Simple / routine** (CI unblockers, Prettier/Ruff/eslint fix, format, scripted cross-checks, **security audit**, small headless research with a prepared packet): **invoke headless CLIs yourself** via the **Shell** tool — `claude -p`, `codex exec`, `gemini -p`, `qwen -p` per `.cursor/rules/headless-cli-delegation.mdc`. **Do not** dump a copy-paste prompt for the user for this path; **you** run the command.
 2. **Synthesize** outputs: summarize, follow-ups, blockers.
 3. **Read** the repo only to plan prompts (file reads allowed).
+4. **Codebase understanding** (discovery / where-how questions without exact paths): **must** use **ace-tool** MCP `search_context` per `.cursor/rules/ace-tool-codebase.mdc` — **before** treating grep-only exploration as enough.
+
+**Flags (when you run headless yourself):** **Claude Code** + **pnpm/node** → **`--permission-mode bypassPermissions`** (§E). **Codex** default → **`--dangerously-bypass-approvals-and-sandbox`** (§F). **Gemini** clean output → JSON + `.response` + `2>$null` (§F).
 
 ## Must not do
 
@@ -33,6 +38,24 @@ Treat **upstream** (the repository this project was forked from) as **strictly r
 - Push, comment, label, or otherwise perform **write** operations on upstream
 
 All PRs and fork-side Git work go to **origin** (this user’s fork) only. Full policy: `AGENTS.md` → Fork And Upstream Safety.
+
+## Two delegation modes (do not mix them up)
+
+### A — **Expensive / premium model (user runs)**
+
+Use **mode A** when the task **should** consume the user’s **expensive** AI (e.g. deep architecture, long research, or they said to use that tool). **Security audit** uses **mode B** (headless), not mode A.
+
+- **Give** a **copy-paste prompt** in a **fenced code block** — complete, self-contained.
+- **Do not** pretend that running a local headless CLI in Cursor replaces that choice unless the user agrees.
+
+### B — **Simple / routine (agent runs headless in terminal)**
+
+When the task is **not** in category A (e.g. format/lint/CI green, **security audit**, quick scripted analysis, prepared cross-research packet):
+
+- **You** run the headless command via **Shell** (full prompt on the command line, stdin, or `-o` per `headless-cli-delegation.mdc`).
+- **Do not** push the user to copy-paste for this path — execute yourself.
+
+After **B**, **summarize** tool output, paths touched, and errors.
 
 ## Conflict
 

@@ -1,6 +1,9 @@
 .venv
 
 .env
+.env.local
+.env*.local
+.claude/plan/gemini-connector-cross-verify-out.txt
 .factory/
 oss_data/
 tmp_workspace/

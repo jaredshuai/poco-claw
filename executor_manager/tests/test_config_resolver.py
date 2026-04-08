@@ -851,6 +851,7 @@ class TestConfigResolverResolveModelEnvOverrides(unittest.TestCase):
     def test_anthropic_model(self) -> None:
         mock_settings = MagicMock()
         mock_settings.default_model = None
+        mock_settings.default_model_provider_id = None
         mock_settings.anthropic_api_key = "test-key"
         mock_settings.anthropic_base_url = None
 
@@ -868,6 +869,7 @@ class TestConfigResolverResolveModelEnvOverrides(unittest.TestCase):
     def test_missing_api_key(self) -> None:
         mock_settings = MagicMock()
         mock_settings.default_model = None
+        mock_settings.default_model_provider_id = None
         mock_settings.anthropic_api_key = None
         mock_settings.glm_api_key = None
 
@@ -915,6 +917,84 @@ class TestConfigResolverResolveModelEnvOverrides(unittest.TestCase):
         )
 
         assert result == {}
+
+    def test_default_provider_id_overrides_inferred(self) -> None:
+        """glm-5 + DEFAULT_MODEL_PROVIDER_ID=anthropic-authtoken uses authtoken provider."""
+        mock_settings = MagicMock()
+        mock_settings.default_model = None
+        mock_settings.default_model_provider_id = "anthropic-authtoken"
+        mock_settings.anthropic_auth_token = None
+        mock_settings.anthropic_base_url = None
+
+        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver.settings = mock_settings
+
+        result = resolver._resolve_model_env_overrides(
+            {"model": "glm-5"},
+            {"ANTHROPIC_AUTH_TOKEN": "bce-v3/test", "ANTHROPIC_BASE_URL": "https://example.com/anthropic"},
+            user_id="user-123",
+        )
+
+        assert result["ANTHROPIC_AUTH_TOKEN"] == "bce-v3/test"
+        assert result["ANTHROPIC_BASE_URL"] == "https://example.com/anthropic"
+        assert result["ANTHROPIC_MODEL"] == "glm-5"
+
+    def test_no_default_provider_id_uses_inferred(self) -> None:
+        """glm-5 without DEFAULT_MODEL_PROVIDER_ID uses inferred glm provider."""
+        mock_settings = MagicMock()
+        mock_settings.default_model = None
+        mock_settings.default_model_provider_id = None
+        mock_settings.glm_api_key = None
+        mock_settings.glm_base_url = None
+
+        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver.settings = mock_settings
+
+        result = resolver._resolve_model_env_overrides(
+            {"model": "glm-5"},
+            {"GLM_API_KEY": "glm-key-123"},
+            user_id="user-123",
+        )
+
+        assert result["ANTHROPIC_API_KEY"] == "glm-key-123"
+
+    def test_default_provider_id_no_credentials_raises(self) -> None:
+        """DEFAULT_MODEL_PROVIDER_ID set but no matching credentials raises."""
+        mock_settings = MagicMock()
+        mock_settings.default_model = None
+        mock_settings.default_model_provider_id = "anthropic-authtoken"
+        mock_settings.anthropic_auth_token = None
+
+        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver.settings = mock_settings
+
+        with pytest.raises(AppException) as exc_info:
+            resolver._resolve_model_env_overrides(
+                {"model": "glm-5"},
+                {},
+                user_id="user-123",
+            )
+
+        assert exc_info.value.error_code == ErrorCode.ENV_VAR_NOT_FOUND
+
+    def test_explicit_provider_id_overrides_default(self) -> None:
+        """Explicit model_provider_id in config takes priority over default setting."""
+        mock_settings = MagicMock()
+        mock_settings.default_model = None
+        mock_settings.default_model_provider_id = "anthropic-authtoken"
+        mock_settings.glm_api_key = None
+        mock_settings.glm_base_url = None
+
+        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver.settings = mock_settings
+
+        result = resolver._resolve_model_env_overrides(
+            {"model": "glm-5", "model_provider_id": "glm"},
+            {"GLM_API_KEY": "glm-key-123"},
+            user_id="user-123",
+        )
+
+        assert result["ANTHROPIC_API_KEY"] == "glm-key-123"
 
     def test_explicit_provider_not_in_specs_no_inferred(self) -> None:
         """Test when explicit provider_id not in specs and no inferred."""

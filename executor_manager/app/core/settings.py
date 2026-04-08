@@ -101,6 +101,9 @@ class Settings(BaseSettings):
     default_model: str = Field(
         default="claude-sonnet-4-20250514", alias="DEFAULT_MODEL"
     )
+    default_model_provider_id: str | None = Field(
+        default=None, alias="DEFAULT_MODEL_PROVIDER_ID"
+    )
     max_executor_containers: int = Field(default=10, alias="MAX_EXECUTOR_CONTAINERS")
     executor_image: str = Field(
         default="ghcr.io/poco-ai/poco-executor:lite", alias="EXECUTOR_IMAGE"

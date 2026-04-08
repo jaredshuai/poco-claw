@@ -379,8 +379,11 @@ class ConfigResolver:
         explicit_provider_id = str(
             config_snapshot.get("model_provider_id") or ""
         ).strip()
+        default_provider_id = str(
+            self.settings.default_model_provider_id or ""
+        ).strip()
         inferred_provider_id = self._infer_provider_id(selected_model)
-        provider_id = explicit_provider_id or inferred_provider_id
+        provider_id = explicit_provider_id or default_provider_id or inferred_provider_id
         if not provider_id:
             return {}
 

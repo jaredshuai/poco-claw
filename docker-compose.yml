@@ -223,8 +223,10 @@ services:
 
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
+      ANTHROPIC_AUTH_TOKEN_BASE_URL: ${ANTHROPIC_AUTH_TOKEN_BASE_URL:-}
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-claude-sonnet-4-20250514}
+      DEFAULT_MODEL_PROVIDER_ID: ${DEFAULT_MODEL_PROVIDER_ID:-}
 
       # Image used by the manager to spawn executor containers via docker.sock.
       EXECUTOR_IMAGE: ${EXECUTOR_IMAGE:-ghcr.io/poco-ai/poco-executor:lite}

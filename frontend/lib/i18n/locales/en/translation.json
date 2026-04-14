@@ -665,7 +665,16 @@
       "processing": "File processing",
       "notSupported": "Preview not supported for this format",
       "openInNewWindow": "Open in new window",
-      "downloadOriginal": "Download original file"
+      "downloadOriginal": "Download original file",
+      "office": {
+        "loading": "Loading Office preview…",
+        "disabled": "Office preview is not enabled",
+        "error": "Failed to load Office preview",
+        "timeout": "Office preview timed out",
+        "tooLarge": "File is too large for online preview",
+        "editorError": "The document editor encountered an error",
+        "genericHint": "Try downloading the file or opening it in a new window."
+      }
     },
     "summary": {
       "total": "Total",

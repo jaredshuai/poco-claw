@@ -30,6 +30,7 @@ from app.api.v1 import (
     mcp_servers,
     message_feedback,
     messages,
+    office,
     plugin_imports,
     plugin_installs,
     plugins,
@@ -112,6 +113,7 @@ api_v1_router.include_router(slash_commands.router)
 api_v1_router.include_router(subagents.router)
 api_v1_router.include_router(user_input_requests.router)
 api_v1_router.include_router(scheduled_tasks.router)
+api_v1_router.include_router(office.router)
 
 
 @api_v1_router.get("/")

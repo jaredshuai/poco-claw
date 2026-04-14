@@ -158,6 +158,22 @@ class Settings(BaseSettings):
         default=10.0, alias="SKILLSMP_TIMEOUT_SECONDS"
     )
 
+    # OnlyOffice Document Server
+    office_jwt_secret: str = Field(
+        default="", alias="OFFICE_JWT_SECRET"
+    )
+    office_document_server_url: str = Field(
+        default="", alias="OFFICE_DOCUMENT_SERVER_URL"
+    )
+    office_file_size_limit_mb: int = Field(
+        default=50, alias="OFFICE_FILE_SIZE_LIMIT_MB"
+    )
+    office_presign_expires_seconds: int = Field(
+        default=600,
+        alias="OFFICE_PRESIGN_EXPIRES_SECONDS",
+        description="Presigned GET TTL for OnlyOffice Document Server fetches (seconds).",
+    )
+
     # Memory (Mem0)
     mem0_enabled: bool = Field(default=False, alias="MEM0_ENABLED")
     mem0_vector_provider: str = Field(default="pgvector", alias="MEM0_VECTOR_PROVIDER")

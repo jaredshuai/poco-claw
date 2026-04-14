@@ -199,6 +199,10 @@ export const API_ENDPOINTS = {
   projects: "/projects",
   project: (projectId: string) => `/projects/${projectId}`,
 
+  // Office Viewer
+  officeViewerConfig: "/office/viewer-config",
+  officeHealth: "/office/health",
+
   // Health
   health: "/health",
   root: "/",

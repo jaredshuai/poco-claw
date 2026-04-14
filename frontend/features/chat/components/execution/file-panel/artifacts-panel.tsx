@@ -101,6 +101,7 @@ export function ArtifactsPanel({
       return (
         <DocumentViewer
           file={selectedFile}
+          sessionId={sessionId}
           ensureFreshFile={ensureFreshFile}
           onOpenPreviewWindow={openExpandedPreview}
         />
@@ -389,6 +390,7 @@ export function ArtifactsPanel({
           <div className="h-full min-h-0 overflow-hidden">
             <DocumentViewer
               file={selectedFile}
+              sessionId={sessionId}
               ensureFreshFile={ensureFreshFile}
               onClose={() => {
                 setIsExpandedPreviewOpen(false);

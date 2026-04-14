@@ -175,7 +175,9 @@ function upsertInstall(
   installs: UserMcpInstall[],
   nextInstall: UserMcpInstall,
 ): UserMcpInstall[] {
-  const existingIndex = installs.findIndex((item) => item.id === nextInstall.id);
+  const existingIndex = installs.findIndex(
+    (item) => item.id === nextInstall.id,
+  );
   if (existingIndex === -1) {
     return [...installs, nextInstall];
   }

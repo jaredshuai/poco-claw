@@ -157,6 +157,33 @@ class S3StorageService:
                 details={"key": key, "error": str(exc)},
             ) from exc
 
+    def get_object_size(self, key: str) -> int | None:
+        """Return the ``ContentLength`` of an object, or ``None`` if not found.
+
+        Uses a ``HeadObject`` request so the body is never transferred.
+        """
+        try:
+            response = self.client.head_object(Bucket=self.bucket, Key=key)
+            return response.get("ContentLength")
+        except ClientError as exc:
+            error = exc.response.get("Error", {}) if hasattr(exc, "response") else {}
+            code = str(error.get("Code", "")).strip()
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            logger.error(f"Failed to head object {key}: {exc}")
+            raise AppException(
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="Failed to get object metadata",
+                details={"key": key, "error": str(exc)},
+            ) from exc
+        except BotoCoreError as exc:
+            logger.error(f"Failed to head object {key}: {exc}")
+            raise AppException(
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="Failed to get object metadata",
+                details={"key": key, "error": str(exc)},
+            ) from exc
+
     def upload_fileobj(
         self,
         *,

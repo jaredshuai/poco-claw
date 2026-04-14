@@ -4,20 +4,28 @@ import type { ExcalidrawInitialDataState } from "@excalidraw/excalidraw/types";
 
 import type { FileNode } from "@/features/chat/types";
 
+export const VIEW_CLASSNAME =
+  "h-full w-full max-h-full animate-in fade-in duration-300 [--tw-enter-opacity:1] [--tw-enter-scale:1] [--tw-enter-translate-x:0] [--tw-enter-translate-y:0] overflow-hidden flex flex-col min-h-0";
+
 export const DOC_VIEWER_TYPE_MAP: Record<string, string> = {
   bmp: "bmp",
-  doc: "doc",
-  docx: "docx",
   jpg: "jpg",
   jpeg: "jpg",
   pdf: "pdf",
   png: "png",
-  ppt: "ppt",
-  pptx: "pptx",
   tiff: "tiff",
-  xls: "xls",
-  xlsx: "xlsx",
 };
+
+const OFFICE_EXTENSIONS = new Set([
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+]);
+
+export const isOfficeFile = (ext: string) => OFFICE_EXTENSIONS.has(ext);
 
 const TEXT_LANGUAGE_MAP: Record<string, string> = {
   txt: "text",
@@ -312,9 +320,19 @@ export const extractExtension = (file?: FileNode) => {
   return "";
 };
 
+const OFFICE_MIME_RE =
+  /(?:openxmlformats-officedocument|msword|vnd\.ms-(?:excel|powerpoint))/i;
+
 export const getTextLanguage = (ext: string, mime?: string | null) => {
+  // Never route Office files to the text viewer — they should either use the
+  // Office viewer (when sessionId is available) or fall through to the
+  // "not supported" status layout.
+  if (ext && isOfficeFile(ext)) return undefined;
   if (ext && TEXT_LANGUAGE_MAP[ext]) return TEXT_LANGUAGE_MAP[ext];
   if (mime) {
+    // Guard: Office MIME types contain "xml" which would otherwise match
+    // the /(html|xml)/ rule in MIME_LANGUAGE_RULES.
+    if (OFFICE_MIME_RE.test(mime)) return undefined;
     const match = MIME_LANGUAGE_RULES.find(({ test }) => test.test(mime));
     if (match) return match.language;
     if (mime.startsWith("text/")) return DEFAULT_TEXT_LANGUAGE;

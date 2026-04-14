@@ -59,7 +59,7 @@ export function buildConnectorCatalog(
     const install =
       server === null
         ? null
-        : installs.find((entry) => entry.server_id === server.id) ?? null;
+        : (installs.find((entry) => entry.server_id === server.id) ?? null);
     const runtimeConnection =
       server === null
         ? null
@@ -173,6 +173,11 @@ function extractServerConfigKey(
   return keys[0] ?? null;
 }
 
-export function normalizeConnectorKey(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+export function normalizeConnectorKey(
+  value: string | null | undefined,
+): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 }

@@ -651,7 +651,16 @@
       "processing": "文件处理中",
       "notSupported": "该格式暂不支持预览",
       "openInNewWindow": "新窗口打开",
-      "downloadOriginal": "下载原文件"
+      "downloadOriginal": "下载原文件",
+      "office": {
+        "loading": "正在加载 Office 预览…",
+        "disabled": "Office 预览未启用",
+        "error": "加载 Office 预览失败",
+        "timeout": "Office 预览加载超时",
+        "tooLarge": "文件过大，无法在线预览",
+        "editorError": "文档编辑器遇到错误",
+        "genericHint": "请尝试下载原文件或在新窗口中打开。"
+      }
     },
     "summary": {
       "total": "总计",

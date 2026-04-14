@@ -76,9 +76,7 @@ describe("ConnectorsDialog", () => {
 
     const user = userEvent.setup();
 
-    render(
-      <ConnectorsDialog open onOpenChange={vi.fn()} defaultTab="mcp" />,
-    );
+    render(<ConnectorsDialog open onOpenChange={vi.fn()} defaultTab="mcp" />);
 
     const filesystemCard = await screen.findByRole("button", {
       name: /file system/i,

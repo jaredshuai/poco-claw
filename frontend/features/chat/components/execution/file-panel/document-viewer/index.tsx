@@ -28,8 +28,10 @@ import { SyntaxHighlighter, oneDark, oneLight } from "@/lib/markdown/prism";
 import { SkeletonItem } from "@/components/ui/skeleton-shimmer";
 import rehypeKatex from "rehype-katex";
 import type { ExcalidrawViewerClientProps } from "../excalidraw-viewer-client";
+import type { OfficeIframeViewerProps } from "./viewers/office-iframe-viewer";
 import {
   DOC_VIEWER_TYPE_MAP,
+  VIEW_CLASSNAME,
   DEFAULT_TEXT_LANGUAGE,
   EXCALIDRAW_PARSE_ERROR,
   NO_SOURCE_ERROR,
@@ -40,11 +42,13 @@ import {
   getTextLanguage,
   isDrawioFile,
   isExcalidrawFile,
+  isOfficeFile,
   isSameOriginUrl,
   isVideoFile,
   parseExcalidrawScene,
   useFileTextContent,
 } from "./utils";
+import { DocumentViewerSkeletonLoader } from "./document-viewer-skeleton-loader";
 
 const dispatchCloseViewer = () => {
   if (typeof window === "undefined") return;
@@ -55,13 +59,7 @@ const DocViewer = dynamic<DocViewerProps>(
   () => import("../doc-viewer-client").then((m) => m.DocViewerClient),
   {
     ssr: false,
-    loading: () => {
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const { t } = useT("translation");
-      return (
-        <DocumentViewerSkeleton label={t("artifacts.viewer.loadingEngine")} />
-      );
-    },
+    loading: () => <DocumentViewerSkeletonLoader />,
   },
 );
 
@@ -70,13 +68,16 @@ const ExcalidrawViewer = dynamic<ExcalidrawViewerClientProps>(
     import("../excalidraw-viewer-client").then((m) => m.ExcalidrawViewerClient),
   {
     ssr: false,
-    loading: () => {
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const { t } = useT("translation");
-      return (
-        <DocumentViewerSkeleton label={t("artifacts.viewer.loadingEngine")} />
-      );
-    },
+    loading: () => <DocumentViewerSkeletonLoader />,
+  },
+);
+
+const OfficeViewer = dynamic<OfficeIframeViewerProps>(
+  () =>
+    import("./viewers/office-iframe-viewer").then((m) => m.OfficeIframeViewer),
+  {
+    ssr: false,
+    loading: () => <DocumentViewerSkeletonLoader />,
   },
 );
 
@@ -108,9 +109,6 @@ declare global {
     XMindEmbedViewer?: XMindEmbedViewerConstructor;
   }
 }
-
-const VIEW_CLASSNAME =
-  "h-full w-full max-h-full animate-in fade-in duration-300 [--tw-enter-opacity:1] [--tw-enter-scale:1] [--tw-enter-translate-x:0] [--tw-enter-translate-y:0] overflow-hidden flex flex-col min-h-0";
 
 type MarkdownFrontMatterEntry = {
   key: string;
@@ -1351,6 +1349,7 @@ const XMindDocumentViewer = ({
 
 interface DocumentViewerProps {
   file?: FileNode;
+  sessionId?: string;
   ensureFreshFile?: (file: FileNode) => Promise<FileNode | undefined>;
   onClose?: () => void;
   onOpenPreviewWindow?: () => void;
@@ -1358,6 +1357,7 @@ interface DocumentViewerProps {
 
 const DocumentViewerComponent = ({
   file,
+  sessionId,
   ensureFreshFile,
   onClose,
   onOpenPreviewWindow,
@@ -1476,6 +1476,33 @@ const DocumentViewerComponent = ({
         onClose={onClose}
         onOpenPreviewWindow={onOpenPreviewWindow}
       />
+    );
+  }
+
+  if (isOfficeFile(extension) && sessionId) {
+    return (
+      <div
+        className={cn(
+          VIEW_CLASSNAME,
+          "flex min-w-0 flex-col rounded-xl border bg-card shadow-sm",
+        )}
+      >
+        <DocumentViewerToolbar
+          file={file}
+          subtitle={extension.toUpperCase()}
+          resolvedUrl={resolvedUrl}
+          onClose={onClose}
+          onDownload={handleDownload}
+          onOpenPreviewWindow={onOpenPreviewWindow}
+        />
+        <div className="flex-1 overflow-hidden">
+          <OfficeViewer
+            file={file}
+            sessionId={sessionId}
+            ensureFreshFile={ensureFreshFile}
+          />
+        </div>
+      </div>
     );
   }
 

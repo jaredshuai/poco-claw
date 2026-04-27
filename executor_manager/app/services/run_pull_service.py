@@ -55,18 +55,44 @@ class RunPullService:
         claude_md_stager: Any | None = None,
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
+        dispatch_service: Any | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.backend_client = backend_client or BackendClient()
-        self.executor_client = executor_client or ExecutorClient()
+        self.dispatch_service = dispatch_service
+        self.executor_client = (
+            executor_client if dispatch_service else executor_client or ExecutorClient()
+        )
         self.container_pool = container_pool
-        self.config_resolver = config_resolver or ConfigResolver(self.backend_client)
-        self.skill_stager = skill_stager or SkillStager()
-        self.plugin_stager = plugin_stager or PluginStager()
-        self.attachment_stager = attachment_stager or AttachmentStager()
-        self.claude_md_stager = claude_md_stager or ClaudeMdStager()
-        self.slash_command_stager = slash_command_stager or SlashCommandStager()
-        self.subagent_stager = subagent_stager or SubAgentStager()
+        self.config_resolver = (
+            config_resolver
+            if dispatch_service
+            else config_resolver or ConfigResolver(self.backend_client)
+        )
+        self.skill_stager = (
+            skill_stager if dispatch_service else skill_stager or SkillStager()
+        )
+        self.plugin_stager = (
+            plugin_stager if dispatch_service else plugin_stager or PluginStager()
+        )
+        self.attachment_stager = (
+            attachment_stager
+            if dispatch_service
+            else attachment_stager or AttachmentStager()
+        )
+        self.claude_md_stager = (
+            claude_md_stager
+            if dispatch_service
+            else claude_md_stager or ClaudeMdStager()
+        )
+        self.slash_command_stager = (
+            slash_command_stager
+            if dispatch_service
+            else slash_command_stager or SlashCommandStager()
+        )
+        self.subagent_stager = (
+            subagent_stager if dispatch_service else subagent_stager or SubAgentStager()
+        )
 
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
         self._semaphore = asyncio.Semaphore(self.settings.max_concurrent_tasks)
@@ -260,6 +286,25 @@ class RunPullService:
                 },
             )
             return
+
+        if self.dispatch_service is not None:
+            try:
+                await self.dispatch_service.dispatch_claim(
+                    claim,
+                    worker_id=self.worker_id,
+                )
+            finally:
+                await self._release_inflight_run(run_id_str)
+            return
+
+        assert self.config_resolver is not None
+        assert self.skill_stager is not None
+        assert self.plugin_stager is not None
+        assert self.attachment_stager is not None
+        assert self.claude_md_stager is not None
+        assert self.slash_command_stager is not None
+        assert self.subagent_stager is not None
+        assert self.executor_client is not None
 
         container_mode = config_snapshot.get("container_mode", "ephemeral")
         container_id = config_snapshot.get("container_id")

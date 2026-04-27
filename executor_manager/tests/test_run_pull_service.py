@@ -165,6 +165,37 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         assert service.slash_command_stager is slash_command_stager
         assert service.subagent_stager is subagent_stager
 
+    def test_handle_claim_delegates_to_injected_dispatch_service(self) -> None:
+        """RunPullService should not need dispatch adapters when a use case is injected."""
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+        dispatch_service = MagicMock()
+        dispatch_service.dispatch_claim = AsyncMock()
+        claim = {
+            "run": {"run_id": "run-1", "session_id": "sess-1"},
+            "user_id": "user-1",
+            "prompt": "test prompt",
+            "config_snapshot": {},
+        }
+
+        service = RunPullService(
+            settings=settings,
+            backend_client=backend_client,
+            dispatch_service=dispatch_service,
+        )
+
+        asyncio.run(service._handle_claim(claim))
+
+        dispatch_service.dispatch_claim.assert_awaited_once_with(
+            claim,
+            worker_id=service.worker_id,
+        )
+
 
 class TestGetWindowLock(unittest.TestCase):
     """Test RunPullService._get_window_lock."""

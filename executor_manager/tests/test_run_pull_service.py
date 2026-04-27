@@ -131,11 +131,11 @@ class TestRunPullServiceDependencies(unittest.TestCase):
                 side_effect=AssertionError("BackendClient should be injected"),
             ),
             patch(
-                "app.services.run_pull_service.ExecutorClient",
+                "app.services.run_dispatch_service.ExecutorClient",
                 side_effect=AssertionError("ExecutorClient should be injected"),
             ),
             patch(
-                "app.services.run_pull_service.ConfigResolver",
+                "app.services.run_dispatch_service.ConfigResolver",
                 side_effect=AssertionError("ConfigResolver should be injected"),
             ),
         ):
@@ -196,6 +196,30 @@ class TestRunPullServiceDependencies(unittest.TestCase):
             worker_id=service.worker_id,
         )
 
+    def test_constructor_builds_dispatch_service_boundary_by_default(self) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+
+        with patch("app.services.run_pull_service.RunDispatchService") as dispatch_cls:
+            dispatch_service = MagicMock()
+            dispatch_cls.create_default.return_value = dispatch_service
+
+            service = RunPullService(
+                settings=settings,
+                backend_client=backend_client,
+            )
+
+        dispatch_cls.create_default.assert_called_once_with(
+            settings=settings,
+            backend_client=backend_client,
+        )
+        assert service.dispatch_service is dispatch_service
+
 
 class TestGetWindowLock(unittest.TestCase):
     """Test RunPullService._get_window_lock."""
@@ -205,14 +229,14 @@ class TestGetWindowLock(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -255,14 +279,14 @@ class TestSetWindowUntil(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -310,14 +334,14 @@ class TestRegisterInflightRun(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -354,14 +378,14 @@ class TestReleaseInflightRun(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -396,14 +420,14 @@ class TestOpenWindow(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -459,14 +483,14 @@ class TestPollWindow(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -535,14 +559,14 @@ class TestShutdown(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -577,14 +601,14 @@ class TestPoll(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient") as mock_backend,
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -634,14 +658,14 @@ class TestOnTaskDone(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -699,14 +723,14 @@ class TestDrainTasks(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -755,14 +779,14 @@ class TestPollWithClaim(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient") as mock_backend,
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -810,14 +834,14 @@ class TestHandleClaimDuplicateRun(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -855,14 +879,14 @@ class TestHandleClaimValidation(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -931,14 +955,14 @@ class TestPollCancelledError(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=1,  # Set to 1 so semaphore locks after one acquire
@@ -977,14 +1001,14 @@ class TestOnTaskDoneExceptionHandling(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -1057,14 +1081,14 @@ class TestHandleClaimEmptyCallbackUrl(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -1101,14 +1125,14 @@ class TestHandleClaimEmptyCallbackUrl(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_pull_service.ExecutorClient"),
-            patch("app.services.run_pull_service.ConfigResolver"),
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch("app.services.run_dispatch_service.ExecutorClient"),
+            patch("app.services.run_dispatch_service.ConfigResolver"),
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,
@@ -1142,16 +1166,28 @@ class TestHandleClaimMainFlow(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient") as mock_backend_cls,
-            patch("app.services.run_pull_service.ExecutorClient") as mock_executor_cls,
-            patch("app.services.run_pull_service.ConfigResolver") as mock_resolver_cls,
-            patch("app.services.run_pull_service.SkillStager") as mock_skill_cls,
-            patch("app.services.run_pull_service.PluginStager") as mock_plugin_cls,
-            patch("app.services.run_pull_service.AttachmentStager") as mock_attach_cls,
-            patch("app.services.run_pull_service.ClaudeMdStager") as mock_claude_cls,
-            patch("app.services.run_pull_service.SlashCommandStager") as mock_slash_cls,
-            patch("app.services.run_pull_service.SubAgentStager") as mock_subagent_cls,
             patch(
-                "app.services.run_pull_service.TaskDispatcher.get_container_pool"
+                "app.services.run_dispatch_service.ExecutorClient"
+            ) as mock_executor_cls,
+            patch(
+                "app.services.run_dispatch_service.ConfigResolver"
+            ) as mock_resolver_cls,
+            patch("app.services.run_dispatch_service.SkillStager") as mock_skill_cls,
+            patch("app.services.run_dispatch_service.PluginStager") as mock_plugin_cls,
+            patch(
+                "app.services.run_dispatch_service.AttachmentStager"
+            ) as mock_attach_cls,
+            patch(
+                "app.services.run_dispatch_service.ClaudeMdStager"
+            ) as mock_claude_cls,
+            patch(
+                "app.services.run_dispatch_service.SlashCommandStager"
+            ) as mock_slash_cls,
+            patch(
+                "app.services.run_dispatch_service.SubAgentStager"
+            ) as mock_subagent_cls,
+            patch(
+                "app.services.run_dispatch_service.TaskDispatcher.get_container_pool"
             ) as mock_get_pool,
         ):
             mock_settings.return_value = MagicMock(
@@ -1606,19 +1642,19 @@ class TestHandleClaimMainFlow(unittest.TestCase):
                     "app.services.run_pull_service.BackendClient"
                 ) as mock_backend_cls,
                 patch(
-                    "app.services.run_pull_service.ExecutorClient"
+                    "app.services.run_dispatch_service.ExecutorClient"
                 ) as mock_executor_cls,
                 patch(
-                    "app.services.run_pull_service.ConfigResolver"
+                    "app.services.run_dispatch_service.ConfigResolver"
                 ) as mock_resolver_cls,
-                patch("app.services.run_pull_service.SkillStager"),
-                patch("app.services.run_pull_service.PluginStager"),
-                patch("app.services.run_pull_service.AttachmentStager"),
-                patch("app.services.run_pull_service.ClaudeMdStager"),
-                patch("app.services.run_pull_service.SlashCommandStager"),
-                patch("app.services.run_pull_service.SubAgentStager"),
+                patch("app.services.run_dispatch_service.SkillStager"),
+                patch("app.services.run_dispatch_service.PluginStager"),
+                patch("app.services.run_dispatch_service.AttachmentStager"),
+                patch("app.services.run_dispatch_service.ClaudeMdStager"),
+                patch("app.services.run_dispatch_service.SlashCommandStager"),
+                patch("app.services.run_dispatch_service.SubAgentStager"),
                 patch(
-                    "app.services.run_pull_service.TaskDispatcher.get_container_pool"
+                    "app.services.run_dispatch_service.TaskDispatcher.get_container_pool"
                 ) as mock_get_pool,
             ):
                 mock_settings.return_value = MagicMock(
@@ -1678,14 +1714,18 @@ class TestHandleClaimExceptionHandling(unittest.TestCase):
         with (
             patch("app.services.run_pull_service.get_settings") as mock_settings,
             patch("app.services.run_pull_service.BackendClient") as mock_backend_cls,
-            patch("app.services.run_pull_service.ExecutorClient") as mock_executor_cls,
-            patch("app.services.run_pull_service.ConfigResolver") as mock_resolver_cls,
-            patch("app.services.run_pull_service.SkillStager"),
-            patch("app.services.run_pull_service.PluginStager"),
-            patch("app.services.run_pull_service.AttachmentStager"),
-            patch("app.services.run_pull_service.ClaudeMdStager"),
-            patch("app.services.run_pull_service.SlashCommandStager"),
-            patch("app.services.run_pull_service.SubAgentStager"),
+            patch(
+                "app.services.run_dispatch_service.ExecutorClient"
+            ) as mock_executor_cls,
+            patch(
+                "app.services.run_dispatch_service.ConfigResolver"
+            ) as mock_resolver_cls,
+            patch("app.services.run_dispatch_service.SkillStager"),
+            patch("app.services.run_dispatch_service.PluginStager"),
+            patch("app.services.run_dispatch_service.AttachmentStager"),
+            patch("app.services.run_dispatch_service.ClaudeMdStager"),
+            patch("app.services.run_dispatch_service.SlashCommandStager"),
+            patch("app.services.run_dispatch_service.SubAgentStager"),
         ):
             mock_settings.return_value = MagicMock(
                 max_concurrent_tasks=5,

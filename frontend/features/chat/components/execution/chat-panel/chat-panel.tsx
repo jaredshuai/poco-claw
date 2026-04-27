@@ -45,6 +45,7 @@ import type {
   UserInputRequest,
 } from "@/features/chat/types";
 import { useT } from "@/lib/i18n/client";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 import { toast } from "sonner";
 import { useTaskHistoryContext } from "@/features/projects/contexts/task-history-context";
 import { SkeletonCircle, SkeletonItem } from "@/components/ui/skeleton-shimmer";
@@ -979,24 +980,27 @@ export function ChatPanel({
 
   const handleCreateBranch = React.useCallback(
     (assistantMessageId: string) => {
-      if (!session?.session_id) return;
+      const sessionId = session?.session_id;
+      if (!sessionId) return;
       if (branchingMessageId) return;
 
-      const messageId = Number(assistantMessageId);
-      if (!Number.isInteger(messageId) || messageId <= 0) {
-        toast.error(t("chat.branchCreateFailed"));
-        return;
-      }
-
-      setBranchingMessageId(assistantMessageId);
-      const loadingToastId = toast.loading(
-        t("chat.branchCreating", "Creating branch..."),
-      );
-
       void (async () => {
+        if (!(await canLeaveDocumentViewer())) return;
+
+        const messageId = Number(assistantMessageId);
+        if (!Number.isInteger(messageId) || messageId <= 0) {
+          toast.error(t("chat.branchCreateFailed"));
+          return;
+        }
+
+        setBranchingMessageId(assistantMessageId);
+        const loadingToastId = toast.loading(
+          t("chat.branchCreating", "Creating branch..."),
+        );
+
         try {
           const branched = await branchSessionAction({
-            sessionId: session.session_id,
+            sessionId,
             messageId,
           });
           toast.success(t("chat.branchCreated"), { id: loadingToastId });

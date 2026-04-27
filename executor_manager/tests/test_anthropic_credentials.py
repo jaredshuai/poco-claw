@@ -101,6 +101,7 @@ class ConfigResolverProviderOverrideTests(unittest.TestCase):
             deepseek_api_key="",
             deepseek_base_url="",
             default_model="claude-sonnet-4-6",
+            default_model_provider_id=None,
         )
 
     def test_auth_token_provider_uses_auth_token_runtime_env(self) -> None:

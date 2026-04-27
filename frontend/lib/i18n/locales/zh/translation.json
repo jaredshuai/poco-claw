@@ -659,7 +659,23 @@
         "timeout": "Office 预览加载超时",
         "tooLarge": "文件过大，无法在线预览",
         "editorError": "文档编辑器遇到错误",
-        "genericHint": "请尝试下载原文件或在新窗口中打开。"
+        "genericHint": "请尝试下载原文件或在新窗口中打开。",
+        "edit": "编辑",
+        "dirty": "有未保存的更改",
+        "save": "保存",
+        "saving": "保存中...",
+        "saved": "已保存",
+        "saveSuccess": "已保存到沙箱文件",
+        "saveFailed": "保存失败",
+        "saveAs": "另存为",
+        "saveAsSuccess": "已另存为本地文件",
+        "saveAsFailed": "另存为失败",
+        "discardChanges": "丢弃",
+        "discardFailed": "丢弃失败",
+        "unsavedTitle": "有未保存的更改",
+        "stay": "继续编辑",
+        "discardAndLeave": "丢弃并离开",
+        "unsavedDescription": "离开前请先保存，或明确丢弃本次更改。"
       }
     },
     "summary": {

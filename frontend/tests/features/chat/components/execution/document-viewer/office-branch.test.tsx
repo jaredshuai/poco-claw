@@ -15,7 +15,7 @@ vi.mock("@/lib/i18n/client", () => ({
 vi.mock("next/dynamic", () => ({
   __esModule: true,
   default: () => {
-    function DynamicStub(props: Record<string, unknown>) {
+    function DynamicStub() {
       return <div data-testid="dynamic-stub" />;
     }
     DynamicStub.displayName = "DynamicStub";

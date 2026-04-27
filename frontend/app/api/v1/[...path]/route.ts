@@ -19,10 +19,10 @@ function getBackendBaseUrl(): string {
   return normalizeBaseUrl(raw);
 }
 
-function stripHopByHopHeaders(headers: Headers): Headers {
+export function stripForwardedHeaders(headers: Headers): Headers {
   const copied = new Headers(headers);
 
-  // Hop-by-hop headers should not be forwarded.
+  // Hop-by-hop and caller-controlled trust headers should not be forwarded.
   [
     "connection",
     "keep-alive",
@@ -33,6 +33,9 @@ function stripHopByHopHeaders(headers: Headers): Headers {
     "transfer-encoding",
     "upgrade",
     "host",
+    "x-user-id",
+    "x-user-id-token",
+    "x-internal-token",
   ].forEach((key) => copied.delete(key));
 
   return copied;
@@ -46,7 +49,7 @@ async function proxyRequest(
   const path = pathSegments.join("/");
   const targetUrl = `${backendBaseUrl}${API_PREFIX}/${path}${request.nextUrl.search}`;
 
-  const headers = stripHopByHopHeaders(request.headers);
+  const headers = stripForwardedHeaders(request.headers);
 
   const originalHost = request.headers.get("host");
   if (originalHost && !headers.has("x-forwarded-host")) {

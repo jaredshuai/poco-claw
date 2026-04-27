@@ -59,14 +59,18 @@ def detect_extension(file_name: str, explicit: str | None = None) -> str:
     )
 
 
-def generate_document_key(object_key: str) -> str:
+def generate_document_key(object_key: str, version: str | None = None) -> str:
     """Generate a deterministic document key from the canonical S3 object key.
 
     OnlyOffice uses *key* to identify a document for caching.  By hashing the
     stable object key (not the presigned URL which changes every request) the
     Document Server can reuse its conversion cache for the same file.
+
+    When *version* is provided (e.g. an ETag or last-modified timestamp) it is
+    included in the hash so that replaced files get a fresh cache key.
     """
-    return hashlib.sha256(object_key.encode()).hexdigest()[:20]
+    material = f"{object_key}:{version}" if version else object_key
+    return hashlib.sha256(material.encode()).hexdigest()[:20]
 
 
 def build_viewer_config(
@@ -76,6 +80,10 @@ def build_viewer_config(
     object_key: str,
     file_type: str | None = None,
     language: str = "en",
+    document_version: str | None = None,
+    mode: str = "view",
+    callback_url: str | None = None,
+    user_id: str | None = None,
 ) -> OfficeViewerConfigResponse:
     """Build an OnlyOffice viewer config and sign it with JWT.
 
@@ -91,6 +99,8 @@ def build_viewer_config(
         Optional explicit extension override.
     language:
         Editor UI language.
+    document_version:
+        Optional version tag (e.g. ETag or last-modified) to bust OnlyOffice cache.
     """
 
     settings = get_settings()
@@ -100,10 +110,15 @@ def build_viewer_config(
             error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             message="OFFICE_JWT_SECRET is not configured",
         )
+    if len(secret.encode("utf-8")) < 32:
+        raise AppException(
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            message="OFFICE_JWT_SECRET must be at least 32 bytes for HS256",
+        )
 
     ext = detect_extension(file_name, file_type)
     document_type = EXTENSION_TO_DOCUMENT_TYPE[ext]
-    doc_key = generate_document_key(object_key)
+    doc_key = generate_document_key(object_key, document_version)
 
     document = OfficeDocumentConfig(
         fileType=ext,
@@ -113,15 +128,17 @@ def build_viewer_config(
     )
 
     editor_config = OfficeEditorConfig(
-        mode="view",
+        mode=mode,
         lang=language,
+        callbackUrl=callback_url,
+        user={"id": user_id, "name": user_id} if user_id else None,
     )
 
     # Build the payload that will be signed as JWT
     config_payload: dict = {
         "document": document.model_dump(),
         "documentType": document_type,
-        "editorConfig": editor_config.model_dump(),
+        "editorConfig": editor_config.model_dump(exclude_none=True),
         "type": "embedded",
     }
 

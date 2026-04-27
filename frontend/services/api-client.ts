@@ -201,6 +201,10 @@ export const API_ENDPOINTS = {
 
   // Office Viewer
   officeViewerConfig: "/office/viewer-config",
+  officeForceSave: "/office/forcesave",
+  officeSaveStatus: "/office/save-status",
+  officeDiscardEditSession: "/office/edit-session/discard",
+  officeDownloadLatest: "/office/download-latest",
   officeHealth: "/office/health",
 
   // Health

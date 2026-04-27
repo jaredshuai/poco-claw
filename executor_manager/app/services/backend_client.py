@@ -37,6 +37,12 @@ class BackendClient:
             "X-Trace-ID": get_trace_id() or generate_trace_id(),
         }
 
+    def _internal_headers(self) -> dict[str, str]:
+        return {
+            "X-Internal-Token": self.settings.internal_api_token,
+            **self._trace_headers(),
+        }
+
     async def _request(
         self,
         method: str,
@@ -84,7 +90,7 @@ class BackendClient:
             "POST",
             "/api/v1/callback",
             json=callback_data,
-            headers=self._trace_headers(),
+            headers=self._internal_headers(),
             retry_connect_errors=3,
         )
         data = response.json()
@@ -106,7 +112,7 @@ class BackendClient:
             "POST",
             "/api/v1/runs/claim",
             json=payload,
-            headers=self._trace_headers(),
+            headers=self._internal_headers(),
             retry_connect_errors=2,
         )
         data = response.json()
@@ -118,7 +124,7 @@ class BackendClient:
             "POST",
             f"/api/v1/runs/{run_id}/start",
             json={"worker_id": worker_id},
-            headers=self._trace_headers(),
+            headers=self._internal_headers(),
             retry_connect_errors=2,
         )
         data = response.json()
@@ -132,7 +138,7 @@ class BackendClient:
             "POST",
             f"/api/v1/runs/{run_id}/fail",
             json={"worker_id": worker_id, "error_message": error_message},
-            headers=self._trace_headers(),
+            headers=self._internal_headers(),
             retry_connect_errors=2,
         )
         data = response.json()

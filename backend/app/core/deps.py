@@ -1,5 +1,5 @@
 import uuid
-from typing import Generator
+from typing import Annotated, Generator
 
 from fastapi import Depends, Header
 from sqlalchemy.orm import Session
@@ -14,15 +14,35 @@ DEFAULT_USER_ID = "default"
 
 
 def get_current_user_id(
-    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+    x_internal_token: Annotated[str | None, Header(alias="X-Internal-Token")] = None,
+    x_user_id_token: Annotated[str | None, Header(alias="X-User-Id-Token")] = None,
 ) -> str:
     """FastAPI dependency for the current user id.
 
-    NOTE: Auth is not implemented yet. For now we allow callers to pass X-User-Id
-    and fall back to DEFAULT_USER_ID when absent.
+    NOTE: Auth is not implemented yet. Public requests fall back to
+    DEFAULT_USER_ID. X-User-Id is accepted only from trusted internal callers
+    or from a proxy that knows TRUSTED_USER_HEADER_TOKEN.
     """
     value = (x_user_id or "").strip()
-    return value or DEFAULT_USER_ID
+    if not value:
+        return DEFAULT_USER_ID
+
+    settings = get_settings()
+    trusted_user_header_token = (
+        getattr(settings, "trusted_user_header_token", "") or ""
+    ).strip()
+    if trusted_user_header_token and x_user_id_token == trusted_user_header_token:
+        return value
+
+    internal_api_token = (settings.internal_api_token or "").strip()
+    if internal_api_token and x_internal_token == internal_api_token:
+        return value
+
+    raise AppException(
+        error_code=ErrorCode.FORBIDDEN,
+        message="X-User-Id header is not trusted",
+    )
 
 
 def get_db() -> Generator[Session, None, None]:

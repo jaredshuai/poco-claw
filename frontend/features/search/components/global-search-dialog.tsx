@@ -14,6 +14,7 @@ import { FileText, Folder, MessageSquare, Loader2 } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { useLanguage } from "@/hooks/use-language";
 import { useSearchData } from "@/features/search/hooks/use-search-data";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 
 interface GlobalSearchDialogProps {
   open: boolean;
@@ -69,20 +70,24 @@ export function GlobalSearchDialog({
     tasks.length > 0 || projects.length > 0 || messages.length > 0;
 
   const handleSelect = (type: string, id: string) => {
-    onOpenChange(false);
+    void (async () => {
+      if (!(await canLeaveDocumentViewer())) return;
 
-    switch (type) {
-      case "task":
-        router.push(lng ? `/${lng}/chat/${id}` : `/chat/${id}`);
-        break;
-      case "project":
-        router.push(lng ? `/${lng}/projects/${id}` : `/projects/${id}`);
-        break;
-      case "message":
-        // Navigate to chat page and scroll to message
-        router.push(lng ? `/${lng}/chat/${id}` : `/chat/${id}`);
-        break;
-    }
+      onOpenChange(false);
+
+      switch (type) {
+        case "task":
+          router.push(lng ? `/${lng}/chat/${id}` : `/chat/${id}`);
+          break;
+        case "project":
+          router.push(lng ? `/${lng}/projects/${id}` : `/projects/${id}`);
+          break;
+        case "message":
+          // Navigate to chat page and scroll to message
+          router.push(lng ? `/${lng}/chat/${id}` : `/chat/${id}`);
+          break;
+      }
+    })();
   };
 
   if (!mounted) return null;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getFilesAction } from "@/features/chat/actions/query-actions";
 import type { FileNode } from "@/features/chat/types";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 
 export type ViewMode = "artifacts" | "document";
 
@@ -98,7 +99,10 @@ interface UseArtifactsReturn {
   selectFile: (file: FileNode) => void;
   closeViewer: () => void;
   refreshFiles: () => Promise<void>;
-  ensureFreshFile: (file: FileNode) => Promise<FileNode | undefined>;
+  ensureFreshFile: (
+    file: FileNode,
+    options?: { force?: boolean },
+  ) => Promise<FileNode | undefined>;
 }
 
 /**
@@ -151,11 +155,22 @@ export function useArtifacts({
     await fetchFiles();
   }, [fetchFiles]);
 
+  const canLeaveDocument = useCallback(async () => {
+    if (typeof window === "undefined") return true;
+    if (viewMode !== "document") return true;
+
+    return await canLeaveDocumentViewer();
+  }, [viewMode]);
+
   const ensureFreshFile = useCallback(
-    async (file: FileNode): Promise<FileNode | undefined> => {
+    async (
+      file: FileNode,
+      options?: { force?: boolean },
+    ): Promise<FileNode | undefined> => {
       if (!sessionId) return file;
 
       const maybeRefresh = (() => {
+        if (options?.force) return true;
         if (!file.url) return true;
         const expiresAt = getPresignedUrlExpiresAt(file.url);
         if (!expiresAt) return false;
@@ -194,15 +209,33 @@ export function useArtifacts({
   }, [sessionId, sessionStatus, fetchFiles]);
 
   // Select a file and switch to document view
-  const selectFile = useCallback((file: FileNode) => {
-    setSelectedPath(normalizePath(file.path));
-    setViewMode("document");
-  }, []);
+  const selectFile = useCallback(
+    (file: FileNode) => {
+      void (async () => {
+        const nextPath = normalizePath(file.path);
+        if (
+          viewMode === "document" &&
+          selectedPath &&
+          nextPath !== selectedPath &&
+          !(await canLeaveDocument())
+        ) {
+          return;
+        }
+
+        setSelectedPath(nextPath);
+        setViewMode("document");
+      })();
+    },
+    [canLeaveDocument, selectedPath, viewMode],
+  );
 
   const closeViewer = useCallback(() => {
-    setViewMode("artifacts");
-    setSelectedPath(undefined);
-  }, []);
+    void (async () => {
+      if (!(await canLeaveDocument())) return;
+      setViewMode("artifacts");
+      setSelectedPath(undefined);
+    })();
+  }, [canLeaveDocument]);
 
   const selectedFile = useMemo((): FileNode | undefined => {
     if (!selectedPath) return undefined;

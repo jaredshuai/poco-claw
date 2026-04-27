@@ -41,18 +41,32 @@ def _extract_enabled_skill_names(skills: object) -> list[str]:
 class RunPullService:
     """Background service that pulls queued runs from Backend and dispatches them."""
 
-    def __init__(self) -> None:
-        self.settings = get_settings()
-        self.backend_client = BackendClient()
-        self.executor_client = ExecutorClient()
-        self.container_pool = None
-        self.config_resolver = ConfigResolver(self.backend_client)
-        self.skill_stager = SkillStager()
-        self.plugin_stager = PluginStager()
-        self.attachment_stager = AttachmentStager()
-        self.claude_md_stager = ClaudeMdStager()
-        self.slash_command_stager = SlashCommandStager()
-        self.subagent_stager = SubAgentStager()
+    def __init__(
+        self,
+        *,
+        settings: Any | None = None,
+        backend_client: Any | None = None,
+        executor_client: Any | None = None,
+        container_pool: Any | None = None,
+        config_resolver: Any | None = None,
+        skill_stager: Any | None = None,
+        plugin_stager: Any | None = None,
+        attachment_stager: Any | None = None,
+        claude_md_stager: Any | None = None,
+        slash_command_stager: Any | None = None,
+        subagent_stager: Any | None = None,
+    ) -> None:
+        self.settings = settings or get_settings()
+        self.backend_client = backend_client or BackendClient()
+        self.executor_client = executor_client or ExecutorClient()
+        self.container_pool = container_pool
+        self.config_resolver = config_resolver or ConfigResolver(self.backend_client)
+        self.skill_stager = skill_stager or SkillStager()
+        self.plugin_stager = plugin_stager or PluginStager()
+        self.attachment_stager = attachment_stager or AttachmentStager()
+        self.claude_md_stager = claude_md_stager or ClaudeMdStager()
+        self.slash_command_stager = slash_command_stager or SlashCommandStager()
+        self.subagent_stager = subagent_stager or SubAgentStager()
 
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
         self._semaphore = asyncio.Semaphore(self.settings.max_concurrent_tasks)

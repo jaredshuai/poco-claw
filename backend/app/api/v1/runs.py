@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_user_id, get_db, require_internal_token
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.schemas.response import Response, ResponseSchema
@@ -30,6 +30,7 @@ session_service = SessionService()
 @router.post("/claim", response_model=ResponseSchema[RunClaimResponse | None])
 async def claim_next_run(
     request: RunClaimRequest,
+    _: None = Depends(require_internal_token),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Claim the next available run for execution."""
@@ -41,6 +42,7 @@ async def claim_next_run(
 async def start_run(
     run_id: uuid.UUID,
     request: RunStartRequest,
+    _: None = Depends(require_internal_token),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Mark a run as running (after dispatch accepted)."""
@@ -52,6 +54,7 @@ async def start_run(
 async def fail_run(
     run_id: uuid.UUID,
     request: RunFailRequest,
+    _: None = Depends(require_internal_token),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Mark a run as failed."""

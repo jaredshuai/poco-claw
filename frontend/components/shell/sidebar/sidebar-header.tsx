@@ -19,6 +19,7 @@ import { useMemoryFeatureEnabled } from "@/hooks/use-memory-feature-enabled";
 import { useMobileSidebar } from "@/hooks/use-mobile-sidebar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 import {
   SidebarHeader,
   SidebarMenu,
@@ -96,6 +97,16 @@ export function SidebarHeaderSection({
     if (typeof navigator === "undefined") return false;
     return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   }, []);
+  const navigate = React.useCallback(
+    (href: string, options?: { closeMobile?: boolean }) => {
+      void (async () => {
+        if (!(await canLeaveDocumentViewer())) return;
+        router.push(href);
+        if (options?.closeMobile) closeMobileSidebar();
+      })();
+    },
+    [router, closeMobileSidebar],
+  );
 
   return (
     <SidebarHeader className="px-2 gap-2 pb-2">
@@ -124,7 +135,7 @@ export function SidebarHeaderSection({
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-between gap-1 pl-0.1 pr-2 group-data-[collapsible=icon]:hidden">
           <span
-            onClick={() => router.push(lng ? `/${lng}/home` : "/")}
+            onClick={() => navigate(lng ? `/${lng}/home` : "/")}
             className="text-2xl font-bold tracking-tight text-sidebar-foreground cursor-pointer transition-opacity font-brand"
           >
             Poco
@@ -186,8 +197,9 @@ export function SidebarHeaderSection({
                     return;
                   }
                   if (href) {
-                    router.push(lng ? `/${lng}${href}` : href);
-                    closeMobileSidebar();
+                    navigate(lng ? `/${lng}${href}` : href, {
+                      closeMobile: true,
+                    });
                   }
                 }}
                 data-onboarding={

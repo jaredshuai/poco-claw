@@ -8,6 +8,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { useT } from "@/lib/i18n/client";
 import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -98,8 +99,11 @@ function DraggableTask({
       e.preventDefault();
       onToggleSelection?.(task.id);
     } else {
-      router.push(lng ? `/${lng}/chat/${task.id}` : `/chat/${task.id}`);
-      onNavigate?.();
+      void (async () => {
+        if (!(await canLeaveDocumentViewer())) return;
+        router.push(lng ? `/${lng}/chat/${task.id}` : `/chat/${task.id}`);
+        onNavigate?.();
+      })();
     }
   };
 

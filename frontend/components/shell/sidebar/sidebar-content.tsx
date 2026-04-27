@@ -15,6 +15,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useMobileSidebar } from "@/hooks/use-mobile-sidebar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 import {
   SidebarContent,
   SidebarGroup,
@@ -290,10 +291,13 @@ export function SidebarContentSection({
 
   const handleProjectClick = React.useCallback(
     (projectId: string) => {
-      router.push(
-        lng ? `/${lng}/projects/${projectId}` : `/projects/${projectId}`,
-      );
-      closeMobileSidebar();
+      void (async () => {
+        if (!(await canLeaveDocumentViewer())) return;
+        router.push(
+          lng ? `/${lng}/projects/${projectId}` : `/projects/${projectId}`,
+        );
+        closeMobileSidebar();
+      })();
     },
     [router, lng, closeMobileSidebar],
   );

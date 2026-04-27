@@ -181,7 +181,10 @@ class TestBackendClientForwardCallback:
 
     async def test_forward_callback_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
-            mock_settings.return_value = MagicMock(backend_url="http://backend")
+            mock_settings.return_value = MagicMock(
+                backend_url="http://backend",
+                internal_api_token="token-123",
+            )
 
             client = BackendClient()
 
@@ -191,10 +194,14 @@ class TestBackendClientForwardCallback:
 
             with patch.object(
                 client._client, "request", AsyncMock(return_value=mock_response)
-            ):
+            ) as mock_request:
                 result = await client.forward_callback({"event": "completed"})
 
                 assert result == {"status": "ok"}
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
+                    == "token-123"
+                )
 
     async def test_forward_callback_empty_data(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
@@ -220,7 +227,10 @@ class TestBackendClientClaimRun:
 
     async def test_claim_run_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
-            mock_settings.return_value = MagicMock(backend_url="http://backend")
+            mock_settings.return_value = MagicMock(
+                backend_url="http://backend",
+                internal_api_token="token-123",
+            )
 
             client = BackendClient()
 
@@ -230,10 +240,14 @@ class TestBackendClientClaimRun:
 
             with patch.object(
                 client._client, "request", AsyncMock(return_value=mock_response)
-            ):
+            ) as mock_request:
                 result = await client.claim_run("worker-1", lease_seconds=60)
 
                 assert result["run_id"] == "run-123"
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
+                    == "token-123"
+                )
 
     async def test_claim_run_with_schedule_modes(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
@@ -280,7 +294,10 @@ class TestBackendClientRunOperations:
 
     async def test_start_run_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
-            mock_settings.return_value = MagicMock(backend_url="http://backend")
+            mock_settings.return_value = MagicMock(
+                backend_url="http://backend",
+                internal_api_token="token-123",
+            )
 
             client = BackendClient()
 
@@ -290,10 +307,14 @@ class TestBackendClientRunOperations:
 
             with patch.object(
                 client._client, "request", AsyncMock(return_value=mock_response)
-            ):
+            ) as mock_request:
                 result = await client.start_run("run-123", "worker-1")
 
                 assert result["status"] == "running"
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
+                    == "token-123"
+                )
 
     async def test_fail_run_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:

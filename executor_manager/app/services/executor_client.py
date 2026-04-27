@@ -22,6 +22,13 @@ class ExecutorClient:
             "X-Trace-ID": get_trace_id() or generate_trace_id(),
         }
 
+    @classmethod
+    def _execution_headers(cls, callback_token: str) -> dict[str, str]:
+        return {
+            **cls._trace_headers(),
+            "Authorization": f"Bearer {callback_token}",
+        }
+
     async def execute_task(
         self,
         executor_url: str,
@@ -61,7 +68,7 @@ class ExecutorClient:
                     "sdk_session_id": sdk_session_id,
                     "permission_mode": permission_mode or "default",
                 },
-                headers=self._trace_headers(),
+                headers=self._execution_headers(callback_token),
                 timeout=httpx.Timeout(30.0, connect=10.0),
             )
             response.raise_for_status()

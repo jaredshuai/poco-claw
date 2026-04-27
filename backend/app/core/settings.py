@@ -23,6 +23,7 @@ class Settings(BaseSettings):
                 return False
             return False
         return value
+
     log_level: str | None = Field(default=None, alias="LOG_LEVEL")
     log_sql: bool = Field(default=False, alias="LOG_SQL")
     uvicorn_access_log: bool = Field(default=False, alias="UVICORN_ACCESS_LOG")
@@ -44,6 +45,11 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-this-secret-key-in-production")
     internal_api_token: str = Field(
         default="change-this-token-in-production", alias="INTERNAL_API_TOKEN"
+    )
+    trusted_user_header_token: str = Field(
+        default="",
+        alias="TRUSTED_USER_HEADER_TOKEN",
+        description="Optional shared secret for trusted proxies that set X-User-Id.",
     )
     bootstrap_on_startup: bool = Field(default=True, alias="BOOTSTRAP_ON_STARTUP")
 
@@ -159,9 +165,7 @@ class Settings(BaseSettings):
     )
 
     # OnlyOffice Document Server
-    office_jwt_secret: str = Field(
-        default="", alias="OFFICE_JWT_SECRET"
-    )
+    office_jwt_secret: str = Field(default="", alias="OFFICE_JWT_SECRET")
     office_document_server_url: str = Field(
         default="", alias="OFFICE_DOCUMENT_SERVER_URL"
     )
@@ -172,6 +176,39 @@ class Settings(BaseSettings):
         default=600,
         alias="OFFICE_PRESIGN_EXPIRES_SECONDS",
         description="Presigned GET TTL for OnlyOffice Document Server fetches (seconds).",
+    )
+    office_callback_base_url: str = Field(
+        default="http://localhost:8000/api/v1",
+        alias="OFFICE_CALLBACK_BASE_URL",
+        description="Public backend API v1 base URL used by OnlyOffice callbacks.",
+    )
+    office_callback_jwt_required: bool = Field(
+        default=True,
+        alias="OFFICE_CALLBACK_JWT_REQUIRED",
+        description="Require OnlyOffice callback JWT validation.",
+    )
+    office_edit_session_ttl_seconds: int = Field(
+        default=1800,
+        alias="OFFICE_EDIT_SESSION_TTL_SECONDS",
+        description="TTL for short-lived OnlyOffice edit sessions.",
+        gt=0,
+    )
+    office_save_request_ttl_seconds: int = Field(
+        default=3600,
+        alias="OFFICE_SAVE_REQUEST_TTL_SECONDS",
+        description="TTL for short-lived OnlyOffice save request status records.",
+        gt=0,
+    )
+    office_editing_cleanup_interval_seconds: float = Field(
+        default=60.0,
+        alias="OFFICE_EDITING_CLEANUP_INTERVAL_SECONDS",
+        description="Interval for evicting expired Office editing state.",
+        gt=0,
+    )
+    office_editing_state_file: str = Field(
+        default="",
+        alias="OFFICE_EDITING_STATE_FILE",
+        description="Optional JSON file path used to persist short-lived Office editing state.",
     )
 
     # Memory (Mem0)

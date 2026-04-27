@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/hooks/use-language";
 import { GlobalSearchDialog, useSearchDialog } from "@/features/search";
+import { canLeaveDocumentViewer } from "@/lib/document-viewer-leave-guard";
 import { useNewTaskShortcut } from "../hooks/use-new-task-shortcut";
 import {
   CreateProjectDialog,
@@ -62,13 +63,17 @@ export function AppSidebar({
 
   // New task handling
   const handleNewTask = React.useCallback(() => {
-    // Default behavior for pages without an explicit handler
-    if (onNewTask) {
-      onNewTask();
-    } else {
-      // Prefer keeping current language when we're under /[lng]/...
-      router.push(lng ? `/${lng}/home` : "/");
-    }
+    void (async () => {
+      if (!(await canLeaveDocumentViewer())) return;
+
+      // Default behavior for pages without an explicit handler
+      if (onNewTask) {
+        onNewTask();
+      } else {
+        // Prefer keeping current language when we're under /[lng]/...
+        router.push(lng ? `/${lng}/home` : "/");
+      }
+    })();
   }, [router, onNewTask, lng]);
 
   // Project creation handling

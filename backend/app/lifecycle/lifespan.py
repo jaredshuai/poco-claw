@@ -11,6 +11,10 @@ from app.services.im_streams import DingTalkStreamService
 from app.services.im_streams import FeishuStreamService
 from app.lifecycle.bootstrap import LifecycleBootstrapService
 from app.services.im import ImEventDispatcher
+from app.services.office_editing_service import (
+    office_editing_store,
+    run_office_editing_cleanup_loop,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +37,14 @@ async def lifespan(app: FastAPI):
     tasks: list[asyncio.Task[None]] = []
 
     try:
+        tasks.append(
+            asyncio.create_task(
+                run_office_editing_cleanup_loop(
+                    store=office_editing_store,
+                    interval_seconds=settings.office_editing_cleanup_interval_seconds,
+                )
+            )
+        )
         if dispatcher.enabled:
             tasks.append(asyncio.create_task(dispatcher.run_forever()))
         if dingtalk_stream.enabled:

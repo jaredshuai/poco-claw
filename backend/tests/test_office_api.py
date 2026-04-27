@@ -2,8 +2,11 @@
 
 import asyncio
 import os
+from datetime import UTC, datetime, timedelta
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import jwt
 import pytest
 
 from app.core.errors.error_codes import ErrorCode
@@ -12,8 +15,9 @@ from app.schemas.office import OfficeViewerConfigRequest
 
 
 OFFICE_ENV = {
-    "OFFICE_JWT_SECRET": "test-secret-key",
+    "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
     "OFFICE_DOCUMENT_SERVER_URL": "http://localhost:8100",
+    "OFFICE_CALLBACK_JWT_REQUIRED": "true",
     "OFFICE_FILE_SIZE_LIMIT_MB": "1",
     "OFFICE_PRESIGN_EXPIRES_SECONDS": "3600",
     "S3_BUCKET": "test-bucket",
@@ -53,7 +57,17 @@ def _file_entry(path, *, key=None, size=None, mime_type=None):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
+
+
+def _signed_callback_body(payload: dict) -> dict:
+    return {
+        "token": jwt.encode(
+            payload,
+            OFFICE_ENV["OFFICE_JWT_SECRET"],
+            algorithm="HS256",
+        )
+    }
 
 
 class TestViewerConfig:
@@ -63,12 +77,16 @@ class TestViewerConfig:
         from app.api.v1.office import get_viewer_config
 
         session = _make_session()
-        manifest = {"files": [_file_entry(
-            "report.docx",
-            key="ws/abc/report.docx",
-            size=1024,
-            mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )]}
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
         request = OfficeViewerConfigRequest(
             session_id="00000000-0000-0000-0000-000000000001",
             file_path="report.docx",
@@ -81,9 +99,18 @@ class TestViewerConfig:
         ):
             mock_ss.get_session.return_value = session
             mock_storage.get_manifest.return_value = manifest
-            mock_storage.presign_get.return_value = "https://s3.example.com/report.docx?sig=abc"
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": '"abc123"',
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
 
-            result = _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+            result = _run(
+                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+            )
 
         assert result.document.fileType == "docx"
         assert result.document.url == "https://s3.example.com/report.docx?sig=abc"
@@ -151,9 +178,15 @@ class TestViewerConfig:
         from app.api.v1.office import get_viewer_config
 
         session = _make_session()
-        manifest = {"files": [_file_entry(
-            "big.docx", key="ws/abc/big.docx", size=2 * 1024 * 1024,
-        )]}
+        manifest = {
+            "files": [
+                _file_entry(
+                    "big.docx",
+                    key="ws/abc/big.docx",
+                    size=2 * 1024 * 1024,
+                )
+            ]
+        }
         request = OfficeViewerConfigRequest(
             session_id="00000000-0000-0000-0000-000000000001",
             file_path="big.docx",
@@ -166,6 +199,11 @@ class TestViewerConfig:
         ):
             mock_ss.get_session.return_value = session
             mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 2 * 1024 * 1024,
+                "etag": None,
+                "last_modified": None,
+            }
 
             with pytest.raises(AppException) as exc:
                 _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
@@ -190,21 +228,31 @@ class TestViewerConfig:
         ):
             mock_ss.get_session.return_value = session
             mock_storage.get_manifest.return_value = manifest
-            mock_storage.get_object_size.return_value = 5 * 1024 * 1024
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 5 * 1024 * 1024,
+                "etag": None,
+                "last_modified": None,
+            }
 
             with pytest.raises(AppException) as exc:
                 _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
 
         assert exc.value.error_code == ErrorCode.BAD_REQUEST
-        mock_storage.get_object_size.assert_called_once_with("ws/abc/big.xlsx")
+        mock_storage.get_object_metadata.assert_called_once_with("ws/abc/big.xlsx")
 
     def test_file_within_size_limit_passes(self):
         from app.api.v1.office import get_viewer_config
 
         session = _make_session()
-        manifest = {"files": [_file_entry(
-            "small.docx", key="ws/abc/small.docx", size=512 * 1024,
-        )]}
+        manifest = {
+            "files": [
+                _file_entry(
+                    "small.docx",
+                    key="ws/abc/small.docx",
+                    size=512 * 1024,
+                )
+            ]
+        }
         request = OfficeViewerConfigRequest(
             session_id="00000000-0000-0000-0000-000000000001",
             file_path="small.docx",
@@ -217,20 +265,35 @@ class TestViewerConfig:
         ):
             mock_ss.get_session.return_value = session
             mock_storage.get_manifest.return_value = manifest
-            mock_storage.presign_get.return_value = "https://s3.example.com/small.docx?sig=abc"
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 512 * 1024,
+                "etag": None,
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/small.docx?sig=abc"
+            )
 
-            result = _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+            result = _run(
+                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+            )
 
         assert result.document.fileType == "docx"
-        mock_storage.get_object_size.assert_not_called()
+        mock_storage.get_object_metadata.assert_called_once_with("ws/abc/small.docx")
 
     def test_language_passed_through(self):
         from app.api.v1.office import get_viewer_config
 
         session = _make_session()
-        manifest = {"files": [_file_entry(
-            "report.docx", key="ws/abc/report.docx", size=1024,
-        )]}
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                )
+            ]
+        }
         request = OfficeViewerConfigRequest(
             session_id="00000000-0000-0000-0000-000000000001",
             file_path="report.docx",
@@ -244,9 +307,18 @@ class TestViewerConfig:
         ):
             mock_ss.get_session.return_value = session
             mock_storage.get_manifest.return_value = manifest
-            mock_storage.presign_get.return_value = "https://s3.example.com/report.docx?sig=abc"
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": None,
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
 
-            result = _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+            result = _run(
+                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+            )
 
         assert result.editorConfig.lang == "zh"
 
@@ -329,3 +401,1109 @@ class TestOfficeHealth:
             result = _run(office_health(user_id="user-1"))
 
         assert result.status_code == 503
+
+
+class TestOfficeDownloadLatest:
+    """Tests for GET /office/download-latest route handler."""
+
+    def test_download_latest_presigns_current_workspace_object(self):
+        from app.api.v1.office import download_latest
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=2048,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 2048,
+                "etag": "etag-v2",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?latest=1"
+            )
+
+            result = _run(
+                download_latest(
+                    session_id="00000000-0000-0000-0000-000000000012",
+                    file_path="report.docx",
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        assert result.url == "https://s3.example.com/report.docx?latest=1"
+        assert result.file_path == "report.docx"
+        assert result.expires_in == 3600
+        mock_storage.presign_get.assert_called_once_with(
+            "ws/abc/report.docx",
+            response_content_disposition='attachment; filename="report.docx"',
+            response_content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            expires_in=3600,
+        )
+
+
+class TestOfficeEditingFlow:
+    """Tests for the minimal OnlyOffice editing save loop."""
+
+    def test_edit_viewer_config_returns_edit_session_and_callback_url(self):
+        from app.api.v1.office import get_viewer_config
+        import jwt
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000001",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+
+            result = _run(
+                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+            )
+
+        assert result.editorConfig.mode == "edit"
+        assert result.edit_session_id
+        assert result.editorConfig.callbackUrl
+        callback_url = result.editorConfig.callbackUrl
+        assert callback_url.startswith("http://localhost:8000/api/v1/office/callback")
+        assert parse_qs(urlparse(callback_url).query)["token"][0]
+
+        payload = jwt.decode(
+            result.token,
+            OFFICE_ENV["OFFICE_JWT_SECRET"],
+            algorithms=["HS256"],
+        )
+        assert payload["editorConfig"]["mode"] == "edit"
+        assert payload["editorConfig"]["callbackUrl"] == callback_url
+
+    def test_forcesave_sends_save_request_id_as_userdata(self):
+        from app.api.v1.office import force_save, get_viewer_config
+        from app.schemas.office import OfficeForceSaveRequest
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000002",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+
+            result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        assert result.status == "saving"
+        assert result.save_request_id
+        mock_command.forcesave.assert_awaited_once()
+        kwargs = mock_command.forcesave.await_args.kwargs
+        assert kwargs["document_key"] == config.document.key
+        assert kwargs["userdata"] == result.save_request_id
+
+    def test_duplicate_forcesave_returns_conflict_with_active_request_id(self):
+        from fastapi import HTTPException
+
+        from app.api.v1.office import force_save, get_viewer_config
+        from app.schemas.office import OfficeForceSaveRequest
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000011",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            first = _run(force_save(request=save_request, user_id="user-1", db=mock_db))
+
+            with pytest.raises(HTTPException) as exc:
+                _run(force_save(request=save_request, user_id="user-1", db=mock_db))
+
+        assert exc.value.status_code == 409
+        assert exc.value.detail == {
+            "message": "save_in_progress",
+            "active_save_request_id": first.save_request_id,
+        }
+
+    def test_callback_status_6_writes_back_and_marks_save_saved(self):
+        from app.api.v1.office import (
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000003",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata=save_result.save_request_id,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        mock_response = MagicMock()
+        mock_response.content = b"new docx bytes"
+        mock_response.headers = {
+            "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+        mock_response.raise_for_status.return_value = None
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": len(b"new docx bytes"),
+                "etag": "etag-v2",
+                "last_modified": "2026-04-26T00:00:00Z",
+            }
+
+            _run(office_callback(token=callback_token, request=callback_body))
+
+            writeback_put = mock_storage.put_object.call_args_list[0].kwargs
+            assert writeback_put["key"] != "ws/abc/report.docx"
+            assert writeback_put["key"].startswith("ws/abc/.office-saves/")
+            assert writeback_put["key"].endswith("/report.docx")
+            assert writeback_put["body"] == b"new docx bytes"
+            assert (
+                writeback_put["content_type"]
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+            mock_storage.get_object_metadata.assert_called_with(writeback_put["key"])
+            manifest_put = mock_storage.put_object.call_args_list[-1].kwargs
+
+        assert manifest_put["key"] == "manifest.json"
+        assert writeback_put["key"].encode() in manifest_put["body"]
+        assert b"etag-v2" in manifest_put["body"]
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+        assert status.status == "saved"
+
+    def test_callback_manifest_failure_does_not_overwrite_original_object(self):
+        from app.api.v1.office import (
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000103",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata=save_result.save_request_id,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        mock_response = MagicMock()
+        mock_response.content = b"new docx bytes"
+        mock_response.headers = {
+            "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+        mock_response.raise_for_status.return_value = None
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch("app.api.v1.office.storage_service") as mock_storage,
+            pytest.raises(AppException),
+        ):
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": len(b"new docx bytes"),
+                "etag": "etag-v2",
+                "last_modified": "2026-04-26T00:00:00Z",
+            }
+
+            def put_object_side_effect(*, key, body, content_type=None):
+                if key == "manifest.json":
+                    raise AppException(
+                        error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                        message="manifest update failed",
+                    )
+
+            mock_storage.put_object.side_effect = put_object_side_effect
+
+            _run(office_callback(token=callback_token, request=callback_body))
+
+        put_keys = [
+            call.kwargs["key"] for call in mock_storage.put_object.call_args_list
+        ]
+        assert "ws/abc/report.docx" not in put_keys
+        assert any(key.startswith("ws/abc/.office-saves/") for key in put_keys)
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+        assert status.status == "failed"
+        assert status.error_code == "writeback_failed"
+
+    def test_callback_rejects_missing_onlyoffice_jwt(self):
+        from app.api.v1.office import (
+            force_save,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000005",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata=save_result.save_request_id,
+        )
+
+        with pytest.raises(AppException) as exc:
+            _run(
+                office_callback(
+                    token=callback_token,
+                    request=callback.model_dump(exclude_none=True),
+                )
+            )
+
+        assert exc.value.error_code == ErrorCode.FORBIDDEN
+
+    def test_callback_rejects_download_url_outside_document_server(self):
+        from app.api.v1.office import (
+            force_save,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000004",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://169.254.169.254/latest/meta-data",
+            userdata=save_result.save_request_id,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        mock_response = MagicMock()
+        mock_response.content = b"metadata"
+        mock_response.headers = {"content-type": "text/plain"}
+        mock_response.raise_for_status.return_value = None
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch("app.api.v1.office.storage_service") as mock_storage,
+            pytest.raises(AppException) as exc,
+        ):
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": len(b"metadata"),
+                "etag": "etag-v2",
+                "last_modified": "2026-04-26T00:00:00Z",
+            }
+            _run(office_callback(token=callback_token, request=callback_body))
+
+        assert exc.value.error_code == ErrorCode.FORBIDDEN
+        mock_client.get.assert_not_called()
+        mock_storage.put_object.assert_not_called()
+
+    def test_discard_edit_session_revokes_save_and_callback(self):
+        from app.api.v1.office import (
+            discard_edit_session,
+            force_save,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeDiscardEditSessionRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000006",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        discard_request = OfficeDiscardEditSessionRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with patch("app.api.v1.office.session_service") as mock_ss:
+            mock_ss.get_session.return_value = session
+            discard_result = _run(
+                discard_edit_session(
+                    request=discard_request,
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        assert discard_result.status == "discarded"
+
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with patch("app.api.v1.office.session_service") as mock_ss:
+            mock_ss.get_session.return_value = session
+            with pytest.raises(AppException) as exc:
+                _run(force_save(request=save_request, user_id="user-1", db=mock_db))
+
+        assert exc.value.error_code == ErrorCode.BAD_REQUEST
+
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata="save-request-after-discard",
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        with pytest.raises(AppException) as exc:
+            _run(office_callback(token=callback_token, request=callback_body))
+
+        assert exc.value.error_code == ErrorCode.FORBIDDEN
+
+    def test_save_status_returns_failed_when_edit_session_expires(self):
+        from app.api.v1.office import (
+            editing_store,
+            force_save,
+            get_save_status,
+            get_viewer_config,
+        )
+        from app.schemas.office import OfficeForceSaveRequest
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000007",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        edit_session = editing_store.get_edit_session(config.edit_session_id)
+        assert edit_session is not None
+        edit_session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+
+        assert status.status == "failed"
+        assert status.error_code == "office_edit_session_expired"
+
+    def test_callback_status_7_ignores_userdata_from_other_edit_session(self):
+        from app.api.v1.office import (
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry("a.docx", key="ws/abc/a.docx", size=1024),
+                _file_entry("b.docx", key="ws/abc/b.docx", size=1024),
+            ]
+        }
+        session_id = "00000000-0000-0000-0000-000000000008"
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/doc.docx?sig=abc"
+            )
+            config_a = _run(
+                get_viewer_config(
+                    request=OfficeViewerConfigRequest(
+                        session_id=session_id,
+                        file_path="a.docx",
+                        mode="edit",
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+            config_b = _run(
+                get_viewer_config(
+                    request=OfficeViewerConfigRequest(
+                        session_id=session_id,
+                        file_path="b.docx",
+                        mode="edit",
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_a = _run(
+                force_save(
+                    request=OfficeForceSaveRequest(
+                        session_id=session_id,
+                        file_path="a.docx",
+                        edit_session_id=config_a.edit_session_id,
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        callback_token_b = parse_qs(urlparse(config_b.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        callback = OfficeCallbackRequest(
+            status=7,
+            key=config_b.document.key,
+            userdata=save_a.save_request_id,
+            error=1,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        _run(office_callback(token=callback_token_b, request=callback_body))
+
+        status = _run(
+            get_save_status(
+                session_id=session_id,
+                save_request_id=save_a.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+
+        assert status.status == "saving"
+
+    def test_callback_status_7_marks_same_edit_session_save_failed(self):
+        from app.api.v1.office import (
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000009",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(
+                    request=OfficeForceSaveRequest(
+                        session_id=config_request.session_id,
+                        file_path="report.docx",
+                        edit_session_id=config.edit_session_id,
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        callback = OfficeCallbackRequest(
+            status=7,
+            key=config.document.key,
+            userdata=save_result.save_request_id,
+            error=123,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        _run(office_callback(token=callback_token, request=callback_body))
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+
+        assert status.status == "failed"
+        assert status.error_code == "office_forcesave_failed"
+        assert status.error_message == "123"
+
+    def test_callback_status_6_does_not_write_back_failed_save_request(self):
+        from app.api.v1.office import (
+            editing_store,
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000010",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(
+                    request=OfficeForceSaveRequest(
+                        session_id=config_request.session_id,
+                        file_path="report.docx",
+                        edit_session_id=config.edit_session_id,
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        editing_store.mark_failed(
+            save_result.save_request_id,
+            error_code="manual_failure",
+        )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata=save_result.save_request_id,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            _run(office_callback(token=callback_token, request=callback_body))
+
+        mock_client.get.assert_not_called()
+        mock_storage.put_object.assert_not_called()
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+
+        assert status.status == "failed"
+        assert status.error_code == "manual_failure"

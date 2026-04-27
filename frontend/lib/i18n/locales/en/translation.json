@@ -673,7 +673,23 @@
         "timeout": "Office preview timed out",
         "tooLarge": "File is too large for online preview",
         "editorError": "The document editor encountered an error",
-        "genericHint": "Try downloading the file or opening it in a new window."
+        "genericHint": "Try downloading the file or opening it in a new window.",
+        "edit": "Edit",
+        "dirty": "Unsaved changes",
+        "save": "Save",
+        "saving": "Saving...",
+        "saved": "Saved",
+        "saveSuccess": "Saved to workspace",
+        "saveFailed": "Save failed",
+        "saveAs": "Save As",
+        "saveAsSuccess": "Saved a local copy",
+        "saveAsFailed": "Save As failed",
+        "discardChanges": "Discard",
+        "discardFailed": "Discard failed",
+        "unsavedTitle": "Unsaved changes",
+        "stay": "Stay",
+        "discardAndLeave": "Discard and leave",
+        "unsavedDescription": "Save your changes or discard them before leaving."
       }
     },
     "summary": {

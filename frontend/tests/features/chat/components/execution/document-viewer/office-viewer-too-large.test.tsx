@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { FileNode } from "@/features/chat/types";
 import { ApiError } from "@/lib/errors";
@@ -64,6 +64,20 @@ const docxFile: FileNode = {
 // ---------------------------------------------------------------------------
 
 describe("OfficeIframeViewer tooLarge error handling", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    vi.mocked(apiClient.post).mockReset();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers(),
+    } as Response);
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   it("shows tooLarge error when backend rejects with ApiError 400 'too large'", async () => {
     vi.mocked(apiClient.post).mockRejectedValueOnce(
       new ApiError("File is too large for preview (limit: 50 MB)", 400),

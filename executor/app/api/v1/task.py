@@ -3,11 +3,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from app.core.callback import CallbackClient
 from app.core.computer import ComputerClient
+from app.core.deps import require_executor_token
 from app.core.engine import AgentExecutor, ExecutorConfig
 from app.core.memory import MemoryClient
 from app.core.observability.request_context import get_request_id, get_trace_id
@@ -37,7 +38,11 @@ def _build_task_context_env(
 
 
 @router.post("/execute")
-async def run_task(req: TaskRun, background_tasks: BackgroundTasks) -> dict:
+async def run_task(
+    req: TaskRun,
+    background_tasks: BackgroundTasks,
+    _: None = Depends(require_executor_token),
+) -> dict:
     """Execute an agent task in the background.
 
     Args:

@@ -81,6 +81,9 @@ class TestExecutorClientExecuteTask:
 
                 assert result == "session-123"
                 mock_client.post.assert_called_once()
+                call_args = mock_client.post.call_args
+                headers = call_args.kwargs["headers"]
+                assert headers["Authorization"] == "Bearer token-abc"
 
     async def test_execute_task_with_optional_params(self) -> None:
         with patch("app.services.executor_client.get_settings"):

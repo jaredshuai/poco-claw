@@ -44,6 +44,28 @@ def test_run_claim_requires_internal_token():
     assert response.status_code == 403
 
 
+def test_run_start_requires_internal_token():
+    client = _client()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        response = client.post(
+            "/runs/00000000-0000-0000-0000-000000000001/start",
+            json={"worker_id": "worker-1"},
+        )
+
+    assert response.status_code == 403
+
+
+def test_run_fail_requires_internal_token():
+    client = _client()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        response = client.post(
+            "/runs/00000000-0000-0000-0000-000000000001/fail",
+            json={"worker_id": "worker-1", "error_message": "dispatch failed"},
+        )
+
+    assert response.status_code == 403
+
+
 def test_run_claim_accepts_internal_token():
     client = _client()
     with patch("app.core.deps.get_settings", return_value=_settings()):

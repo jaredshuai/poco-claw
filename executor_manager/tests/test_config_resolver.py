@@ -931,7 +931,10 @@ class TestConfigResolverResolveModelEnvOverrides(unittest.TestCase):
 
         result = resolver._resolve_model_env_overrides(
             {"model": "glm-5"},
-            {"ANTHROPIC_AUTH_TOKEN": "bce-v3/test", "ANTHROPIC_BASE_URL": "https://example.com/anthropic"},
+            {
+                "ANTHROPIC_AUTH_TOKEN": "bce-v3/test",
+                "ANTHROPIC_BASE_URL": "https://example.com/anthropic",
+            },
             user_id="user-123",
         )
 

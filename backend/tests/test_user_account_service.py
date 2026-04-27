@@ -13,9 +13,7 @@ class TestUserAccountServiceGetMe(unittest.TestCase):
         self.service = UserAccountService()
         self.db = MagicMock()
 
-    @patch(
-        "app.services.user_account_service.UserAccountRepository.get_by_user_id"
-    )
+    @patch("app.services.user_account_service.UserAccountRepository.get_by_user_id")
     def test_get_me_maps_existing_row(self, mock_get: MagicMock) -> None:
         row = MagicMock()
         row.user_id = "u1"

@@ -8,7 +8,9 @@ class OfficeViewerConfigRequest(BaseModel):
     """Request body for generating an OnlyOffice viewer config."""
 
     session_id: uuid.UUID = Field(..., description="Session that owns the file")
-    file_path: str = Field(..., description="Relative path of the file within the workspace")
+    file_path: str = Field(
+        ..., description="Relative path of the file within the workspace"
+    )
     file_type: str | None = Field(
         default=None,
         description="Explicit file extension (doc/docx/xls/xlsx/ppt/pptx). Auto-detected from file_path if omitted.",

@@ -97,9 +97,8 @@ class OfficeEditingStore:
             manifest_key=manifest_key,
             document_key=document_key,
             callback_token=secrets.token_urlsafe(32),
-            expires_at=now + timedelta(
-                seconds=settings.office_edit_session_ttl_seconds
-            ),
+            expires_at=now
+            + timedelta(seconds=settings.office_edit_session_ttl_seconds),
         )
         self._edit_sessions[session.edit_session_id] = session
         self._tokens[session.callback_token] = session.edit_session_id
@@ -153,17 +152,14 @@ class OfficeEditingStore:
             status=SAVE_STATUS_PENDING,
             created_at=now,
             updated_at=now,
-            expires_at=now + timedelta(
-                seconds=settings.office_save_request_ttl_seconds
-            ),
+            expires_at=now
+            + timedelta(seconds=settings.office_save_request_ttl_seconds),
         )
         self._save_requests[save_request.save_request_id] = save_request
         self._persist_state()
         return save_request
 
-    def get_active_save_request(
-        self, edit_session_id: str
-    ) -> OfficeSaveRequest | None:
+    def get_active_save_request(self, edit_session_id: str) -> OfficeSaveRequest | None:
         self.cleanup_expired()
         for save_request in self._save_requests.values():
             if (
@@ -192,8 +188,7 @@ class OfficeEditingStore:
             for save_request in self._save_requests.values():
                 if (
                     save_request.edit_session_id == edit_session_id
-                    and save_request.status
-                    in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}
+                    and save_request.status in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}
                 ):
                     self._mark(
                         save_request.save_request_id,
@@ -423,7 +418,9 @@ class OfficeEditingStore:
             created_at is None
             or updated_at is None
             or expires_at is None
-            or not all(isinstance(raw_save_request.get(field), str) for field in required)
+            or not all(
+                isinstance(raw_save_request.get(field), str) for field in required
+            )
         ):
             return None
         error_code = raw_save_request.get("error_code")

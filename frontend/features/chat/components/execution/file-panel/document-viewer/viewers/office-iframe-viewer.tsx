@@ -348,13 +348,14 @@ export function OfficeIframeViewer({
   const editSessionIdRef = React.useRef<string | undefined>(undefined);
   const [state, setState] = React.useState<ViewerState>({ status: "loading" });
   const [mode, setMode] = React.useState<OfficeMode>("view");
-  const [editSessionId, setEditSessionId] = React.useState<string | undefined>();
+  const [editSessionId, setEditSessionId] = React.useState<
+    string | undefined
+  >();
   const [isDirty, setIsDirty] = React.useState(false);
   const [saveState, setSaveState] = React.useState<SaveState>("idle");
   const [isSaveAsRunning, setIsSaveAsRunning] = React.useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = React.useState(false);
-  const [isDiscardingForLeave, setIsDiscardingForLeave] =
-    React.useState(false);
+  const [isDiscardingForLeave, setIsDiscardingForLeave] = React.useState(false);
   const leaveConfirmationPromiseRef = React.useRef<Promise<boolean> | null>(
     null,
   );
@@ -422,17 +423,15 @@ export function OfficeIframeViewer({
       settleLeaveConfirmation(true);
     } catch (error) {
       if (IS_DEV) {
-        console.error("[OfficeIframeViewer] discard before leave failed", error);
+        console.error(
+          "[OfficeIframeViewer] discard before leave failed",
+          error,
+        );
       }
       toast.error(t("artifacts.viewer.office.discardFailed"));
       settleLeaveConfirmation(false);
     }
-  }, [
-    discardEditSession,
-    isDiscardingForLeave,
-    settleLeaveConfirmation,
-    t,
-  ]);
+  }, [discardEditSession, isDiscardingForLeave, settleLeaveConfirmation, t]);
 
   React.useEffect(() => {
     if (mode !== "edit" || !isDirty) return;
@@ -627,14 +626,7 @@ export function OfficeIframeViewer({
       }
       editorRef.current = null;
     };
-  }, [
-    file,
-    sessionId,
-    isEnabled,
-    ensureFreshFile,
-    placeholderDomId,
-    mode,
-  ]);
+  }, [file, sessionId, isEnabled, ensureFreshFile, placeholderDomId, mode]);
 
   const resolvedUrl = ensureAbsoluteUrl(file.url);
 

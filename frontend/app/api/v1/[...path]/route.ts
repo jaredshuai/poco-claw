@@ -79,7 +79,7 @@ async function proxyRequest(
     console.warn(`[API proxy] ${method} ${targetUrl} returned 404`);
   }
 
-  const responseHeaders = stripHopByHopHeaders(upstream.headers);
+  const responseHeaders = stripForwardedHeaders(upstream.headers);
   return new Response(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,

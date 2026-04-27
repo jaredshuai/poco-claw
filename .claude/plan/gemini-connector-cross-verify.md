@@ -5,6 +5,7 @@
 **Scope:** Codex wired `frontend/features/connectors/**` and `chat-input.tsx` to real MCP install + run connection state (no App OAuth).
 
 **Read and analyze (no file writes):**
+
 - `frontend/features/connectors/components/connectors/connectors-dialog.tsx`
 - `frontend/features/connectors/components/connectors/connector-card.tsx`
 - `frontend/features/connectors/components/connectors/connector-detail.tsx` (if exists)
@@ -12,6 +13,7 @@
 - `frontend/features/connectors/lib/` if present (mcp-connector-state etc.)
 
 **Check:**
+
 1. i18n: no new user-visible English hardcoding; keys exist for new labels.
 2. Security: no secrets in client; API calls use existing authenticated client patterns.
 3. OAuth: Gmail/GitHub-style flows not accidentally started.

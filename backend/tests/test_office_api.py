@@ -15,7 +15,7 @@ from app.schemas.office import OfficeViewerConfigRequest
 
 
 OFFICE_ENV = {
-    "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+    "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
     "OFFICE_DOCUMENT_SERVER_URL": "http://localhost:8100",
     "OFFICE_CALLBACK_JWT_REQUIRED": "true",
     "OFFICE_FILE_SIZE_LIMIT_MB": "1",

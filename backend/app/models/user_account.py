@@ -24,6 +24,12 @@ class UserAccount(Base, TimestampMixin):
     credits_free: Mapped[str] = mapped_column(
         String(64), nullable=False, default="user.credits.unlimited"
     )
-    daily_refresh_current: Mapped[int] = mapped_column(Integer, nullable=False, default=9999)
-    daily_refresh_max: Mapped[int] = mapped_column(Integer, nullable=False, default=9999)
-    refresh_time: Mapped[str] = mapped_column(String(16), nullable=False, default="08:00")
+    daily_refresh_current: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=9999
+    )
+    daily_refresh_max: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=9999
+    )
+    refresh_time: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="08:00"
+    )

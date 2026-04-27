@@ -64,7 +64,10 @@ def test_cleanup_expired_revokes_callback_token_and_fails_active_save_request():
     assert result["edit_sessions"] == 1
     assert store.get_edit_session(session.edit_session_id) is None
     assert store.resolve_by_token(session.callback_token) is None
-    assert store.get_save_request(save_request.save_request_id).status == SAVE_STATUS_FAILED
+    assert (
+        store.get_save_request(save_request.save_request_id).status
+        == SAVE_STATUS_FAILED
+    )
     assert (
         store.get_save_request(save_request.save_request_id).error_code
         == "office_edit_session_expired"

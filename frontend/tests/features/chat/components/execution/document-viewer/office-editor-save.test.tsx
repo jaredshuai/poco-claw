@@ -199,14 +199,11 @@ describe("OfficeIframeViewer editing save flow", () => {
     await user.click(screen.getByText("artifacts.viewer.office.save"));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        "/office/forcesave",
-        {
-          session_id: "00000000-0000-0000-0000-000000000001",
-          file_path: "report.docx",
-          edit_session_id: "edit-session-1",
-        },
-      );
+      expect(apiClient.post).toHaveBeenCalledWith("/office/forcesave", {
+        session_id: "00000000-0000-0000-0000-000000000001",
+        file_path: "report.docx",
+        edit_session_id: "edit-session-1",
+      });
     });
     expect(apiClient.get).toHaveBeenCalledWith(
       "/office/save-status?session_id=00000000-0000-0000-0000-000000000001&save_request_id=save-request-1",
@@ -282,34 +279,38 @@ describe("OfficeIframeViewer editing save flow", () => {
         status: "saving",
         poll_after_ms: 1,
       });
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      save_request_id: "save-as-request-1",
-      status: "saved",
-      error_code: null,
-      error_message: null,
-      completed_at: "2026-04-26T00:00:00Z",
-    }).mockResolvedValueOnce({
-      url: "https://example.com/report-latest.docx",
-      file_path: "report.docx",
-      expires_in: 600,
-    });
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({
+        save_request_id: "save-as-request-1",
+        status: "saved",
+        error_code: null,
+        error_message: null,
+        completed_at: "2026-04-26T00:00:00Z",
+      })
+      .mockResolvedValueOnce({
+        url: "https://example.com/report-latest.docx",
+        file_path: "report.docx",
+        expires_in: 600,
+      });
     const ensureFreshFile = vi.fn().mockResolvedValue(file);
     const user = userEvent.setup();
 
     const click = vi.fn();
-    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
-      const element = document.createElementNS(
-        "http://www.w3.org/1999/xhtml",
-        tagName,
-      ) as HTMLElement;
-      if (tagName === "a") {
-        Object.defineProperty(element, "click", {
-          configurable: true,
-          value: click,
-        });
-      }
-      return element;
-    });
+    vi.spyOn(document, "createElement").mockImplementation(
+      (tagName: string) => {
+        const element = document.createElementNS(
+          "http://www.w3.org/1999/xhtml",
+          tagName,
+        ) as HTMLElement;
+        if (tagName === "a") {
+          Object.defineProperty(element, "click", {
+            configurable: true,
+            value: click,
+          });
+        }
+        return element;
+      },
+    );
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:latest");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     vi.mocked(global.fetch).mockImplementation(async (_input, init) => {
@@ -349,14 +350,11 @@ describe("OfficeIframeViewer editing save flow", () => {
     await user.click(screen.getByText("artifacts.viewer.office.saveAs"));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        "/office/forcesave",
-        {
-          session_id: "00000000-0000-0000-0000-000000000001",
-          file_path: "report.docx",
-          edit_session_id: "edit-session-1",
-        },
-      );
+      expect(apiClient.post).toHaveBeenCalledWith("/office/forcesave", {
+        session_id: "00000000-0000-0000-0000-000000000001",
+        file_path: "report.docx",
+        edit_session_id: "edit-session-1",
+      });
     });
     await waitFor(() => {
       expect(ensureFreshFile).toHaveBeenCalledWith(file, { force: true });
@@ -404,8 +402,9 @@ describe("OfficeIframeViewer editing save flow", () => {
         close: vi.fn(),
       }),
     });
-    (window as Window & { poco?: { saveFile: typeof nativeSaveFile } }).poco =
-      { saveFile: nativeSaveFile };
+    (window as Window & { poco?: { saveFile: typeof nativeSaveFile } }).poco = {
+      saveFile: nativeSaveFile,
+    };
     (
       window as Window & { showSaveFilePicker?: typeof showSaveFilePicker }
     ).showSaveFilePicker = showSaveFilePicker;
@@ -575,7 +574,9 @@ describe("OfficeIframeViewer editing save flow", () => {
 
     latestEvents.onDocumentStateChange?.({ data: true });
     await screen.findByText("artifacts.viewer.office.discardChanges");
-    await user.click(screen.getByText("artifacts.viewer.office.discardChanges"));
+    await user.click(
+      screen.getByText("artifacts.viewer.office.discardChanges"),
+    );
 
     expect(confirm).toHaveBeenCalledWith(
       "artifacts.viewer.office.unsavedDescription",
@@ -601,19 +602,21 @@ describe("OfficeIframeViewer editing save flow", () => {
         edit_session_id: undefined,
       });
     const click = vi.fn();
-    vi.spyOn(document, "createElement").mockImplementation((tagName: string) => {
-      const element = document.createElementNS(
-        "http://www.w3.org/1999/xhtml",
-        tagName,
-      ) as HTMLElement;
-      if (tagName === "a") {
-        Object.defineProperty(element, "click", {
-          configurable: true,
-          value: click,
-        });
-      }
-      return element;
-    });
+    vi.spyOn(document, "createElement").mockImplementation(
+      (tagName: string) => {
+        const element = document.createElementNS(
+          "http://www.w3.org/1999/xhtml",
+          tagName,
+        ) as HTMLElement;
+        if (tagName === "a") {
+          Object.defineProperty(element, "click", {
+            configurable: true,
+            value: click,
+          });
+        }
+        return element;
+      },
+    );
     const user = userEvent.setup();
 
     render(

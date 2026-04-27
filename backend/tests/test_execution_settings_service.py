@@ -35,9 +35,7 @@ class TestExecutionSettingsService(unittest.TestCase):
     @patch(
         "app.services.execution_settings_service.UserExecutionSettingRepository.get_by_user_id"
     )
-    def test_get_or_create_returns_existing(
-        self, mock_get: MagicMock
-    ) -> None:
+    def test_get_or_create_returns_existing(self, mock_get: MagicMock) -> None:
         record = MagicMock()
         record.schema_version = "v1"
         record.settings = {
@@ -70,9 +68,7 @@ class TestPermissionPolicyPartialUpdate(unittest.TestCase):
             default_action="deny",
         )
         dump = request.model_dump(exclude_unset=True)
-        self.assertEqual(
-            dump, {"mode": "enforce", "default_action": "deny"}
-        )
+        self.assertEqual(dump, {"mode": "enforce", "default_action": "deny"})
 
     def test_exclude_unset_empty_body(self) -> None:
         request = PermissionPolicyUpdateRequest()

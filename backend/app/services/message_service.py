@@ -123,10 +123,12 @@ class MessageService:
     ) -> list[MessageResponse]:
         vote_by_message_id: dict[int, str] = {}
         if user_id and messages:
-            vote_by_message_id = MessageFeedbackRepository.list_votes_by_user_and_message_ids(
-                db,
-                user_id=user_id,
-                message_ids=[message.id for message in messages],
+            vote_by_message_id = (
+                MessageFeedbackRepository.list_votes_by_user_and_message_ids(
+                    db,
+                    user_id=user_id,
+                    message_ids=[message.id for message in messages],
+                )
             )
         result: list[MessageResponse] = []
         for message in messages:

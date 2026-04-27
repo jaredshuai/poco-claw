@@ -91,10 +91,11 @@ class TestGenerateDocumentKey:
 
 
 class TestBuildViewerConfig:
-    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long"})
+    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest"})
     def test_basic_config(self):
         # Clear cached settings
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -106,23 +107,29 @@ class TestBuildViewerConfig:
 
             assert config.document.fileType == "docx"
             assert config.document.title == "report.docx"
-            assert config.document.url == "https://s3.example.com/bucket/report.docx?sig=abc"
+            assert (
+                config.document.url
+                == "https://s3.example.com/bucket/report.docx?sig=abc"
+            )
             assert config.documentType == "word"
             assert config.editorConfig.mode == "view"
             assert config.editorConfig.lang == "en"
             assert config.type == "embedded"
 
             # Verify JWT is valid
-            payload = jwt.decode(config.token, "test-secret-key-that-is-at-least-32-bytes-long", algorithms=["HS256"])
+            payload = jwt.decode(
+                config.token, "testtesttesttesttesttesttesttest", algorithms=["HS256"]
+            )
             assert payload["document"]["fileType"] == "docx"
             assert payload["documentType"] == "word"
             assert payload["editorConfig"]["mode"] == "view"
         finally:
             get_settings.cache_clear()
 
-    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long"})
+    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest"})
     def test_xlsx_document_type(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -135,9 +142,10 @@ class TestBuildViewerConfig:
         finally:
             get_settings.cache_clear()
 
-    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long"})
+    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest"})
     def test_pptx_document_type(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -150,9 +158,10 @@ class TestBuildViewerConfig:
         finally:
             get_settings.cache_clear()
 
-    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long"})
+    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest"})
     def test_language_passed_through(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -169,6 +178,7 @@ class TestBuildViewerConfig:
     @patch.dict(os.environ, {"OFFICE_JWT_SECRET": ""})
     def test_empty_secret_raises(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -184,6 +194,7 @@ class TestBuildViewerConfig:
     @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "short-key"})
     def test_short_secret_raises(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -196,9 +207,10 @@ class TestBuildViewerConfig:
         finally:
             get_settings.cache_clear()
 
-    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long"})
+    @patch.dict(os.environ, {"OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest"})
     def test_document_key_uses_object_key_not_url(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -224,7 +236,7 @@ class TestResolveFileObjectKey:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
             "S3_ACCESS_KEY": "minioadmin",
@@ -234,6 +246,7 @@ class TestResolveFileObjectKey:
     def test_returns_size_from_manifest(self):
         from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -255,11 +268,15 @@ class TestResolveFileObjectKey:
             with patch("app.api.v1.office.storage_service") as mock_storage:
                 mock_storage.get_manifest.return_value = manifest
                 object_key, mime_type, file_size = _resolve_file_object_key(
-                    mock_session, "report.docx",
+                    mock_session,
+                    "report.docx",
                 )
 
             assert object_key == "ws/abc/report.docx"
-            assert mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            assert (
+                mime_type
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
             assert file_size == 1024
         finally:
             get_settings.cache_clear()
@@ -267,7 +284,7 @@ class TestResolveFileObjectKey:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
             "S3_ACCESS_KEY": "minioadmin",
@@ -277,6 +294,7 @@ class TestResolveFileObjectKey:
     def test_returns_none_size_when_manifest_lacks_size(self):
         from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -297,7 +315,8 @@ class TestResolveFileObjectKey:
             with patch("app.api.v1.office.storage_service") as mock_storage:
                 mock_storage.get_manifest.return_value = manifest
                 object_key, mime_type, file_size = _resolve_file_object_key(
-                    mock_session, "data.xlsx",
+                    mock_session,
+                    "data.xlsx",
                 )
 
             assert object_key == "data.xlsx"
@@ -309,7 +328,7 @@ class TestResolveFileObjectKey:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
             "S3_ACCESS_KEY": "minioadmin",
@@ -319,6 +338,7 @@ class TestResolveFileObjectKey:
     def test_raises_when_file_not_found(self):
         from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -341,7 +361,7 @@ class TestResolveFileObjectKey:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
             "S3_ACCESS_KEY": "minioadmin",
@@ -351,6 +371,7 @@ class TestResolveFileObjectKey:
     def test_raises_when_no_manifest_key(self):
         from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -367,7 +388,7 @@ class TestResolveFileObjectKey:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
             "S3_ACCESS_KEY": "minioadmin",
@@ -377,6 +398,7 @@ class TestResolveFileObjectKey:
     def test_rejects_key_escaping_workspace_prefix(self):
         from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -407,7 +429,7 @@ class TestResolveFileObjectKey:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
             "S3_ACCESS_KEY": "minioadmin",
@@ -417,6 +439,7 @@ class TestResolveFileObjectKey:
     def test_allows_key_within_workspace_prefix(self):
         from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -437,7 +460,8 @@ class TestResolveFileObjectKey:
             with patch("app.api.v1.office.storage_service") as mock_storage:
                 mock_storage.get_manifest.return_value = manifest
                 object_key, _, _ = _resolve_file_object_key(
-                    mock_session, "report.docx",
+                    mock_session,
+                    "report.docx",
                 )
 
             assert object_key == "ws/session-abc/report.docx"
@@ -451,7 +475,7 @@ class TestFileSizeEnforcement:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "OFFICE_FILE_SIZE_LIMIT_MB": "1",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
@@ -461,6 +485,7 @@ class TestFileSizeEnforcement:
     )
     def test_rejects_oversized_file_from_manifest(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -480,11 +505,13 @@ class TestFileSizeEnforcement:
                 # The route calls _resolve_file_object_key internally, but
                 # we test it at the function level here for simplicity.
                 from app.api.v1.office import _resolve_file_object_key
+
                 mock_session = MagicMock()
                 mock_session.workspace_manifest_key = "manifest.json"
                 mock_session.workspace_files_prefix = ""
                 object_key, _, file_size = _resolve_file_object_key(
-                    mock_session, "big.docx",
+                    mock_session,
+                    "big.docx",
                 )
 
             assert file_size == 2 * 1024 * 1024
@@ -496,7 +523,7 @@ class TestFileSizeEnforcement:
     @patch.dict(
         os.environ,
         {
-            "OFFICE_JWT_SECRET": "test-secret-key-that-is-at-least-32-bytes-long",
+            "OFFICE_JWT_SECRET": "testtesttesttesttesttesttesttest",
             "OFFICE_FILE_SIZE_LIMIT_MB": "1",
             "S3_BUCKET": "test-bucket",
             "S3_ENDPOINT": "http://localhost:9000",
@@ -506,6 +533,7 @@ class TestFileSizeEnforcement:
     )
     def test_allows_file_within_limit(self):
         from app.core.settings import get_settings
+
         get_settings.cache_clear()
 
         try:
@@ -522,11 +550,13 @@ class TestFileSizeEnforcement:
             with patch("app.api.v1.office.storage_service") as mock_storage:
                 mock_storage.get_manifest.return_value = manifest
                 from app.api.v1.office import _resolve_file_object_key
+
                 mock_session = MagicMock()
                 mock_session.workspace_manifest_key = "manifest.json"
                 mock_session.workspace_files_prefix = ""
                 _, _, file_size = _resolve_file_object_key(
-                    mock_session, "small.docx",
+                    mock_session,
+                    "small.docx",
                 )
 
             assert file_size == 512 * 1024

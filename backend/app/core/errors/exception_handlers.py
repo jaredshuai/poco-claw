@@ -38,7 +38,9 @@ def setup_exception_handlers(app: FastAPI, *, debug: bool) -> None:
     ) -> JSONResponse:
         if isinstance(exc.detail, dict):
             message_value = exc.detail.get("message")
-            message = message_value if isinstance(message_value, str) else str(exc.detail)
+            message = (
+                message_value if isinstance(message_value, str) else str(exc.detail)
+            )
             data = exc.detail
         else:
             message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)

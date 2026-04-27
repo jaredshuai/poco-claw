@@ -28,9 +28,7 @@ def build_playwright_mcp_config() -> dict[str, Any]:
     viewport = parse_viewport_size(viewport_raw) or (1366, 768)
     viewport_size = format_viewport_size(*viewport)
 
-    output_mode = (
-        (os.environ.get("PLAYWRIGHT_MCP_OUTPUT_MODE") or "").strip().lower()
-    )
+    output_mode = (os.environ.get("PLAYWRIGHT_MCP_OUTPUT_MODE") or "").strip().lower()
     if output_mode not in {"file", "stdout"}:
         output_mode = "file"
 

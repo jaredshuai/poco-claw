@@ -167,9 +167,11 @@ def _require_string(args: dict[str, Any], key: str) -> str | None:
     val = args.get(key)
     return val.strip() if isinstance(val, str) and val.strip() else None
 
+
 def _require_memory_id(args: dict[str, Any]) -> str | None:
     """Extract a validated memory_id from args."""
     return _require_string(args, "memory_id")
+
 
 def _build_crud_tools(memory_client: MemoryClient) -> list[Any]:
     @tool(
@@ -274,6 +276,7 @@ def _build_crud_tools(memory_client: MemoryClient) -> list[Any]:
 
     return [memory_create, memory_get, memory_update, memory_delete, memory_delete_all]
 
+
 def _build_query_tools(memory_client: MemoryClient) -> list[Any]:
     @tool(
         "memory_search",
@@ -320,6 +323,7 @@ def _build_query_tools(memory_client: MemoryClient) -> list[Any]:
 
     return [memory_search, memory_list, memory_history]
 
+
 def _build_conversation_tools(memory_client: MemoryClient) -> list[Any]:
     @tool(
         "memory_create_conversation",
@@ -339,6 +343,7 @@ def _build_conversation_tools(memory_client: MemoryClient) -> list[Any]:
         )
 
     return [memory_create_conversation]
+
 
 def create_memory_mcp_server(memory_client: MemoryClient) -> McpSdkServerConfig:
     """Create an in-process SDK MCP server for memory management."""

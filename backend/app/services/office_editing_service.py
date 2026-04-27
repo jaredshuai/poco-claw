@@ -133,6 +133,50 @@ class OfficeEditingStore:
         self._persist_state()
         return True
 
+    def complete_save_request(
+        self,
+        save_request_id: str,
+        *,
+        edit_session_id: str,
+        object_key: str | None = None,
+    ) -> None:
+        """Mark a save request saved and update the edit session in one state write."""
+        save_request = self._save_requests.get(save_request_id)
+        if not save_request:
+            return
+
+        session = self._edit_sessions.get(edit_session_id)
+        previous_session_object_key = session.object_key if session else None
+        previous_save_state = (
+            save_request.status,
+            save_request.updated_at,
+            save_request.completed_at,
+            save_request.error_code,
+            save_request.error_message,
+        )
+
+        now = datetime.now(UTC)
+        try:
+            if object_key and session and not session.discarded:
+                session.object_key = object_key
+            save_request.status = SAVE_STATUS_SAVED
+            save_request.updated_at = now
+            save_request.completed_at = now
+            save_request.error_code = None
+            save_request.error_message = None
+            self._persist_state()
+        except Exception:
+            if session and previous_session_object_key is not None:
+                session.object_key = previous_session_object_key
+            (
+                save_request.status,
+                save_request.updated_at,
+                save_request.completed_at,
+                save_request.error_code,
+                save_request.error_message,
+            ) = previous_save_state
+            raise
+
     def resolve_by_token(self, token: str) -> OfficeEditSession | None:
         edit_session_id = self._tokens.get(token)
         if not edit_session_id:

@@ -216,6 +216,18 @@ class S3StorageService:
                 details={"key": key, "error": str(exc)},
             ) from exc
 
+    def delete_object(self, key: str) -> None:
+        """Delete an object from storage."""
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=key)
+        except (ClientError, BotoCoreError) as exc:
+            logger.warning(f"Failed to delete object {key}: {exc}")
+            raise AppException(
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="Failed to delete object",
+                details={"key": key, "error": str(exc)},
+            ) from exc
+
     def upload_fileobj(
         self,
         *,

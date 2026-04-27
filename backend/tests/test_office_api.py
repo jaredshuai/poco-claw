@@ -871,7 +871,10 @@ class TestOfficeEditingFlow:
             call.kwargs["key"] for call in mock_storage.put_object.call_args_list
         ]
         assert "ws/abc/report.docx" not in put_keys
-        assert any(key.startswith("ws/abc/.office-saves/") for key in put_keys)
+        staged_key = next(
+            key for key in put_keys if key.startswith("ws/abc/.office-saves/")
+        )
+        mock_storage.delete_object.assert_called_once_with(staged_key)
 
         status = _run(
             get_save_status(
@@ -883,6 +886,125 @@ class TestOfficeEditingFlow:
         )
         assert status.status == "failed"
         assert status.error_code == "writeback_failed"
+
+    def test_callback_state_commit_failure_does_not_mark_committed_writeback_failed(
+        self,
+    ):
+        from app.api.v1.office import (
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000104",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        save_request = OfficeForceSaveRequest(
+            session_id=config_request.session_id,
+            file_path="report.docx",
+            edit_session_id=config.edit_session_id,
+        )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(request=save_request, user_id="user-1", db=mock_db)
+            )
+
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata=save_result.save_request_id,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        mock_response = MagicMock()
+        mock_response.content = b"new docx bytes"
+        mock_response.headers = {
+            "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+        mock_response.raise_for_status.return_value = None
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch("app.api.v1.office.storage_service") as mock_storage,
+            patch(
+                "app.api.v1.office.editing_store.complete_save_request",
+                side_effect=RuntimeError("state commit failed"),
+                create=True,
+            ),
+            pytest.raises(RuntimeError, match="state commit failed"),
+        ):
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": len(b"new docx bytes"),
+                "etag": "etag-v2",
+                "last_modified": "2026-04-26T00:00:00Z",
+            }
+
+            _run(office_callback(token=callback_token, request=callback_body))
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+        assert status.status == "saving"
+        assert status.error_code is None
 
     def test_callback_rejects_missing_onlyoffice_jwt(self):
         from app.api.v1.office import (

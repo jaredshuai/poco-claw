@@ -1,10 +1,7 @@
 """Office document preview and editing endpoints (OnlyOffice integration)."""
 
-import json
 import logging
 import uuid
-from datetime import datetime
-from pathlib import PurePosixPath
 from typing import Annotated
 from urllib.parse import quote, urlparse
 
@@ -37,11 +34,14 @@ from app.services.office_editing_service import (
     office_editing_store,
 )
 from app.services.office_viewer_service import build_viewer_config
+from app.services.office_writeback_service import (
+    OfficeSaveWritebackService,
+    OfficeWritebackStateCommitError,
+)
 from app.services.session_service import SessionService
 from app.services.storage_service import S3StorageService
 from app.utils.workspace_manifest import (
     extract_manifest_files,
-    find_manifest_file,
     normalize_manifest_path,
 )
 
@@ -217,59 +217,6 @@ def _decode_callback_payload(
             )
 
     return payload
-
-
-def _json_safe(value):
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return value
-
-
-def _update_manifest_file_metadata(
-    *,
-    manifest_key: str,
-    file_path: str,
-    object_key: str,
-    metadata: dict,
-    content_size: int,
-) -> None:
-    manifest = storage_service.get_manifest(manifest_key)
-    file_entry = find_manifest_file(manifest, file_path)
-    if file_entry is None:
-        raise AppException(
-            error_code=ErrorCode.NOT_FOUND,
-            message="Saved file is missing from workspace manifest",
-        )
-
-    file_entry["key"] = object_key
-    file_entry["size"] = metadata.get("content_length") or content_size
-    if metadata.get("etag"):
-        file_entry["etag"] = metadata["etag"]
-    if metadata.get("last_modified"):
-        file_entry["last_modified"] = _json_safe(metadata["last_modified"])
-
-    storage_service.put_object(
-        key=manifest_key,
-        body=json.dumps(manifest, ensure_ascii=False).encode("utf-8"),
-        content_type="application/json",
-    )
-
-
-def _build_office_writeback_object_key(
-    *,
-    current_object_key: str,
-    save_request_id: str,
-) -> str:
-    safe_save_id = "".join(
-        char if char.isalnum() or char in {"-", "_"} else "_"
-        for char in save_request_id
-    )
-    object_path = PurePosixPath(current_object_key)
-    file_name = object_path.name or "document"
-    parent = str(object_path.parent)
-    if parent in {"", "."}:
-        return f".office-saves/{safe_save_id}/{file_name}"
-    return f"{parent}/.office-saves/{safe_save_id}/{file_name}"
 
 
 @router.post("/viewer-config")
@@ -629,37 +576,25 @@ async def office_callback(
                 or edit_session.mime_type
                 or "application/octet-stream"
             )
-            writeback_object_key = (
-                _build_office_writeback_object_key(
-                    current_object_key=edit_session.object_key,
-                    save_request_id=save_request.save_request_id,
-                )
-                if edit_session.manifest_key
-                else edit_session.object_key
-            )
-            storage_service.put_object(
-                key=writeback_object_key,
-                body=content,
+            OfficeSaveWritebackService(
+                storage_service=storage_service,
+                editing_store=editing_store,
+            ).commit_saved_content(
+                edit_session=edit_session,
+                save_request=save_request,
+                content=content,
                 content_type=content_type,
             )
-
-            if edit_session.manifest_key:
-                metadata = (
-                    storage_service.get_object_metadata(writeback_object_key) or {}
-                )
-                _update_manifest_file_metadata(
-                    manifest_key=edit_session.manifest_key,
-                    file_path=edit_session.file_path,
-                    object_key=writeback_object_key,
-                    metadata=metadata,
-                    content_size=len(content),
-                )
-                editing_store.update_edit_session_object_key(
-                    edit_session.edit_session_id,
-                    writeback_object_key,
-                )
-
-            editing_store.mark_saved(save_request.save_request_id)
+        except OfficeWritebackStateCommitError:
+            logger.exception(
+                "Office writeback committed but save state commit failed",
+                extra={
+                    "save_request_id": save_request.save_request_id,
+                    "edit_session_id": edit_session.edit_session_id,
+                    "session_id": edit_session.session_id,
+                },
+            )
+            raise
         except Exception as exc:
             editing_store.mark_failed(
                 save_request.save_request_id,

@@ -84,6 +84,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}
       SECRET_KEY: ${BACKEND_SECRET_KEY:-change-this-secret-key-in-production}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-this-token-in-production}
+      TRUSTED_USER_HEADER_TOKEN: ${TRUSTED_USER_HEADER_TOKEN:-}
+      ALLOW_DEFAULT_USER: ${ALLOW_DEFAULT_USER:-false}
       EXECUTOR_MANAGER_URL: http://executor-manager:8001
       BACKEND_USER_ID: ${BACKEND_USER_ID:-default}
       FRONTEND_PUBLIC_URL: ${FRONTEND_PUBLIC_URL:-http://localhost:3000}

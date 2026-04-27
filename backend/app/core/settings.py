@@ -51,6 +51,11 @@ class Settings(BaseSettings):
         alias="TRUSTED_USER_HEADER_TOKEN",
         description="Optional shared secret for trusted proxies that set X-User-Id.",
     )
+    allow_default_user: bool = Field(
+        default=False,
+        alias="ALLOW_DEFAULT_USER",
+        description="Allow unauthenticated requests to use the single default user.",
+    )
     bootstrap_on_startup: bool = Field(default=True, alias="BOOTSTRAP_ON_STARTUP")
 
     # External services

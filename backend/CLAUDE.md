@@ -139,7 +139,7 @@ SQLAlchemy models in `app/models/`. Key entities:
 ## FAQ
 
 **Q: How is auth handled?**
-A: Currently placeholder -- `X-User-Id` header or `DEFAULT_USER_ID`. Internal APIs use `X-Internal-Token`.
+A: Currently placeholder -- `X-User-Id` must come from a trusted proxy token or an internal token. The `DEFAULT_USER_ID` fallback is available only when `ALLOW_DEFAULT_USER=true`. Internal APIs use `X-Internal-Token`.
 
 **Q: How does the callback flow work?**
 A: Executor Manager calls `/api/v1/callback` with structured payload -> `CallbackService` persists messages, tool executions, usage logs.

@@ -19,6 +19,8 @@ description: Core environment variables for the FastAPI backend service. Handles
 - `HOST` (default `0.0.0.0`), `PORT` (default `8000`)
 - `CORS_ORIGINS`: allowed origins (JSON array), example: `["http://localhost:3000","http://127.0.0.1:3000"]`
 - `EXECUTOR_MANAGER_URL`: Executor Manager URL, example: `http://executor-manager:8001`
+- `TRUSTED_USER_HEADER_TOKEN`: optional shared secret for an auth proxy that forwards `X-User-Id`
+- `ALLOW_DEFAULT_USER` (default `false`): set to `true` only for local or single-user deployments without an auth proxy
 - `S3_PUBLIC_ENDPOINT`: browser-facing S3 endpoint for presigned URLs (local can use `http://localhost:9000`). If not set, `S3_ENDPOINT` is used. With Cloudflare R2 bucket-level custom domains, generated URLs may include a `/<S3_BUCKET>/` prefix that usually needs to be removed at access time (recommended to rewrite in gateway/Worker/CDN layer).
 - `S3_REGION` (default `us-east-1`; Cloudflare R2 usually recommends `auto`)
 - `S3_FORCE_PATH_STYLE` (default `true`, commonly needed for MinIO/RustFS; Cloudflare R2 usually recommends `false`)

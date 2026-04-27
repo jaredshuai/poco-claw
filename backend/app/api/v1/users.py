@@ -19,6 +19,6 @@ async def get_current_account(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    """Returns profile and credits for the current `X-User-Id` (or default user)."""
+    """Returns profile and credits for the resolved current user."""
     data = user_account_service.get_me(db, user_id)
     return Response.success(data=data, message="User account retrieved")

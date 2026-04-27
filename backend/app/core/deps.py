@@ -20,15 +20,20 @@ def get_current_user_id(
 ) -> str:
     """FastAPI dependency for the current user id.
 
-    NOTE: Auth is not implemented yet. Public requests fall back to
-    DEFAULT_USER_ID. X-User-Id is accepted only from trusted internal callers
-    or from a proxy that knows TRUSTED_USER_HEADER_TOKEN.
+    Auth is expected to be enforced by a trusted edge/proxy or by internal
+    callers. The single-user DEFAULT_USER_ID fallback is available only when
+    ALLOW_DEFAULT_USER is explicitly enabled.
     """
+    settings = get_settings()
     value = (x_user_id or "").strip()
     if not value:
-        return DEFAULT_USER_ID
+        if getattr(settings, "allow_default_user", False):
+            return DEFAULT_USER_ID
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="User identity is required",
+        )
 
-    settings = get_settings()
     trusted_user_header_token = (
         getattr(settings, "trusted_user_header_token", "") or ""
     ).strip()

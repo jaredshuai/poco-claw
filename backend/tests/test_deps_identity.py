@@ -11,15 +11,26 @@ def _settings(
     *,
     internal_api_token: str = "internal-token",
     trusted_user_header_token: str = "trusted-user-token",
+    allow_default_user: bool = False,
 ):
     return SimpleNamespace(
         internal_api_token=internal_api_token,
         trusted_user_header_token=trusted_user_header_token,
+        allow_default_user=allow_default_user,
     )
 
 
-def test_get_current_user_id_uses_default_without_header():
+def test_get_current_user_id_rejects_missing_identity_by_default():
     with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException):
+            get_current_user_id()
+
+
+def test_get_current_user_id_uses_default_when_explicitly_allowed():
+    with patch(
+        "app.core.deps.get_settings",
+        return_value=_settings(allow_default_user=True),
+    ):
         assert get_current_user_id() == DEFAULT_USER_ID
 
 

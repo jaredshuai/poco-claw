@@ -195,9 +195,6 @@ class RunRepository:
         lease_seconds: int = 30,
         schedule_modes: list[str] | None = None,
     ) -> AgentRun | None:
-        if lease_seconds <= 0:
-            lease_seconds = 30
-
         _ = RunRepository.release_expired_claims(session_db)
         now = datetime.now(timezone.utc)
         lease_until = now + timedelta(seconds=lease_seconds)

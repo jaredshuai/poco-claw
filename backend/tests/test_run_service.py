@@ -131,6 +131,17 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
             self.assertIsNone(result)
             db.commit.assert_called_once()
 
+    def test_normalizes_non_positive_lease_seconds_before_claiming(self) -> None:
+        db = MagicMock()
+        request = RunClaimRequest(worker_id="worker-1", lease_seconds=0)
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.claim_next.return_value = None
+            service = RunService()
+            result = service.claim_next_run(db, request)
+            self.assertIsNone(result)
+            call_args = mock_repo.claim_next.call_args
+            self.assertEqual(call_args.kwargs["lease_seconds"], 30)
+
     def test_session_not_found(self) -> None:
         db = MagicMock()
         run_id = uuid.uuid4()

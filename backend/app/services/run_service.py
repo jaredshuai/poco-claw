@@ -63,6 +63,9 @@ class RunService:
         self, db: Session, request: RunClaimRequest
     ) -> RunClaimResponse | None:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
+        lease_seconds = RunWorkerLeasePolicy.normalize_lease_seconds(
+            request.lease_seconds
+        )
 
         schedule_modes = RunClaimSchedulePolicy.normalize_schedule_modes(
             request.schedule_modes
@@ -71,7 +74,7 @@ class RunService:
         db_run = RunRepository.claim_next(
             session_db=db,
             worker_id=worker_id,
-            lease_seconds=request.lease_seconds,
+            lease_seconds=lease_seconds,
             schedule_modes=schedule_modes,
         )
 

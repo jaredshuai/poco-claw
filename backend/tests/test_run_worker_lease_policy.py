@@ -15,6 +15,15 @@ def test_normalize_worker_id_rejects_empty_value() -> None:
     assert exc_info.value.error_code is ErrorCode.BAD_REQUEST
 
 
+def test_normalize_lease_seconds_keeps_positive_value() -> None:
+    assert RunWorkerLeasePolicy.normalize_lease_seconds(60) == 60
+
+
+def test_normalize_lease_seconds_defaults_non_positive_values() -> None:
+    assert RunWorkerLeasePolicy.normalize_lease_seconds(0) == 30
+    assert RunWorkerLeasePolicy.normalize_lease_seconds(-5) == 30
+
+
 def test_ensure_worker_owns_run_rejects_unclaimed_run() -> None:
     db_run = SimpleNamespace(claimed_by=None)
 

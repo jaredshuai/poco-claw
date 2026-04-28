@@ -23,6 +23,12 @@ class RunWorkerLeasePolicy:
         return normalized
 
     @staticmethod
+    def normalize_lease_seconds(lease_seconds: int) -> int:
+        if lease_seconds <= 0:
+            return 30
+        return lease_seconds
+
+    @staticmethod
     def ensure_worker_owns_run(db_run: Any, worker_id: str) -> None:
         claimed_by = getattr(db_run, "claimed_by", None)
         if not claimed_by:

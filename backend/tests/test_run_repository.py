@@ -403,7 +403,7 @@ class TestRunRepositoryClaimNext(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    def test_claim_next_with_lease_seconds_zero_or_negative(self) -> None:
+    def test_claim_next_uses_caller_supplied_lease_seconds(self) -> None:
         db = MagicMock()
         worker_id = "worker-1"
 
@@ -414,18 +414,22 @@ class TestRunRepositoryClaimNext(unittest.TestCase):
         mock_connection.execute.return_value = mock_result
         db.connection.return_value = mock_connection
 
-        # Mock execute for select
+        mock_run = MagicMock()
+        mock_run.status = "queued"
+        mock_run.claimed_by = None
+        mock_run.lease_expires_at = None
+
         mock_execute_result = MagicMock()
-        mock_execute_result.scalars.return_value.first.return_value = None
+        mock_execute_result.scalars.return_value.first.return_value = mock_run
         db.execute.return_value = mock_execute_result
 
-        # Test with 0
-        RunRepository.claim_next(db, worker_id, lease_seconds=0)
-        # Should default to 30 seconds
+        result = RunRepository.claim_next(db, worker_id, lease_seconds=0)
 
-        # Test with negative
-        RunRepository.claim_next(db, worker_id, lease_seconds=-5)
-        # Should default to 30 seconds
+        self.assertEqual(result, mock_run)
+        self.assertLessEqual(
+            mock_run.lease_expires_at,
+            datetime.now(timezone.utc) + timedelta(seconds=1),
+        )
 
     def test_claim_next_with_schedule_modes(self) -> None:
         db = MagicMock()

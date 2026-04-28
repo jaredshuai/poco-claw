@@ -43,6 +43,12 @@ class BackendClient:
             **self._trace_headers(),
         }
 
+    def _internal_user_headers(self, user_id: str) -> dict[str, str]:
+        return {
+            **self._internal_headers(),
+            "X-User-Id": user_id,
+        }
+
     async def _request(
         self,
         method: str,
@@ -148,11 +154,7 @@ class BackendClient:
         response = await self._request(
             "GET",
             "/api/v1/internal/env-vars/map",
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         return data.get("data", {}) or {}
@@ -163,11 +165,7 @@ class BackendClient:
             "POST",
             "/api/v1/internal/mcp-config/resolve",
             json={"server_ids": server_ids},
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         return data.get("data", {}) or {}
@@ -178,11 +176,7 @@ class BackendClient:
             "POST",
             "/api/v1/internal/skill-config/resolve",
             json={"skill_ids": skill_ids},
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         return data.get("data", {}) or {}
@@ -193,11 +187,7 @@ class BackendClient:
             "POST",
             "/api/v1/internal/plugin-config/resolve",
             json={"plugin_ids": plugin_ids},
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         return data.get("data", {}) or {}
@@ -217,11 +207,7 @@ class BackendClient:
             "POST",
             "/api/v1/internal/subagents/resolve",
             json=payload,
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         return data.get("data", {}) or {}
@@ -230,11 +216,7 @@ class BackendClient:
         response = await self._request(
             "GET",
             "/api/v1/internal/execution-settings/resolve",
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         return data.get("data", {}) or {}
@@ -243,10 +225,7 @@ class BackendClient:
         await self._request(
             "PATCH",
             f"/api/v1/internal/runs/{run_id}/metadata",
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                **self._trace_headers(),
-            },
+            headers=self._internal_headers(),
             json=metadata,
         )
 
@@ -265,10 +244,7 @@ class BackendClient:
         await self._request(
             "POST",
             "/api/v1/internal/mcp-transitions",
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                **self._trace_headers(),
-            },
+            headers=self._internal_headers(),
             json={
                 "run_id": run_id,
                 "session_id": session_id,
@@ -298,10 +274,7 @@ class BackendClient:
         await self._request(
             "POST",
             "/api/v1/internal/permission-audit",
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                **self._trace_headers(),
-            },
+            headers=self._internal_headers(),
             json={
                 "run_id": run_id,
                 "session_id": session_id,
@@ -330,11 +303,7 @@ class BackendClient:
             "POST",
             "/api/v1/internal/slash-commands/resolve",
             json=payload,
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                "X-User-Id": user_id,
-                **self._trace_headers(),
-            },
+            headers=self._internal_user_headers(user_id),
         )
         data = response.json()
         resolved = data.get("data", {}) or {}
@@ -344,19 +313,14 @@ class BackendClient:
 
     async def get_claude_md(self, user_id: str) -> dict:
         """Fetch user-level CLAUDE.md settings for execution staging."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/internal/claude-md",
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    "X-User-Id": user_id,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            result = data.get("data", {}) or {}
-            return result if isinstance(result, dict) else {}
+        response = await self._request(
+            "GET",
+            "/api/v1/internal/claude-md",
+            headers=self._internal_user_headers(user_id),
+        )
+        data = response.json()
+        result = data.get("data", {}) or {}
+        return result if isinstance(result, dict) else {}
 
     async def dispatch_due_scheduled_tasks(self, limit: int = 50) -> dict:
         """Trigger backend to dispatch due scheduled tasks into the run queue."""
@@ -365,118 +329,87 @@ class BackendClient:
             "POST",
             "/api/v1/internal/scheduled-tasks/dispatch-due",
             json=payload,
-            headers={
-                "X-Internal-Token": self.settings.internal_api_token,
-                **self._trace_headers(),
-            },
+            headers=self._internal_headers(),
             retry_connect_errors=2,
         )
         data = response.json()
         return data.get("data", {}) or {}
 
     async def create_user_input_request(self, payload: dict) -> dict:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api/v1/internal/user-input-requests",
-                json=payload,
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["data"]
+        response = await self._request(
+            "POST",
+            "/api/v1/internal/user-input-requests",
+            json=payload,
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data["data"]
 
     async def get_user_input_request(self, request_id: str) -> dict:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/internal/user-input-requests/{request_id}",
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["data"]
+        response = await self._request(
+            "GET",
+            f"/api/v1/internal/user-input-requests/{request_id}",
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data["data"]
 
     async def create_memory(self, session_id: str, payload: dict[str, Any]) -> Any:
         """Create memories via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api/v1/internal/memories",
-                params={"session_id": session_id},
-                json=payload,
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "POST",
+            "/api/v1/internal/memories",
+            params={"session_id": session_id},
+            json=payload,
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def get_memory_create_job(self, session_id: str, job_id: str) -> Any:
         """Get memory create job status via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/internal/memories/jobs/{job_id}",
-                params={"session_id": session_id},
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "GET",
+            f"/api/v1/internal/memories/jobs/{job_id}",
+            params={"session_id": session_id},
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def list_memories(self, session_id: str) -> Any:
         """List memories via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/internal/memories",
-                params={"session_id": session_id},
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "GET",
+            "/api/v1/internal/memories",
+            params={"session_id": session_id},
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def search_memories(self, session_id: str, payload: dict[str, Any]) -> Any:
         """Search memories via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api/v1/internal/memories/search",
-                params={"session_id": session_id},
-                json=payload,
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "POST",
+            "/api/v1/internal/memories/search",
+            params={"session_id": session_id},
+            json=payload,
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def get_memory(self, session_id: str, memory_id: str) -> Any:
         """Get a memory by id via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/internal/memories/{memory_id}",
-                params={"session_id": session_id},
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "GET",
+            f"/api/v1/internal/memories/{memory_id}",
+            params={"session_id": session_id},
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def update_memory(
         self,
@@ -485,63 +418,47 @@ class BackendClient:
         payload: dict[str, Any],
     ) -> Any:
         """Update a memory by id via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.put(
-                f"{self.base_url}/api/v1/internal/memories/{memory_id}",
-                params={"session_id": session_id},
-                json=payload,
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "PUT",
+            f"/api/v1/internal/memories/{memory_id}",
+            params={"session_id": session_id},
+            json=payload,
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def get_memory_history(self, session_id: str, memory_id: str) -> Any:
         """Get memory history via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/internal/memories/{memory_id}/history",
-                params={"session_id": session_id},
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data")
+        response = await self._request(
+            "GET",
+            f"/api/v1/internal/memories/{memory_id}/history",
+            params={"session_id": session_id},
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data.get("data")
 
     async def delete_memory(self, session_id: str, memory_id: str) -> dict[str, Any]:
         """Delete a memory by id via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.delete(
-                f"{self.base_url}/api/v1/internal/memories/{memory_id}",
-                params={"session_id": session_id},
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            result = data.get("data")
-            return result if isinstance(result, dict) else {}
+        response = await self._request(
+            "DELETE",
+            f"/api/v1/internal/memories/{memory_id}",
+            params={"session_id": session_id},
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        result = data.get("data")
+        return result if isinstance(result, dict) else {}
 
     async def delete_all_memories(self, session_id: str) -> dict[str, Any]:
         """Delete all memories in session scope via backend internal API."""
-        async with httpx.AsyncClient() as client:
-            response = await client.delete(
-                f"{self.base_url}/api/v1/internal/memories",
-                params={"session_id": session_id},
-                headers={
-                    "X-Internal-Token": self.settings.internal_api_token,
-                    **self._trace_headers(),
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            result = data.get("data")
-            return result if isinstance(result, dict) else {}
+        response = await self._request(
+            "DELETE",
+            "/api/v1/internal/memories",
+            params={"session_id": session_id},
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        result = data.get("data")
+        return result if isinstance(result, dict) else {}

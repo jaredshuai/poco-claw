@@ -27,7 +27,7 @@ from app.schemas.office import (
     OfficeViewerConfigResponse,
 )
 from app.schemas.response import Response
-from app.services.office_callback_save_service import OfficeCallbackSaveUseCase
+from app.services.office_callback_service import OfficeCallbackUseCase
 from app.services.office_discard_edit_session_service import (
     OfficeDiscardEditSessionCommand,
     OfficeDiscardEditSessionUseCase,
@@ -326,24 +326,12 @@ async def office_callback(
             message="Invalid OnlyOffice callback payload",
         ) from exc
 
-    edit_session = editing_store.resolve_by_token(token)
-    if edit_session is None:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Invalid Office callback token",
-        )
-    if callback.key != edit_session.document_key:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Office callback document key mismatch",
-        )
-
-    await OfficeCallbackSaveUseCase(
+    await OfficeCallbackUseCase(
         storage_service=storage_service,
         editing_store=editing_store,
         validate_download_url=_validate_callback_download_url,
-    ).handle_callback(
-        edit_session=edit_session,
+    ).handle(
+        token=token,
         callback=callback,
     )
 

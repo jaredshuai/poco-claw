@@ -32,6 +32,10 @@ from app.services.office_discard_edit_session_service import (
     OfficeDiscardEditSessionCommand,
     OfficeDiscardEditSessionUseCase,
 )
+from app.services.office_download_latest_service import (
+    OfficeDownloadLatestCommand,
+    OfficeDownloadLatestUseCase,
+)
 from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
     office_editing_store,
@@ -355,41 +359,23 @@ async def download_latest(
 ) -> OfficeDownloadLatestResponse:
     """Return a short-lived URL for the latest saved workspace file."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
-
-    if not normalize_manifest_path(file_path):
-        raise AppException(
-            error_code=ErrorCode.BAD_REQUEST,
-            message="Invalid file path",
-        )
-
-    object_key, mime_type, _manifest_size = _resolve_file_object_key(
-        db_session,
-        file_path,
-    )
-    if storage_service.get_object_metadata(object_key) is None:
-        raise AppException(
-            error_code=ErrorCode.NOT_FOUND,
-            message=f"Workspace file is missing from storage: {file_path}",
-        )
-
     settings = get_settings()
-    file_name = file_path.rsplit("/", 1)[-1] if "/" in file_path else file_path
-    safe_file_name = file_name.replace('"', "_")
-    url = storage_service.presign_get(
-        object_key,
-        response_content_disposition=f'attachment; filename="{safe_file_name}"',
-        response_content_type=mime_type or "application/octet-stream",
-        expires_in=settings.office_presign_expires_seconds,
+    result = OfficeDownloadLatestUseCase(storage_service=storage_service).execute(
+        OfficeDownloadLatestCommand(
+            session_id=str(session_id),
+            session_user_id=db_session.user_id,
+            user_id=user_id,
+            file_path=file_path,
+            workspace_manifest_key=db_session.workspace_manifest_key,
+            workspace_files_prefix=db_session.workspace_files_prefix,
+            expires_in=settings.office_presign_expires_seconds,
+        )
     )
+
     return OfficeDownloadLatestResponse(
-        url=url,
-        file_path=file_path,
-        expires_in=settings.office_presign_expires_seconds,
+        url=result.url,
+        file_path=result.file_path,
+        expires_in=result.expires_in,
     )
 
 

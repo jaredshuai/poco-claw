@@ -176,8 +176,7 @@ class RunRepository:
         )
 
     @staticmethod
-    def release_expired_claims(session_db: Session) -> int:
-        now = datetime.now(timezone.utc)
+    def release_expired_claims(session_db: Session, *, now: datetime) -> int:
         stmt = (
             update(AgentRun)
             .where(AgentRun.status == "claimed")
@@ -194,9 +193,10 @@ class RunRepository:
         worker_id: str,
         lease_seconds: int = 30,
         schedule_modes: list[str] | None = None,
+        *,
+        now: datetime,
     ) -> AgentRun | None:
-        _ = RunRepository.release_expired_claims(session_db)
-        now = datetime.now(timezone.utc)
+        _ = RunRepository.release_expired_claims(session_db, now=now)
         lease_until = now + timedelta(seconds=lease_seconds)
 
         running_or_claimed = aliased(AgentRun)

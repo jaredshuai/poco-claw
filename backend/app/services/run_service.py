@@ -66,6 +66,7 @@ class RunService:
         lease_seconds = RunWorkerLeasePolicy.normalize_lease_seconds(
             request.lease_seconds
         )
+        now = datetime.now(timezone.utc)
 
         schedule_modes = RunClaimSchedulePolicy.normalize_schedule_modes(
             request.schedule_modes
@@ -76,6 +77,7 @@ class RunService:
             worker_id=worker_id,
             lease_seconds=lease_seconds,
             schedule_modes=schedule_modes,
+            now=now,
         )
 
         if not db_run:

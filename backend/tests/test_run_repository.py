@@ -361,7 +361,10 @@ class TestRunRepositoryReleaseExpiredClaims(unittest.TestCase):
 
         db.connection.return_value = mock_connection
 
-        result = RunRepository.release_expired_claims(db)
+        result = RunRepository.release_expired_claims(
+            db,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertEqual(result, 5)
         mock_connection.execute.assert_called_once()
@@ -375,9 +378,26 @@ class TestRunRepositoryReleaseExpiredClaims(unittest.TestCase):
 
         db.connection.return_value = mock_connection
 
-        result = RunRepository.release_expired_claims(db)
+        result = RunRepository.release_expired_claims(
+            db,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertEqual(result, 0)
+
+    def test_release_expired_claims_accepts_supplied_now(self) -> None:
+        db = MagicMock()
+        now = datetime(2026, 4, 28, 12, 0, tzinfo=timezone.utc)
+        mock_result = MagicMock()
+        mock_result.rowcount = 1
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value = mock_result
+
+        db.connection.return_value = mock_connection
+
+        result = RunRepository.release_expired_claims(db, now=now)
+
+        self.assertEqual(result, 1)
 
 
 class TestRunRepositoryClaimNext(unittest.TestCase):
@@ -399,7 +419,11 @@ class TestRunRepositoryClaimNext(unittest.TestCase):
         mock_execute_result.scalars.return_value.first.return_value = None
         db.execute.return_value = mock_execute_result
 
-        result = RunRepository.claim_next(db, worker_id)
+        result = RunRepository.claim_next(
+            db,
+            worker_id,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertIsNone(result)
 
@@ -423,13 +447,48 @@ class TestRunRepositoryClaimNext(unittest.TestCase):
         mock_execute_result.scalars.return_value.first.return_value = mock_run
         db.execute.return_value = mock_execute_result
 
-        result = RunRepository.claim_next(db, worker_id, lease_seconds=0)
+        result = RunRepository.claim_next(
+            db,
+            worker_id,
+            lease_seconds=0,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertEqual(result, mock_run)
         self.assertLessEqual(
             mock_run.lease_expires_at,
             datetime.now(timezone.utc) + timedelta(seconds=1),
         )
+
+    def test_claim_next_uses_supplied_now_for_lease_expiration(self) -> None:
+        db = MagicMock()
+        worker_id = "worker-1"
+        now = datetime(2026, 4, 28, 12, 0, tzinfo=timezone.utc)
+
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value = mock_result
+        db.connection.return_value = mock_connection
+
+        mock_run = MagicMock()
+        mock_run.status = "queued"
+        mock_run.claimed_by = None
+        mock_run.lease_expires_at = None
+
+        mock_execute_result = MagicMock()
+        mock_execute_result.scalars.return_value.first.return_value = mock_run
+        db.execute.return_value = mock_execute_result
+
+        result = RunRepository.claim_next(
+            db,
+            worker_id,
+            lease_seconds=60,
+            now=now,
+        )
+
+        self.assertEqual(result, mock_run)
+        self.assertEqual(mock_run.lease_expires_at, now + timedelta(seconds=60))
 
     def test_claim_next_with_schedule_modes(self) -> None:
         db = MagicMock()
@@ -448,7 +507,10 @@ class TestRunRepositoryClaimNext(unittest.TestCase):
         db.execute.return_value = mock_execute_result
 
         result = RunRepository.claim_next(
-            db, worker_id, schedule_modes=["immediate", "nightly"]
+            db,
+            worker_id,
+            schedule_modes=["immediate", "nightly"],
+            now=datetime.now(timezone.utc),
         )
 
         self.assertIsNone(result)
@@ -474,7 +536,12 @@ class TestRunRepositoryClaimNext(unittest.TestCase):
         mock_execute_result.scalars.return_value.first.return_value = mock_run
         db.execute.return_value = mock_execute_result
 
-        result = RunRepository.claim_next(db, worker_id, lease_seconds=60)
+        result = RunRepository.claim_next(
+            db,
+            worker_id,
+            lease_seconds=60,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertEqual(result, mock_run)
         self.assertEqual(mock_run.status, "claimed")

@@ -142,6 +142,20 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
             call_args = mock_repo.claim_next.call_args
             self.assertEqual(call_args.kwargs["lease_seconds"], 30)
 
+    def test_passes_current_time_to_claim_repository(self) -> None:
+        db = MagicMock()
+        now = datetime(2026, 4, 28, 12, 0, tzinfo=timezone.utc)
+        request = RunClaimRequest(worker_id="worker-1")
+        with patch("app.services.run_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = now
+            with patch("app.services.run_service.RunRepository") as mock_repo:
+                mock_repo.claim_next.return_value = None
+                service = RunService()
+                result = service.claim_next_run(db, request)
+                self.assertIsNone(result)
+                call_args = mock_repo.claim_next.call_args
+                self.assertEqual(call_args.kwargs["now"], now)
+
     def test_session_not_found(self) -> None:
         db = MagicMock()
         run_id = uuid.uuid4()

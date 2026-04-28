@@ -28,6 +28,10 @@ from app.schemas.office import (
 )
 from app.schemas.response import Response
 from app.services.office_callback_save_service import OfficeCallbackSaveUseCase
+from app.services.office_discard_edit_session_service import (
+    OfficeDiscardEditSessionCommand,
+    OfficeDiscardEditSessionUseCase,
+)
 from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
     office_editing_store,
@@ -459,28 +463,18 @@ async def discard_edit_session(
 ) -> OfficeDiscardEditSessionResponse:
     """Discard an active Office edit session and revoke its callback token."""
     db_session = session_service.get_session(db, request.session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
+    result = OfficeDiscardEditSessionUseCase(editing_store=editing_store).execute(
+        OfficeDiscardEditSessionCommand(
+            session_id=str(request.session_id),
+            session_user_id=db_session.user_id,
+            user_id=user_id,
+            file_path=request.file_path,
+            edit_session_id=request.edit_session_id,
         )
-
-    edit_session = editing_store.get_edit_session(request.edit_session_id)
-    if (
-        edit_session is None
-        or edit_session.session_id != str(request.session_id)
-        or normalize_manifest_path(edit_session.file_path)
-        != normalize_manifest_path(request.file_path)
-        or edit_session.user_id != user_id
-    ):
-        raise AppException(
-            error_code=ErrorCode.BAD_REQUEST,
-            message="Invalid or expired Office edit session",
-        )
-
-    editing_store.discard_edit_session(edit_session.edit_session_id)
+    )
     return OfficeDiscardEditSessionResponse(
-        edit_session_id=edit_session.edit_session_id,
+        edit_session_id=result.edit_session_id,
+        status=result.status,
     )
 
 

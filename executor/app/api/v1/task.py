@@ -3,12 +3,17 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Header
 from pydantic import BaseModel
 
 from app.core.callback import CallbackClient
 from app.core.computer import ComputerClient
-from app.core.deps import require_executor_token
+from app.core.deps import (
+    TASK_LEASE_EXPIRES_AT_HEADER,
+    TASK_LEASE_SIGNATURE_HEADER,
+    require_executor_task_lease,
+    require_executor_token,
+)
 from app.core.engine import AgentExecutor, ExecutorConfig
 from app.core.memory import MemoryClient
 from app.core.observability.request_context import get_request_id, get_trace_id
@@ -42,6 +47,14 @@ async def run_task(
     req: TaskRun,
     background_tasks: BackgroundTasks,
     _: None = Depends(require_executor_token),
+    task_lease_expires_at: str | None = Header(
+        default=None,
+        alias=TASK_LEASE_EXPIRES_AT_HEADER,
+    ),
+    task_lease_signature: str | None = Header(
+        default=None,
+        alias=TASK_LEASE_SIGNATURE_HEADER,
+    ),
 ) -> dict:
     """Execute an agent task in the background.
 
@@ -52,6 +65,13 @@ async def run_task(
     Returns:
         Accepted status with session ID.
     """
+    require_executor_task_lease(
+        session_id=req.session_id,
+        run_id=req.run_id,
+        expires_at_header=task_lease_expires_at,
+        signature_header=task_lease_signature,
+    )
+
     callback_client = CallbackClient(
         callback_url=req.callback_url,
         callback_token=req.callback_token,

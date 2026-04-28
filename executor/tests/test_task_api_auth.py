@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,6 +17,22 @@ def _task_payload() -> dict:
         "callback_url": "http://executor-manager/api/v1/callback",
         "callback_token": "executor-secret",
         "config": {},
+    }
+
+
+def _task_lease_headers(
+    *,
+    session_id: str = "session-123",
+    run_id: str | None = "run-456",
+    secret: str = "executor-secret",
+    expires_at: int | None = None,
+) -> dict[str, str]:
+    expires_at = expires_at or int(time.time()) + 60
+    payload = f"{session_id}\n{run_id or ''}\n{expires_at}".encode()
+    signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    return {
+        "X-Poco-Task-Lease-Expires-At": str(expires_at),
+        "X-Poco-Task-Lease-Signature": signature,
     }
 
 
@@ -37,7 +56,54 @@ def test_execute_rejects_invalid_executor_token(monkeypatch) -> None:
     assert response.status_code == 403
 
 
-def test_execute_accepts_executor_token(monkeypatch, tmp_path: Path) -> None:
+def test_execute_requires_task_lease(monkeypatch) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "executor-secret")
+
+    response = TestClient(app).post(
+        "/v1/tasks/execute",
+        json=_task_payload(),
+        headers={"Authorization": "Bearer executor-secret"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_execute_rejects_invalid_task_lease(monkeypatch) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "executor-secret")
+    headers = {
+        "Authorization": "Bearer executor-secret",
+        **_task_lease_headers(),
+        "X-Poco-Task-Lease-Signature": "bad-signature",
+    }
+
+    response = TestClient(app).post(
+        "/v1/tasks/execute",
+        json=_task_payload(),
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+
+def test_execute_rejects_expired_task_lease(monkeypatch) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "executor-secret")
+    headers = {
+        "Authorization": "Bearer executor-secret",
+        **_task_lease_headers(expires_at=int(time.time()) - 1),
+    }
+
+    response = TestClient(app).post(
+        "/v1/tasks/execute",
+        json=_task_payload(),
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+
+def test_execute_accepts_executor_token_and_task_lease(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("CALLBACK_TOKEN", "executor-secret")
     executor = MagicMock()
     executor.workspace.root_path = tmp_path
@@ -57,7 +123,10 @@ def test_execute_accepts_executor_token(monkeypatch, tmp_path: Path) -> None:
                     response = TestClient(app).post(
                         "/v1/tasks/execute",
                         json=_task_payload(),
-                        headers={"Authorization": "Bearer executor-secret"},
+                        headers={
+                            "Authorization": "Bearer executor-secret",
+                            **_task_lease_headers(),
+                        },
                     )
 
     assert response.status_code == 200

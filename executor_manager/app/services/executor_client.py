@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import time
+
 import httpx
 
 from app.core.settings import get_settings
@@ -7,6 +11,10 @@ from app.core.observability.request_context import (
     get_request_id,
     get_trace_id,
 )
+
+TASK_LEASE_TTL_SECONDS = 300
+TASK_LEASE_EXPIRES_AT_HEADER = "X-Poco-Task-Lease-Expires-At"
+TASK_LEASE_SIGNATURE_HEADER = "X-Poco-Task-Lease-Signature"
 
 
 class ExecutorClient:
@@ -22,11 +30,40 @@ class ExecutorClient:
             "X-Trace-ID": get_trace_id() or generate_trace_id(),
         }
 
+    @staticmethod
+    def _task_lease_signature(
+        *,
+        callback_token: str,
+        session_id: str,
+        run_id: str | None,
+        expires_at: int,
+    ) -> str:
+        payload = f"{session_id}\n{run_id or ''}\n{expires_at}".encode()
+        return hmac.new(
+            callback_token.strip().encode(),
+            payload,
+            hashlib.sha256,
+        ).hexdigest()
+
     @classmethod
-    def _execution_headers(cls, callback_token: str) -> dict[str, str]:
+    def _execution_headers(
+        cls,
+        *,
+        callback_token: str,
+        session_id: str,
+        run_id: str | None,
+    ) -> dict[str, str]:
+        expires_at = int(time.time()) + TASK_LEASE_TTL_SECONDS
         return {
             **cls._trace_headers(),
             "Authorization": f"Bearer {callback_token}",
+            TASK_LEASE_EXPIRES_AT_HEADER: str(expires_at),
+            TASK_LEASE_SIGNATURE_HEADER: cls._task_lease_signature(
+                callback_token=callback_token,
+                session_id=session_id,
+                run_id=run_id,
+                expires_at=expires_at,
+            ),
         }
 
     async def execute_task(
@@ -68,7 +105,11 @@ class ExecutorClient:
                     "sdk_session_id": sdk_session_id,
                     "permission_mode": permission_mode or "default",
                 },
-                headers=self._execution_headers(callback_token),
+                headers=self._execution_headers(
+                    callback_token=callback_token,
+                    session_id=session_id,
+                    run_id=run_id,
+                ),
                 timeout=httpx.Timeout(30.0, connect=10.0),
             )
             response.raise_for_status()

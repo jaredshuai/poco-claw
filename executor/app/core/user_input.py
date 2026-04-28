@@ -16,12 +16,23 @@ class UserInputClient:
     def __init__(
         self,
         base_url: str,
+        callback_token: str | None = None,
         timeout: float = 10.0,
         poll_interval: float = 0.5,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.callback_token = (callback_token or "").strip()
         self.timeout = timeout
         self.poll_interval = poll_interval
+
+    def _headers(self) -> dict[str, str]:
+        headers = {
+            "X-Request-ID": get_request_id() or generate_request_id(),
+            "X-Trace-ID": get_trace_id() or generate_trace_id(),
+        }
+        if self.callback_token:
+            headers["Authorization"] = f"Bearer {self.callback_token}"
+        return headers
 
     @staticmethod
     def resolve_base_url(callback_url: str, callback_base_url: str | None) -> str:
@@ -36,10 +47,7 @@ class UserInputClient:
             response = await client.post(
                 f"{self.base_url}/api/v1/user-input-requests",
                 json=payload,
-                headers={
-                    "X-Request-ID": get_request_id() or generate_request_id(),
-                    "X-Trace-ID": get_trace_id() or generate_trace_id(),
-                },
+                headers=self._headers(),
             )
             response.raise_for_status()
             data = response.json()
@@ -49,10 +57,7 @@ class UserInputClient:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/user-input-requests/{request_id}",
-                headers={
-                    "X-Request-ID": get_request_id() or generate_request_id(),
-                    "X-Trace-ID": get_trace_id() or generate_trace_id(),
-                },
+                headers=self._headers(),
             )
             response.raise_for_status()
             data = response.json()

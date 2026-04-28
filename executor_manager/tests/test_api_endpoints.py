@@ -81,6 +81,29 @@ class TestCallbackEndpoint(unittest.TestCase):
 class TestComputerEndpoint(unittest.TestCase):
     """Test /api/v1/computer/screenshots endpoint."""
 
+    def test_upload_browser_screenshot_requires_callback_token(self) -> None:
+        """Test screenshot upload rejects missing callback token."""
+        from app.main import app
+
+        with patch(
+            "app.core.deps.get_settings",
+            return_value=SimpleNamespace(callback_token="callback-token"),
+        ):
+            with patch("app.api.v1.computer.computer_service") as mock_service:
+                client = TestClient(app)
+                fake_image = b"\x89PNG\r\n\x1a\n"
+
+                response = client.post(
+                    "/api/v1/computer/screenshots",
+                    data={"session_id": "sess-123", "tool_use_id": "tool-456"},
+                    files={
+                        "file": ("screenshot.png", io.BytesIO(fake_image), "image/png")
+                    },
+                )
+
+        assert response.status_code == 403
+        mock_service.upload_browser_screenshot.assert_not_called()
+
     def test_upload_browser_screenshot_success(self) -> None:
         """Test successful screenshot upload."""
         from app.main import app
@@ -96,14 +119,21 @@ class TestComputerEndpoint(unittest.TestCase):
             }
             mock_service.upload_browser_screenshot.return_value = mock_result
 
-            client = TestClient(app)
-            fake_image = b"\x89PNG\r\n\x1a\n"  # PNG header
+            with patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ):
+                client = TestClient(app)
+                fake_image = b"\x89PNG\r\n\x1a\n"  # PNG header
 
-            response = client.post(
-                "/api/v1/computer/screenshots",
-                data={"session_id": "sess-123", "tool_use_id": "tool-456"},
-                files={"file": ("screenshot.png", io.BytesIO(fake_image), "image/png")},
-            )
+                response = client.post(
+                    "/api/v1/computer/screenshots",
+                    data={"session_id": "sess-123", "tool_use_id": "tool-456"},
+                    files={
+                        "file": ("screenshot.png", io.BytesIO(fake_image), "image/png")
+                    },
+                    headers={"Authorization": "Bearer callback-token"},
+                )
 
             assert response.status_code == 200
             data = response.json()
@@ -125,15 +155,20 @@ class TestComputerEndpoint(unittest.TestCase):
             }
             mock_service.upload_browser_screenshot.return_value = mock_result
 
-            client = TestClient(app)
-            fake_image = b"fake_image_data"
+            with patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ):
+                client = TestClient(app)
+                fake_image = b"fake_image_data"
 
-            # Upload without content type
-            response = client.post(
-                "/api/v1/computer/screenshots",
-                data={"session_id": "sess-123", "tool_use_id": "tool-456"},
-                files={"file": ("screenshot.png", io.BytesIO(fake_image))},
-            )
+                # Upload without content type
+                response = client.post(
+                    "/api/v1/computer/screenshots",
+                    data={"session_id": "sess-123", "tool_use_id": "tool-456"},
+                    files={"file": ("screenshot.png", io.BytesIO(fake_image))},
+                    headers={"Authorization": "Bearer callback-token"},
+                )
 
             assert response.status_code == 200
             # Verify service was called

@@ -1,6 +1,7 @@
 """Tests for app/api/v1/user_input_requests.py."""
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,57 @@ from fastapi.testclient import TestClient
 
 class TestUserInputRequestsEndpoints(unittest.TestCase):
     """Test /api/v1/user-input-requests endpoints."""
+
+    def test_create_user_input_request_requires_callback_token(self) -> None:
+        """Test user input request creation rejects missing callback token."""
+        from app.main import app
+
+        mock_client = MagicMock()
+        mock_client.create_user_input_request = AsyncMock(
+            return_value={"id": "req-123", "status": "pending"}
+        )
+
+        with (
+            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
+        ):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/user-input-requests",
+                json={
+                    "session_id": "session-123",
+                    "tool_name": "ask_user",
+                    "tool_input": {"question": "What is the capital of France?"},
+                },
+            )
+
+        assert response.status_code == 403
+        mock_client.create_user_input_request.assert_not_called()
+
+    def test_get_user_input_request_requires_callback_token(self) -> None:
+        """Test user input request retrieval rejects missing callback token."""
+        from app.main import app
+
+        mock_client = MagicMock()
+        mock_client.get_user_input_request = AsyncMock(
+            return_value={"request_id": "req-123", "status": "completed"}
+        )
+
+        with (
+            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
+        ):
+            client = TestClient(app)
+            response = client.get("/api/v1/user-input-requests/req-123")
+
+        assert response.status_code == 403
+        mock_client.get_user_input_request.assert_not_called()
 
     def test_create_user_input_request_success(self) -> None:
         """Test successful user input request creation."""
@@ -18,9 +70,12 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
             return_value={"id": "req-123", "status": "pending"}
         )
 
-        with patch(
-            "app.api.v1.user_input_requests.backend_client",
-            mock_client,
+        with (
+            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
         ):
             client = TestClient(app)
             response = client.post(
@@ -30,6 +85,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
                     "tool_name": "ask_user",
                     "tool_input": {"question": "What is the capital of France?"},
                 },
+                headers={"Authorization": "Bearer callback-token"},
             )
 
             assert response.status_code == 200
@@ -47,9 +103,12 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
             return_value={"id": "req-456", "status": "pending"}
         )
 
-        with patch(
-            "app.api.v1.user_input_requests.backend_client",
-            mock_client,
+        with (
+            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
         ):
             client = TestClient(app)
             response = client.post(
@@ -60,6 +119,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
                     "tool_input": {"question": "Test prompt"},
                     "expires_at": "2026-04-01T00:00:00Z",
                 },
+                headers={"Authorization": "Bearer callback-token"},
             )
 
             assert response.status_code == 200
@@ -80,12 +140,18 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
             }
         )
 
-        with patch(
-            "app.api.v1.user_input_requests.backend_client",
-            mock_client,
+        with (
+            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
         ):
             client = TestClient(app)
-            response = client.get("/api/v1/user-input-requests/req-123")
+            response = client.get(
+                "/api/v1/user-input-requests/req-123",
+                headers={"Authorization": "Bearer callback-token"},
+            )
 
             assert response.status_code == 200
             data = response.json()
@@ -100,12 +166,18 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.get_user_input_request = AsyncMock(return_value=None)
 
-        with patch(
-            "app.api.v1.user_input_requests.backend_client",
-            mock_client,
+        with (
+            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
         ):
             client = TestClient(app)
-            response = client.get("/api/v1/user-input-requests/nonexistent")
+            response = client.get(
+                "/api/v1/user-input-requests/nonexistent",
+                headers={"Authorization": "Bearer callback-token"},
+            )
 
             assert response.status_code == 200
             data = response.json()

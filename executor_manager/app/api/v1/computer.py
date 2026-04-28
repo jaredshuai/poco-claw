@@ -1,5 +1,6 @@
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 
+from app.core.deps import require_callback_token
 from app.schemas.computer import ComputerScreenshotUploadResponse
 from app.schemas.response import Response, ResponseSchema
 from app.services.computer_service import ComputerService
@@ -17,6 +18,7 @@ async def upload_browser_screenshot(
     session_id: str = Form(...),
     tool_use_id: str = Form(...),
     file: UploadFile = File(...),
+    _: None = Depends(require_callback_token),
 ):
     """Upload a browser screenshot produced by the executor."""
     raw = await file.read()

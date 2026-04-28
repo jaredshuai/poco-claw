@@ -59,8 +59,14 @@ async def run_task(
     base_url = UserInputClient.resolve_base_url(
         callback_url=req.callback_url, callback_base_url=req.callback_base_url
     )
-    user_input_client = UserInputClient(base_url=base_url)
-    computer_client = ComputerClient(base_url=base_url)
+    user_input_client = UserInputClient(
+        base_url=base_url,
+        callback_token=req.callback_token,
+    )
+    computer_client = ComputerClient(
+        base_url=base_url,
+        callback_token=req.callback_token,
+    )
     memory_client = (
         MemoryClient(base_url=base_url, session_id=req.session_id)
         if req.config.memory_enabled

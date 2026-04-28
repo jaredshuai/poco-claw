@@ -45,16 +45,29 @@ def test_execute_accepts_executor_token(monkeypatch, tmp_path: Path) -> None:
 
     with patch("app.api.v1.task.AgentExecutor", return_value=executor):
         with patch("app.api.v1.task.HookRegistry") as registry_cls:
-            registry = registry_cls.return_value
-            registry.default_specs.return_value = []
-            registry.build.return_value = []
+            with patch("app.api.v1.task.UserInputClient") as user_input_cls:
+                with patch("app.api.v1.task.ComputerClient") as computer_cls:
+                    user_input_cls.resolve_base_url.return_value = (
+                        "http://executor-manager"
+                    )
+                    registry = registry_cls.return_value
+                    registry.default_specs.return_value = []
+                    registry.build.return_value = []
 
-            response = TestClient(app).post(
-                "/v1/tasks/execute",
-                json=_task_payload(),
-                headers={"Authorization": "Bearer executor-secret"},
-            )
+                    response = TestClient(app).post(
+                        "/v1/tasks/execute",
+                        json=_task_payload(),
+                        headers={"Authorization": "Bearer executor-secret"},
+                    )
 
     assert response.status_code == 200
     assert response.json() == {"status": "accepted", "session_id": "session-123"}
+    user_input_cls.assert_called_once_with(
+        base_url="http://executor-manager",
+        callback_token="executor-secret",
+    )
+    computer_cls.assert_called_once_with(
+        base_url="http://executor-manager",
+        callback_token="executor-secret",
+    )
     executor.execute.assert_awaited_once()

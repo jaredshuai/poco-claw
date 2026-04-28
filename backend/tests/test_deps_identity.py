@@ -51,6 +51,15 @@ def test_get_current_user_id_allows_internal_user_header():
         )
 
 
+def test_get_current_user_id_rejects_near_match_internal_token():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException):
+            get_current_user_id(
+                x_user_id="worker-user",
+                x_internal_token="internal-toke",
+            )
+
+
 def test_get_current_user_id_allows_trusted_user_header_token():
     with patch("app.core.deps.get_settings", return_value=_settings()):
         assert (
@@ -60,3 +69,12 @@ def test_get_current_user_id_allows_trusted_user_header_token():
             )
             == "proxy-user"
         )
+
+
+def test_get_current_user_id_rejects_near_match_trusted_user_header_token():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException):
+            get_current_user_id(
+                x_user_id="proxy-user",
+                x_user_id_token="trusted-user-toke",
+            )

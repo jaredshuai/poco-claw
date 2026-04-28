@@ -1,3 +1,4 @@
+import hmac
 import uuid
 from typing import Annotated, Generator
 
@@ -11,6 +12,16 @@ from app.core.settings import get_settings
 from app.repositories.session_repository import SessionRepository
 
 DEFAULT_USER_ID = "default"
+
+
+def _token_matches(provided: str | None, expected: str) -> bool:
+    provided_token = (provided or "").strip()
+    expected_token = expected.strip()
+    return bool(
+        provided_token
+        and expected_token
+        and hmac.compare_digest(provided_token, expected_token)
+    )
 
 
 def get_current_user_id(
@@ -37,11 +48,11 @@ def get_current_user_id(
     trusted_user_header_token = (
         getattr(settings, "trusted_user_header_token", "") or ""
     ).strip()
-    if trusted_user_header_token and x_user_id_token == trusted_user_header_token:
+    if _token_matches(x_user_id_token, trusted_user_header_token):
         return value
 
     internal_api_token = (settings.internal_api_token or "").strip()
-    if internal_api_token and x_internal_token == internal_api_token:
+    if _token_matches(x_internal_token, internal_api_token):
         return value
 
     raise AppException(
@@ -64,12 +75,13 @@ def require_internal_token(
 ) -> None:
     """Validate X-Internal-Token header for internal API endpoints."""
     settings = get_settings()
-    if not settings.internal_api_token:
+    internal_api_token = (settings.internal_api_token or "").strip()
+    if not internal_api_token:
         raise AppException(
             error_code=ErrorCode.FORBIDDEN,
             message="Internal API token is not configured",
         )
-    if not x_internal_token or x_internal_token != settings.internal_api_token:
+    if not _token_matches(x_internal_token, internal_api_token):
         raise AppException(
             error_code=ErrorCode.FORBIDDEN,
             message="Invalid internal token",

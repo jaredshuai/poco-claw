@@ -506,22 +506,14 @@ async def office_callback(
             message="Office callback document key mismatch",
         )
 
-    if callback.status in {6, 7}:
-        callback_save_use_case = OfficeCallbackSaveUseCase(
-            storage_service=storage_service,
-            editing_store=editing_store,
-            validate_download_url=_validate_callback_download_url,
-        )
-        if callback.status == 6:
-            await callback_save_use_case.handle_saved_callback(
-                edit_session=edit_session,
-                callback=callback,
-            )
-        else:
-            await callback_save_use_case.handle_failed_callback(
-                edit_session=edit_session,
-                callback=callback,
-            )
+    await OfficeCallbackSaveUseCase(
+        storage_service=storage_service,
+        editing_store=editing_store,
+        validate_download_url=_validate_callback_download_url,
+    ).handle_callback(
+        edit_session=edit_session,
+        callback=callback,
+    )
 
     return {"error": 0}
 

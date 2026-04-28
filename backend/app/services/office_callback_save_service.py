@@ -62,6 +62,23 @@ class OfficeCallbackSaveUseCase:
         self.validate_download_url = validate_download_url
         self.downloader = downloader or OfficeCallbackContentDownloader()
 
+    async def handle_callback(
+        self,
+        *,
+        edit_session: OfficeEditSession,
+        callback: OfficeCallbackRequest,
+    ) -> None:
+        if callback.status == 6:
+            await self.handle_saved_callback(
+                edit_session=edit_session,
+                callback=callback,
+            )
+        elif callback.status == 7:
+            await self.handle_failed_callback(
+                edit_session=edit_session,
+                callback=callback,
+            )
+
     async def handle_saved_callback(
         self,
         *,

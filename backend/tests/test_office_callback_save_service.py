@@ -1,6 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from app.schemas.office import OfficeCallbackRequest
 from app.services.office_callback_save_service import OfficeCallbackSaveUseCase
@@ -72,6 +72,29 @@ def test_failed_callback_marks_active_save_request_failed() -> None:
         "save-123",
         error_code="office_forcesave_failed",
         error_message="123",
+    )
+
+
+def test_handle_callback_dispatches_failed_status() -> None:
+    use_case = _use_case(editing_store=MagicMock())
+    use_case.handle_failed_callback = AsyncMock(return_value=None)
+    callback = OfficeCallbackRequest(
+        status=7,
+        key="doc-key",
+        userdata="save-123",
+    )
+    edit_session = _edit_session()
+
+    asyncio.run(
+        use_case.handle_callback(
+            edit_session=edit_session,
+            callback=callback,
+        )
+    )
+
+    use_case.handle_failed_callback.assert_awaited_once_with(
+        edit_session=edit_session,
+        callback=callback,
     )
 
 

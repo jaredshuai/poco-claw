@@ -35,6 +35,11 @@ from app.services.office_editing_service import (
     SAVE_STATUS_SAVING,
     office_editing_store,
 )
+from app.services.office_force_save_service import (
+    OfficeForceSaveCommand,
+    OfficeForceSaveUseCase,
+    OfficeSaveInProgressError,
+)
 from app.services.office_viewer_service import build_viewer_config
 from app.services.session_service import SessionService
 from app.services.storage_service import S3StorageService
@@ -391,53 +396,31 @@ async def force_save(
 ) -> OfficeForceSaveResponse:
     """Trigger an explicit OnlyOffice force-save for an active edit session."""
     db_session = session_service.get_session(db, request.session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
+    try:
+        result = await OfficeForceSaveUseCase(
+            editing_store=editing_store,
+            command_client=command_client,
+        ).execute(
+            OfficeForceSaveCommand(
+                session_id=str(request.session_id),
+                session_user_id=db_session.user_id,
+                user_id=user_id,
+                file_path=request.file_path,
+                edit_session_id=request.edit_session_id,
+            )
         )
-
-    edit_session = editing_store.get_edit_session(request.edit_session_id)
-    if (
-        edit_session is None
-        or edit_session.session_id != str(request.session_id)
-        or normalize_manifest_path(edit_session.file_path)
-        != normalize_manifest_path(request.file_path)
-        or edit_session.user_id != user_id
-    ):
-        raise AppException(
-            error_code=ErrorCode.BAD_REQUEST,
-            message="Invalid or expired Office edit session",
-        )
-
-    active = editing_store.get_active_save_request(edit_session.edit_session_id)
-    if active is not None:
+    except OfficeSaveInProgressError as exc:
         raise HTTPException(
             status_code=409,
             detail={
                 "message": "save_in_progress",
-                "active_save_request_id": active.save_request_id,
+                "active_save_request_id": exc.active_save_request_id,
             },
-        )
+        ) from exc
 
-    save_request = editing_store.create_save_request(edit_session)
-    try:
-        await command_client.forcesave(
-            document_key=edit_session.document_key,
-            userdata=save_request.save_request_id,
-        )
-    except Exception as exc:
-        editing_store.mark_failed(
-            save_request.save_request_id,
-            error_code="office_command_rejected",
-            error_message=str(exc),
-        )
-        raise
-
-    editing_store.mark_saving(save_request.save_request_id)
     return OfficeForceSaveResponse(
-        save_request_id=save_request.save_request_id,
-        status="saving",
+        save_request_id=result.save_request_id,
+        status=result.status,
     )
 
 

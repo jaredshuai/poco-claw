@@ -1,6 +1,6 @@
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.core.errors.error_codes import ErrorCode
@@ -40,6 +40,14 @@ def create_mock_run(
     mock_run.updated_at = datetime.now(timezone.utc)
     mock_run.usage = None
     return mock_run
+
+
+def future_lease() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(minutes=5)
+
+
+def expired_lease() -> datetime:
+    return datetime.now(timezone.utc) - timedelta(seconds=1)
 
 
 class TestRunServiceExtractPromptFromMessage(unittest.TestCase):
@@ -474,6 +482,7 @@ class TestRunServiceStartRun(unittest.TestCase):
         mock_run = create_mock_run(
             run_id=run_id, status="claimed", claimed_by="worker-1"
         )
+        mock_run.lease_expires_at = future_lease()
         mock_run.attempts = 0
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
@@ -487,7 +496,7 @@ class TestRunServiceStartRun(unittest.TestCase):
                 mock_lifecycle.mark_running.assert_called_once()
                 db.commit.assert_called_once()
 
-    def test_run_start_from_queued(self) -> None:
+    def test_run_start_rejects_unclaimed_queued_run(self) -> None:
         db = MagicMock()
         run_id = uuid.uuid4()
         request = RunStartRequest(worker_id="worker-1")
@@ -501,10 +510,31 @@ class TestRunServiceStartRun(unittest.TestCase):
                 "app.services.run_service.run_lifecycle_service"
             ) as mock_lifecycle:
                 service = RunService()
-                result = service.start_run(db, run_id, request)
-                self.assertIsNotNone(result)
-                self.assertEqual(mock_run.claimed_by, "worker-1")
-                mock_lifecycle.mark_running.assert_called_once()
+                with self.assertRaises(AppException) as ctx:
+                    service.start_run(db, run_id, request)
+                self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+                mock_lifecycle.mark_running.assert_not_called()
+
+    def test_run_start_rejects_expired_claim(self) -> None:
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        request = RunStartRequest(worker_id="worker-1")
+
+        mock_run = create_mock_run(
+            run_id=run_id, status="claimed", claimed_by="worker-1"
+        )
+        mock_run.lease_expires_at = expired_lease()
+
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
+                service = RunService()
+                with self.assertRaises(AppException) as ctx:
+                    service.start_run(db, run_id, request)
+                self.assertEqual(ctx.exception.error_code, ErrorCode.FORBIDDEN)
+                mock_lifecycle.mark_running.assert_not_called()
 
 
 class TestRunServiceFailRun(unittest.TestCase):
@@ -570,6 +600,7 @@ class TestRunServiceFailRun(unittest.TestCase):
             claimed_by="worker-1",
             started_at=datetime.now(timezone.utc),
         )
+        mock_run.lease_expires_at = expired_lease()
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
@@ -592,6 +623,7 @@ class TestRunServiceFailRun(unittest.TestCase):
             claimed_by="worker-1",
             started_at=None,
         )
+        mock_run.lease_expires_at = expired_lease()
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
@@ -604,7 +636,7 @@ class TestRunServiceFailRun(unittest.TestCase):
                 self.assertIsNotNone(mock_run.started_at)
                 mock_lifecycle.finalize_terminal.assert_called_once()
 
-    def test_run_fail_with_none_claimed_by(self) -> None:
+    def test_run_fail_rejects_unclaimed_running_run(self) -> None:
         db = MagicMock()
         run_id = uuid.uuid4()
         request = RunFailRequest(worker_id="worker-1", error_message="Error")
@@ -618,10 +650,61 @@ class TestRunServiceFailRun(unittest.TestCase):
 
         with patch("app.services.run_service.RunRepository") as mock_repo:
             mock_repo.get_by_id.return_value = mock_run
-            with patch("app.services.run_service.run_lifecycle_service"):
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
                 service = RunService()
-                result = service.fail_run(db, run_id, request)
-                self.assertIsNotNone(result)
+                with self.assertRaises(AppException) as ctx:
+                    service.fail_run(db, run_id, request)
+                self.assertEqual(ctx.exception.error_code, ErrorCode.FORBIDDEN)
+                mock_lifecycle.finalize_terminal.assert_not_called()
+
+    def test_run_fail_rejects_unclaimed_queued_run(self) -> None:
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        request = RunFailRequest(worker_id="worker-1", error_message="Error")
+
+        mock_run = create_mock_run(
+            run_id=run_id,
+            status="queued",
+            claimed_by=None,
+            started_at=None,
+        )
+
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
+                service = RunService()
+                with self.assertRaises(AppException) as ctx:
+                    service.fail_run(db, run_id, request)
+                self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+                mock_lifecycle.finalize_terminal.assert_not_called()
+
+    def test_run_fail_rejects_expired_claim(self) -> None:
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        request = RunFailRequest(worker_id="worker-1", error_message="Error")
+
+        mock_run = create_mock_run(
+            run_id=run_id,
+            status="claimed",
+            claimed_by="worker-1",
+            started_at=None,
+        )
+        mock_run.lease_expires_at = expired_lease()
+
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            with patch(
+                "app.services.run_service.run_lifecycle_service"
+            ) as mock_lifecycle:
+                service = RunService()
+                with self.assertRaises(AppException) as ctx:
+                    service.fail_run(db, run_id, request)
+                self.assertEqual(ctx.exception.error_code, ErrorCode.FORBIDDEN)
+                mock_lifecycle.finalize_terminal.assert_not_called()
 
 
 if __name__ == "__main__":

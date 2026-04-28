@@ -78,13 +78,39 @@ async def test_dispatch_claim_fails_and_cancels_when_start_run_fails() -> None:
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
-    service.executor_client.execute_task.assert_awaited_once()
+    service.executor_client.execute_task.assert_not_awaited()
     service.backend_client.fail_run.assert_awaited_once()
     fail_kwargs = service.backend_client.fail_run.call_args.kwargs
     assert fail_kwargs["run_id"] == "run-123"
     assert fail_kwargs["worker_id"] == "worker-1"
     assert "start failed" in fail_kwargs["error_message"]
     service.container_pool.cancel_task.assert_awaited_once_with("sess-123")
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_starts_run_before_executor_execute_task() -> None:
+    service = _make_dispatch_service()
+    call_order: list[str] = []
+
+    async def start_run(*, run_id: str, worker_id: str) -> None:
+        call_order.append(f"start:{run_id}:{worker_id}")
+
+    async def execute_task(**kwargs) -> str:
+        call_order.append(f"execute:{kwargs['run_id']}")
+        return "sess-123"
+
+    service.backend_client.start_run.side_effect = start_run
+    service.executor_client.execute_task.side_effect = execute_task
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    assert call_order == ["start:run-123:worker-1", "execute:run-123"]
 
 
 @pytest.mark.asyncio

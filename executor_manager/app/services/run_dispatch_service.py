@@ -312,6 +312,19 @@ class RunDispatchService:
                     except Exception:
                         pass
 
+            step_started = time.perf_counter()
+            await self.backend_client.start_run(run_id=run_id, worker_id=worker_id)
+            logger.info(
+                "timing",
+                extra={
+                    "step": "run_dispatch_backend_start_run",
+                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                    "worker_id": worker_id,
+                    **ctx,
+                },
+            )
+
+            step_started = time.perf_counter()
             await self.executor_client.execute_task(
                 executor_url=executor_url,
                 session_id=session_id,
@@ -331,17 +344,6 @@ class RunDispatchService:
                     "step": "run_dispatch_executor_execute_task",
                     "duration_ms": int((time.perf_counter() - step_started) * 1000),
                     "container_id": container_id,
-                    **ctx,
-                },
-            )
-            step_started = time.perf_counter()
-            await self.backend_client.start_run(run_id=run_id, worker_id=worker_id)
-            logger.info(
-                "timing",
-                extra={
-                    "step": "run_dispatch_backend_start_run",
-                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                    "worker_id": worker_id,
                     **ctx,
                 },
             )

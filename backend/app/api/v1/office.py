@@ -27,19 +27,15 @@ from app.schemas.office import (
     OfficeViewerConfigResponse,
 )
 from app.schemas.response import Response
+from app.services.office_callback_save_service import OfficeCallbackSaveUseCase
 from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
     SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
-    SAVE_STATUS_SAVED,
     SAVE_STATUS_SAVING,
     office_editing_store,
 )
 from app.services.office_viewer_service import build_viewer_config
-from app.services.office_writeback_service import (
-    OfficeSaveWritebackService,
-    OfficeWritebackStateCommitError,
-)
 from app.services.session_service import SessionService
 from app.services.storage_service import S3StorageService
 from app.utils.workspace_manifest import (
@@ -546,81 +542,11 @@ async def office_callback(
         )
 
     if callback.status == 6:
-        if not callback.userdata:
-            return {"error": 0}
-        save_request = editing_store.get_save_request(callback.userdata)
-        if (
-            save_request is None
-            or save_request.edit_session_id != edit_session.edit_session_id
-        ):
-            return {"error": 0}
-        if save_request.status in {
-            SAVE_STATUS_COMMITTING,
-            SAVE_STATUS_SAVED,
-            SAVE_STATUS_FAILED,
-        }:
-            return {"error": 0}
-        if not callback.url:
-            editing_store.mark_failed(
-                save_request.save_request_id,
-                error_code="office_callback_missing_url",
-            )
-            return {"error": 0}
-
-        try:
-            _validate_callback_download_url(callback.url)
-        except AppException:
-            editing_store.mark_failed(
-                save_request.save_request_id,
-                error_code="untrusted_callback_download_url",
-            )
-            raise
-
-        try:
-            claimed_save_request = editing_store.try_begin_commit(
-                save_request.save_request_id,
-                edit_session_id=edit_session.edit_session_id,
-            )
-            if claimed_save_request is None:
-                return {"error": 0}
-            save_request = claimed_save_request
-
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(callback.url)
-                response.raise_for_status()
-                content = response.content
-
-            content_type = (
-                response.headers.get("content-type")
-                or edit_session.mime_type
-                or "application/octet-stream"
-            )
-            OfficeSaveWritebackService(
-                storage_service=storage_service,
-                editing_store=editing_store,
-            ).commit_saved_content(
-                edit_session=edit_session,
-                save_request=save_request,
-                content=content,
-                content_type=content_type,
-            )
-        except OfficeWritebackStateCommitError:
-            logger.exception(
-                "Office writeback committed but save state commit failed",
-                extra={
-                    "save_request_id": save_request.save_request_id,
-                    "edit_session_id": edit_session.edit_session_id,
-                    "session_id": edit_session.session_id,
-                },
-            )
-            raise
-        except Exception as exc:
-            editing_store.mark_failed(
-                save_request.save_request_id,
-                error_code="writeback_failed",
-                error_message=str(exc),
-            )
-            raise
+        await OfficeCallbackSaveUseCase(
+            storage_service=storage_service,
+            editing_store=editing_store,
+            validate_download_url=_validate_callback_download_url,
+        ).handle_saved_callback(edit_session=edit_session, callback=callback)
 
     elif callback.status == 7 and callback.userdata:
         save_request = editing_store.get_save_request(callback.userdata)

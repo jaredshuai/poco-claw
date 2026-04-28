@@ -719,7 +719,10 @@ class TestOfficeEditingFlow:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "app.services.office_callback_save_service.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("app.api.v1.office.storage_service") as mock_storage,
         ):
             mock_storage.get_manifest.return_value = manifest
@@ -859,7 +862,10 @@ class TestOfficeEditingFlow:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "app.services.office_callback_save_service.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("app.api.v1.office.storage_service") as mock_storage,
         ):
             _run(office_callback(token=callback_token, request=callback_body))
@@ -955,7 +961,10 @@ class TestOfficeEditingFlow:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "app.services.office_callback_save_service.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("app.api.v1.office.storage_service") as mock_storage,
             pytest.raises(AppException),
         ):
@@ -1087,7 +1096,10 @@ class TestOfficeEditingFlow:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "app.services.office_callback_save_service.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("app.api.v1.office.storage_service") as mock_storage,
             patch(
                 "app.api.v1.office.editing_store.complete_save_request",
@@ -1277,7 +1289,10 @@ class TestOfficeEditingFlow:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "app.services.office_callback_save_service.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("app.api.v1.office.storage_service") as mock_storage,
             pytest.raises(AppException) as exc,
         ):
@@ -1720,7 +1735,10 @@ class TestOfficeEditingFlow:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "app.services.office_callback_save_service.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("app.api.v1.office.storage_service") as mock_storage,
         ):
             _run(office_callback(token=callback_token, request=callback_body))

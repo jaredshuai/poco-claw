@@ -32,6 +32,7 @@ from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
     SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
+    SAVE_STATUS_PENDING,
     SAVE_STATUS_SAVING,
     office_editing_store,
 )
@@ -554,6 +555,8 @@ async def office_callback(
             save_request is None
             or save_request.edit_session_id != edit_session.edit_session_id
         ):
+            return {"error": 0}
+        if save_request.status not in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}:
             return {"error": 0}
         editing_store.mark_failed(
             save_request.save_request_id,

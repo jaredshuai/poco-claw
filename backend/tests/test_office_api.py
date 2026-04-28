@@ -1653,6 +1653,93 @@ class TestOfficeEditingFlow:
         assert status.error_code == "office_forcesave_failed"
         assert status.error_message == "123"
 
+    def test_callback_status_7_does_not_regress_saved_request(self):
+        from app.api.v1.office import (
+            editing_store,
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [_file_entry("report.docx", key="ws/abc/report.docx", size=1024)]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000011",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(
+                    request=OfficeForceSaveRequest(
+                        session_id=config_request.session_id,
+                        file_path="report.docx",
+                        edit_session_id=config.edit_session_id,
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        editing_store.mark_saved(save_result.save_request_id)
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        callback = OfficeCallbackRequest(
+            status=7,
+            key=config.document.key,
+            userdata=save_result.save_request_id,
+            error=123,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        _run(office_callback(token=callback_token, request=callback_body))
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+
+        assert status.status == "saved"
+        assert status.error_code is None
+
     def test_callback_status_6_does_not_write_back_failed_save_request(self):
         from app.api.v1.office import (
             editing_store,

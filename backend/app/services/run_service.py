@@ -16,6 +16,10 @@ from app.schemas.run import (
     RunStartRequest,
 )
 from app.services.run_lifecycle_service import RunLifecycleService
+from app.services.run_transition_policy import (
+    RUN_TRANSITION_NOOP,
+    RunTransitionPolicy,
+)
 from app.services.run_worker_lease_policy import RunWorkerLeasePolicy
 from app.services.usage_service import UsageService
 
@@ -143,21 +147,8 @@ class RunService:
                 message=f"Run not found: {run_id}",
             )
 
-        if db_run.status in ["completed", "failed", "canceled"]:
+        if RunTransitionPolicy.evaluate_start(db_run, worker_id) == RUN_TRANSITION_NOOP:
             return RunResponse.model_validate(db_run)
-
-        if db_run.status == "running":
-            RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
-            return RunResponse.model_validate(db_run)
-
-        if db_run.status != "claimed":
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message=f"Run status cannot be started: {db_run.status}",
-            )
-
-        RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
-        RunWorkerLeasePolicy.ensure_active_claim(db_run)
 
         db_run.attempts += 1
         run_lifecycle_service.mark_running(db, db_run)
@@ -180,18 +171,8 @@ class RunService:
                 message=f"Run not found: {run_id}",
             )
 
-        if db_run.status in ["completed", "failed", "canceled"]:
+        if RunTransitionPolicy.evaluate_fail(db_run, worker_id) == RUN_TRANSITION_NOOP:
             return RunResponse.model_validate(db_run)
-
-        if db_run.status not in ["claimed", "running"]:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message=f"Run status cannot be failed: {db_run.status}",
-            )
-
-        RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
-        if db_run.status == "claimed":
-            RunWorkerLeasePolicy.ensure_active_claim(db_run)
 
         if db_run.started_at is None:
             db_run.started_at = datetime.now(timezone.utc)

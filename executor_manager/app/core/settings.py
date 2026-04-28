@@ -6,9 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def resolve_executor_task_lease_secret(settings: object) -> str:
-    dedicated_secret = (
-        str(getattr(settings, "executor_task_lease_secret", "") or "").strip()
-    )
+    dedicated_secret = str(
+        getattr(settings, "executor_task_lease_secret", "") or ""
+    ).strip()
     if dedicated_secret:
         return dedicated_secret
     return str(getattr(settings, "callback_token", "") or "").strip()

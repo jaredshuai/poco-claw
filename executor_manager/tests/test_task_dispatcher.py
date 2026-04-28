@@ -302,9 +302,7 @@ class TestTaskDispatcherDispatch:
                                                 mock_executor_client.execute_task.assert_called_once()
                                                 call_kwargs = mock_executor_client.execute_task.call_args.kwargs
                                                 assert (
-                                                    call_kwargs[
-                                                        "task_lease_secret"
-                                                    ]
+                                                    call_kwargs["task_lease_secret"]
                                                     == "lease-token"
                                                 )
                                                 mock_backend_client.update_session_status.assert_called_once_with(

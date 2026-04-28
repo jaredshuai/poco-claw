@@ -16,6 +16,7 @@ from app.schemas.run import (
     RunStartRequest,
 )
 from app.services.run_lifecycle_service import RunLifecycleService
+from app.services.run_worker_lease_policy import RunWorkerLeasePolicy
 from app.services.usage_service import UsageService
 
 usage_service = UsageService()
@@ -24,34 +25,6 @@ run_lifecycle_service = RunLifecycleService()
 
 class RunService:
     """Service layer for run queue operations."""
-
-    def _ensure_worker_owns_run(self, db_run: object, worker_id: str) -> None:
-        claimed_by = getattr(db_run, "claimed_by", None)
-        if not claimed_by:
-            raise AppException(
-                error_code=ErrorCode.FORBIDDEN,
-                message="Run is not claimed by a worker",
-            )
-        if claimed_by != worker_id:
-            raise AppException(
-                error_code=ErrorCode.FORBIDDEN,
-                message="Run is claimed by another worker",
-            )
-
-    def _ensure_active_claim(self, db_run: object) -> None:
-        lease_expires_at = getattr(db_run, "lease_expires_at", None)
-        if lease_expires_at is None:
-            raise AppException(
-                error_code=ErrorCode.FORBIDDEN,
-                message="Run claim is missing a lease",
-            )
-        if lease_expires_at.tzinfo is None:
-            lease_expires_at = lease_expires_at.replace(tzinfo=timezone.utc)
-        if lease_expires_at <= datetime.now(timezone.utc):
-            raise AppException(
-                error_code=ErrorCode.FORBIDDEN,
-                message="Run claim has expired",
-            )
 
     def _extract_prompt_from_message(self, message_content: object) -> str | None:
         if not isinstance(message_content, dict):
@@ -100,12 +73,7 @@ class RunService:
     def claim_next_run(
         self, db: Session, request: RunClaimRequest
     ) -> RunClaimResponse | None:
-        worker_id = request.worker_id.strip()
-        if not worker_id:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message="worker_id cannot be empty",
-            )
+        worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
 
         schedule_modes = (
             [
@@ -166,12 +134,7 @@ class RunService:
     def start_run(
         self, db: Session, run_id: uuid.UUID, request: RunStartRequest
     ) -> RunResponse:
-        worker_id = request.worker_id.strip()
-        if not worker_id:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message="worker_id cannot be empty",
-            )
+        worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
 
         db_run = RunRepository.get_by_id(db, run_id)
         if not db_run:
@@ -184,7 +147,7 @@ class RunService:
             return RunResponse.model_validate(db_run)
 
         if db_run.status == "running":
-            self._ensure_worker_owns_run(db_run, worker_id)
+            RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
             return RunResponse.model_validate(db_run)
 
         if db_run.status != "claimed":
@@ -193,8 +156,8 @@ class RunService:
                 message=f"Run status cannot be started: {db_run.status}",
             )
 
-        self._ensure_worker_owns_run(db_run, worker_id)
-        self._ensure_active_claim(db_run)
+        RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
+        RunWorkerLeasePolicy.ensure_active_claim(db_run)
 
         db_run.attempts += 1
         run_lifecycle_service.mark_running(db, db_run)
@@ -208,12 +171,7 @@ class RunService:
         run_id: uuid.UUID,
         request: RunFailRequest,
     ) -> RunResponse:
-        worker_id = request.worker_id.strip()
-        if not worker_id:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message="worker_id cannot be empty",
-            )
+        worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
 
         db_run = RunRepository.get_by_id(db, run_id)
         if not db_run:
@@ -231,9 +189,9 @@ class RunService:
                 message=f"Run status cannot be failed: {db_run.status}",
             )
 
-        self._ensure_worker_owns_run(db_run, worker_id)
+        RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
         if db_run.status == "claimed":
-            self._ensure_active_claim(db_run)
+            RunWorkerLeasePolicy.ensure_active_claim(db_run)
 
         if db_run.started_at is None:
             db_run.started_at = datetime.now(timezone.utc)

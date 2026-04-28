@@ -30,15 +30,16 @@ from app.schemas.response import Response
 from app.services.office_callback_save_service import OfficeCallbackSaveUseCase
 from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
-    SAVE_STATUS_COMMITTING,
-    SAVE_STATUS_FAILED,
-    SAVE_STATUS_SAVING,
     office_editing_store,
 )
 from app.services.office_force_save_service import (
     OfficeForceSaveCommand,
     OfficeForceSaveUseCase,
     OfficeSaveInProgressError,
+)
+from app.services.office_save_status_service import (
+    OfficeSaveStatusQuery,
+    OfficeSaveStatusUseCase,
 )
 from app.services.office_viewer_service import build_viewer_config
 from app.services.session_service import SessionService
@@ -433,33 +434,20 @@ async def get_save_status(
 ) -> OfficeSaveStatusResponse:
     """Return a short-lived Office save request status."""
     del db
-    save_request = editing_store.get_save_request(save_request_id)
-    if save_request is None or save_request.session_id != str(session_id):
-        return OfficeSaveStatusResponse(
+    result = OfficeSaveStatusUseCase(editing_store=editing_store).execute(
+        OfficeSaveStatusQuery(
+            session_id=str(session_id),
             save_request_id=save_request_id,
-            status=SAVE_STATUS_FAILED,
-            error_code="not_found_or_expired",
+            user_id=user_id,
         )
-
-    if save_request.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Save request does not belong to the user",
-        )
-
-    response_status = (
-        SAVE_STATUS_SAVING
-        if save_request.status == SAVE_STATUS_COMMITTING
-        else save_request.status
     )
+
     return OfficeSaveStatusResponse(
-        save_request_id=save_request.save_request_id,
-        status=response_status,  # type: ignore[arg-type]
-        error_code=save_request.error_code,
-        error_message=save_request.error_message,
-        completed_at=save_request.completed_at.isoformat()
-        if save_request.completed_at
-        else None,
+        save_request_id=result.save_request_id,
+        status=result.status,
+        error_code=result.error_code,
+        error_message=result.error_message,
+        completed_at=result.completed_at,
     )
 
 

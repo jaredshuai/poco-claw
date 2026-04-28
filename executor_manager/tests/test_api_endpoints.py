@@ -2,6 +2,7 @@
 
 import io
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -10,14 +11,44 @@ from fastapi.testclient import TestClient
 class TestCallbackEndpoint(unittest.TestCase):
     """Test /api/v1/callback endpoint."""
 
+    def test_receive_callback_requires_callback_token(self) -> None:
+        """Test callback rejects missing callback token."""
+        from app.main import app
+
+        with patch(
+            "app.core.deps.get_settings",
+            return_value=SimpleNamespace(callback_token="callback-token"),
+        ):
+            with patch("app.api.v1.callback.callback_service") as mock_service:
+                mock_result = MagicMock()
+                mock_result.model_dump.return_value = {
+                    "session_id": "sess-123",
+                    "status": "received",
+                    "callback_status": "completed",
+                    "progress": 100,
+                }
+                mock_service.process_callback = AsyncMock(return_value=mock_result)
+                client = TestClient(app)
+                response = client.post(
+                    "/api/v1/callback",
+                    json={
+                        "session_id": "sess-123",
+                        "run_id": "run-456",
+                        "status": "completed",
+                        "progress": 100,
+                    },
+                )
+
+        assert response.status_code == 403
+        mock_service.process_callback.assert_not_called()
+
     def test_receive_callback_success(self) -> None:
         """Test successful callback processing."""
         from app.main import app
 
-        with patch.object(
-            app.dependency_overrides.get(type(app.router.routes[0].path), MagicMock()),
-            "callback_service",
-            None,
+        with patch(
+            "app.core.deps.get_settings",
+            return_value=SimpleNamespace(callback_token="callback-token"),
         ):
             with patch("app.api.v1.callback.callback_service") as mock_service:
                 mock_result = MagicMock()
@@ -38,6 +69,7 @@ class TestCallbackEndpoint(unittest.TestCase):
                         "status": "completed",
                         "progress": 100,
                     },
+                    headers={"Authorization": "Bearer callback-token"},
                 )
 
                 assert response.status_code == 200

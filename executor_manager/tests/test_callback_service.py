@@ -356,6 +356,7 @@ class TestProcessCallback(unittest.TestCase):
         ):
             service = CallbackService()
             callback = self._create_callback(status="completed", progress=100)
+            mock_create_task.side_effect = lambda coro: coro.close()
 
             import asyncio
 
@@ -384,6 +385,7 @@ class TestProcessCallback(unittest.TestCase):
         ):
             service = CallbackService()
             callback = self._create_callback(status="failed", progress=80)
+            mock_create_task.side_effect = lambda coro: coro.close()
 
             import asyncio
 
@@ -412,6 +414,7 @@ class TestProcessCallback(unittest.TestCase):
         ):
             service = CallbackService()
             callback = self._create_callback(status="completed", progress=100)
+            mock_create_task.side_effect = lambda coro: coro.close()
 
             import asyncio
 

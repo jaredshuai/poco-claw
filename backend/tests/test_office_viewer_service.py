@@ -14,35 +14,24 @@ from app.services.office_viewer_service import (
     detect_extension,
     generate_document_key,
 )
-from app.services.office_viewer_config_use_case import (
-    OfficeViewerConfigCommand,
-    OfficeViewerConfigUseCase,
+from app.services.office_workspace_file_resolver import (
+    OfficeWorkspaceFileQuery,
+    OfficeWorkspaceFileResolver,
 )
 
 
 def _resolve_viewer_file(storage_service, workspace_session, file_path: str):
-    workspace_file = OfficeViewerConfigUseCase(
+    workspace_file = OfficeWorkspaceFileResolver(
         storage_service=storage_service,
-        editing_store=MagicMock(),
-    )._resolve_workspace_file(
-        OfficeViewerConfigCommand(
-            session_id="session-123",
-            session_user_id="user-1",
-            user_id="user-1",
-            file_path=file_path,
-            file_type=None,
-            language="en",
-            mode="view",
-            edit_session_id=None,
-            workspace_manifest_key=workspace_session.workspace_manifest_key,
-            workspace_files_prefix=getattr(
+    ).resolve(
+        OfficeWorkspaceFileQuery(
+            manifest_key=workspace_session.workspace_manifest_key,
+            files_prefix=getattr(
                 workspace_session,
                 "workspace_files_prefix",
                 "",
             ),
-            file_size_limit_bytes=1024 * 1024,
-            presign_expires_in=3600,
-            callback_base_url="http://localhost:8000/api/v1",
+            file_path=file_path,
         )
     )
     return workspace_file.object_key, workspace_file.mime_type, workspace_file.file_size

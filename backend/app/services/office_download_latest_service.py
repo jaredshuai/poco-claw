@@ -7,7 +7,11 @@ from typing import Any, Protocol
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.utils.workspace_manifest import extract_manifest_files, normalize_manifest_path
+from app.services.office_workspace_file_resolver import (
+    OfficeWorkspaceFileQuery,
+    OfficeWorkspaceFileResolver,
+)
+from app.utils.workspace_manifest import normalize_manifest_path
 
 
 class OfficeDownloadLatestStorage(Protocol):
@@ -43,12 +47,6 @@ class OfficeDownloadLatestResult:
     expires_in: int
 
 
-@dataclass(frozen=True)
-class _WorkspaceFile:
-    object_key: str
-    mime_type: str | None
-
-
 class OfficeDownloadLatestUseCase:
     """Create a short-lived download URL for the latest saved workspace object."""
 
@@ -69,7 +67,15 @@ class OfficeDownloadLatestUseCase:
                 message="Invalid file path",
             )
 
-        workspace_file = self._resolve_workspace_file(command)
+        workspace_file = OfficeWorkspaceFileResolver(
+            storage_service=self.storage_service
+        ).resolve(
+            OfficeWorkspaceFileQuery(
+                manifest_key=command.workspace_manifest_key,
+                files_prefix=command.workspace_files_prefix,
+                file_path=command.file_path,
+            )
+        )
         if self.storage_service.get_object_metadata(workspace_file.object_key) is None:
             raise AppException(
                 error_code=ErrorCode.NOT_FOUND,
@@ -93,71 +99,4 @@ class OfficeDownloadLatestUseCase:
             url=url,
             file_path=command.file_path,
             expires_in=command.expires_in,
-        )
-
-    def _resolve_workspace_file(
-        self,
-        command: OfficeDownloadLatestCommand,
-    ) -> _WorkspaceFile:
-        if not command.workspace_manifest_key:
-            raise AppException(
-                error_code=ErrorCode.NOT_FOUND,
-                message="Workspace export not ready",
-            )
-
-        manifest = self.storage_service.get_manifest(command.workspace_manifest_key)
-        manifest_files = extract_manifest_files(manifest)
-        prefix = (command.workspace_files_prefix or "").rstrip("/")
-        normalized_target = (
-            normalize_manifest_path(command.file_path) or command.file_path
-        )
-
-        for file_entry in manifest_files:
-            entry_path = normalize_manifest_path(file_entry.get("path"))
-            if not entry_path or entry_path != normalized_target:
-                continue
-            object_key = (
-                file_entry.get("key")
-                or file_entry.get("object_key")
-                or file_entry.get("oss_key")
-                or file_entry.get("s3_key")
-            )
-            if not object_key and prefix:
-                object_key = f"{prefix}/{entry_path.lstrip('/')}"
-            if not object_key:
-                continue
-            self._enforce_workspace_prefix(
-                object_key=object_key,
-                prefix=prefix,
-                file_path=command.file_path,
-            )
-            return _WorkspaceFile(
-                object_key=object_key,
-                mime_type=file_entry.get("mimeType") or file_entry.get("mime_type"),
-            )
-
-        raise AppException(
-            error_code=ErrorCode.NOT_FOUND,
-            message=f"File not found in workspace: {command.file_path}",
-        )
-
-    @staticmethod
-    def _enforce_workspace_prefix(
-        *,
-        object_key: str,
-        prefix: str,
-        file_path: str,
-    ) -> None:
-        if not prefix:
-            return
-        normalized_key = normalize_manifest_path(object_key) or object_key
-        normalized_prefix = normalize_manifest_path(prefix) or prefix
-        if normalized_key == normalized_prefix or normalized_key.startswith(
-            f"{normalized_prefix}/"
-        ):
-            return
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Workspace manifest object key escapes workspace prefix",
-            details={"file_path": file_path, "object_key": object_key},
         )

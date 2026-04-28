@@ -32,7 +32,6 @@ from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
     SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
-    SAVE_STATUS_PENDING,
     SAVE_STATUS_SAVING,
     office_editing_store,
 )
@@ -542,27 +541,22 @@ async def office_callback(
             message="Office callback document key mismatch",
         )
 
-    if callback.status == 6:
-        await OfficeCallbackSaveUseCase(
+    if callback.status in {6, 7}:
+        callback_save_use_case = OfficeCallbackSaveUseCase(
             storage_service=storage_service,
             editing_store=editing_store,
             validate_download_url=_validate_callback_download_url,
-        ).handle_saved_callback(edit_session=edit_session, callback=callback)
-
-    elif callback.status == 7 and callback.userdata:
-        save_request = editing_store.get_save_request(callback.userdata)
-        if (
-            save_request is None
-            or save_request.edit_session_id != edit_session.edit_session_id
-        ):
-            return {"error": 0}
-        if save_request.status not in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}:
-            return {"error": 0}
-        editing_store.mark_failed(
-            save_request.save_request_id,
-            error_code="office_forcesave_failed",
-            error_message=str(callback.error) if callback.error is not None else None,
         )
+        if callback.status == 6:
+            await callback_save_use_case.handle_saved_callback(
+                edit_session=edit_session,
+                callback=callback,
+            )
+        else:
+            await callback_save_use_case.handle_failed_callback(
+                edit_session=edit_session,
+                callback=callback,
+            )
 
     return {"error": 0}
 

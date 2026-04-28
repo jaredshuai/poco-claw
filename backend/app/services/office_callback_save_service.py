@@ -15,7 +15,9 @@ from app.services.office_editing_service import (
     OfficeEditSession,
     SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
+    SAVE_STATUS_PENDING,
     SAVE_STATUS_SAVED,
+    SAVE_STATUS_SAVING,
 )
 from app.services.office_writeback_service import (
     OfficeSaveWritebackService,
@@ -137,3 +139,26 @@ class OfficeCallbackSaveUseCase:
                 error_message=str(exc),
             )
             raise
+
+    async def handle_failed_callback(
+        self,
+        *,
+        edit_session: OfficeEditSession,
+        callback: OfficeCallbackRequest,
+    ) -> None:
+        if not callback.userdata:
+            return
+        save_request = self.editing_store.get_save_request(callback.userdata)
+        if (
+            save_request is None
+            or save_request.edit_session_id != edit_session.edit_session_id
+        ):
+            return
+        if save_request.status not in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}:
+            return
+
+        self.editing_store.mark_failed(
+            save_request.save_request_id,
+            error_code="office_forcesave_failed",
+            error_message=str(callback.error) if callback.error is not None else None,
+        )

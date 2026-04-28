@@ -10,6 +10,7 @@ def _make_dispatch_service() -> RunDispatchService:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
         callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
     )
     backend_client = MagicMock()
     backend_client.resolve_slash_commands = AsyncMock(return_value={})
@@ -84,3 +85,21 @@ async def test_dispatch_claim_fails_and_cancels_when_start_run_fails() -> None:
     assert fail_kwargs["worker_id"] == "worker-1"
     assert "start failed" in fail_kwargs["error_message"]
     service.container_pool.cancel_task.assert_awaited_once_with("sess-123")
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_passes_dedicated_task_lease_secret() -> None:
+    service = _make_dispatch_service()
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    service.executor_client.execute_task.assert_awaited_once()
+    call_kwargs = service.executor_client.execute_task.call_args.kwargs
+    assert call_kwargs["callback_token"] == "callback-token"
+    assert call_kwargs["task_lease_secret"] == "lease-secret"

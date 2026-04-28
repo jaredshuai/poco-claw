@@ -208,6 +208,7 @@ class TestTaskDispatcherDispatch:
             mock_settings_obj = MagicMock()
             mock_settings_obj.callback_base_url = "http://callback"
             mock_settings_obj.callback_token = "token-123"
+            mock_settings_obj.executor_task_lease_secret = "lease-token"
             mock_settings.return_value = mock_settings_obj
 
             # Mock all dependencies
@@ -299,6 +300,13 @@ class TestTaskDispatcherDispatch:
                                                 )
 
                                                 mock_executor_client.execute_task.assert_called_once()
+                                                call_kwargs = mock_executor_client.execute_task.call_args.kwargs
+                                                assert (
+                                                    call_kwargs[
+                                                        "task_lease_secret"
+                                                    ]
+                                                    == "lease-token"
+                                                )
                                                 mock_backend_client.update_session_status.assert_called_once_with(
                                                     "session-456", "running"
                                                 )

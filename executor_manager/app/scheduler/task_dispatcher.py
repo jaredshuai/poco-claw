@@ -1,7 +1,7 @@
 import logging
 import time
 
-from app.core.settings import get_settings
+from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.core.observability.request_context import (
     generate_request_id,
     generate_trace_id,
@@ -115,6 +115,7 @@ class TaskDispatcher:
             raise ValueError("callback_base_url cannot be empty")
         callback_url = f"{callback_base_url}/api/v1/callback"
         callback_token = settings.callback_token
+        task_lease_secret = resolve_executor_task_lease_secret(settings)
 
         executor_url = None
         request_id_token = set_request_id(
@@ -307,6 +308,7 @@ class TaskDispatcher:
                 prompt=prompt,
                 callback_url=callback_url,
                 callback_token=callback_token,
+                task_lease_secret=task_lease_secret,
                 config=resolved_config,
                 callback_base_url=callback_base_url,
                 sdk_session_id=sdk_session_id,

@@ -8,7 +8,7 @@ import httpx
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.core.settings import get_settings
+from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.services.workspace_manager import WorkspaceManager
 
 if TYPE_CHECKING:
@@ -44,6 +44,7 @@ class ContainerPool:
             "SESSION_ID": session_id,
             "CALLBACK_BASE_URL": settings.callback_base_url.rstrip("/"),
             "CALLBACK_TOKEN": settings.callback_token,
+            "EXECUTOR_TASK_LEASE_SECRET": resolve_executor_task_lease_secret(settings),
             "POCO_SESSION_ID": session_id,
             "POCO_CALLBACK_BASE_URL": settings.callback_base_url.rstrip("/"),
             "POCO_CALLBACK_TOKEN": settings.callback_token,

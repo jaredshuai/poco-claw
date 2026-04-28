@@ -4,9 +4,15 @@ import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _clear_task_lease_secret(monkeypatch) -> None:
+    monkeypatch.delenv("EXECUTOR_TASK_LEASE_SECRET", raising=False)
 
 
 def _task_payload() -> dict:
@@ -101,6 +107,25 @@ def test_execute_rejects_expired_task_lease(monkeypatch) -> None:
     assert response.status_code == 403
 
 
+def test_execute_rejects_callback_token_signature_when_task_lease_secret_is_set(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "callback-token")
+    monkeypatch.setenv("EXECUTOR_TASK_LEASE_SECRET", "lease-secret")
+    headers = {
+        "Authorization": "Bearer callback-token",
+        **_task_lease_headers(secret="callback-token"),
+    }
+
+    response = TestClient(app).post(
+        "/v1/tasks/execute",
+        json={**_task_payload(), "callback_token": "callback-token"},
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+
 def test_execute_accepts_executor_token_and_task_lease(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -138,5 +163,47 @@ def test_execute_accepts_executor_token_and_task_lease(
     computer_cls.assert_called_once_with(
         base_url="http://executor-manager",
         callback_token="executor-secret",
+    )
+    executor.execute.assert_awaited_once()
+
+
+def test_execute_accepts_dedicated_task_lease_secret(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "callback-token")
+    monkeypatch.setenv("EXECUTOR_TASK_LEASE_SECRET", "lease-secret")
+    executor = MagicMock()
+    executor.workspace.root_path = tmp_path
+    executor.execute = AsyncMock()
+
+    with patch("app.api.v1.task.AgentExecutor", return_value=executor):
+        with patch("app.api.v1.task.HookRegistry") as registry_cls:
+            with patch("app.api.v1.task.UserInputClient") as user_input_cls:
+                with patch("app.api.v1.task.ComputerClient") as computer_cls:
+                    user_input_cls.resolve_base_url.return_value = (
+                        "http://executor-manager"
+                    )
+                    registry = registry_cls.return_value
+                    registry.default_specs.return_value = []
+                    registry.build.return_value = []
+
+                    response = TestClient(app).post(
+                        "/v1/tasks/execute",
+                        json={**_task_payload(), "callback_token": "callback-token"},
+                        headers={
+                            "Authorization": "Bearer callback-token",
+                            **_task_lease_headers(secret="lease-secret"),
+                        },
+                    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "accepted", "session_id": "session-123"}
+    user_input_cls.assert_called_once_with(
+        base_url="http://executor-manager",
+        callback_token="callback-token",
+    )
+    computer_cls.assert_called_once_with(
+        base_url="http://executor-manager",
+        callback_token="callback-token",
     )
     executor.execute.assert_awaited_once()

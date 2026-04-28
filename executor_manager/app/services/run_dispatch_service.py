@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Any
 
-from app.core.settings import get_settings
+from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.scheduler.task_dispatcher import TaskDispatcher
 from app.services.attachment_stager import AttachmentStager
 from app.services.backend_client import BackendClient
@@ -319,6 +319,7 @@ class RunDispatchService:
                 prompt=prompt,
                 callback_url=callback_url,
                 callback_token=self.settings.callback_token,
+                task_lease_secret=resolve_executor_task_lease_secret(self.settings),
                 config=resolved_config,
                 callback_base_url=callback_base_url,
                 sdk_session_id=sdk_session_id,

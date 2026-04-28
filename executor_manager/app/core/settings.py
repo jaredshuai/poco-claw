@@ -5,6 +5,15 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def resolve_executor_task_lease_secret(settings: object) -> str:
+    dedicated_secret = (
+        str(getattr(settings, "executor_task_lease_secret", "") or "").strip()
+    )
+    if dedicated_secret:
+        return dedicated_secret
+    return str(getattr(settings, "callback_token", "") or "").strip()
+
+
 class Settings(BaseSettings):
     # Service configuration
     app_name: str = Field(default="Executor Manager")
@@ -26,6 +35,9 @@ class Settings(BaseSettings):
     retry_attempts: int = Field(default=3)
     retry_delay_seconds: int = Field(default=60)
     callback_token: str = Field(default="change-this-token-in-production")
+    executor_task_lease_secret: str = Field(
+        default="", alias="EXECUTOR_TASK_LEASE_SECRET"
+    )
     internal_api_token: str = Field(
         default="change-this-token-in-production", alias="INTERNAL_API_TOKEN"
     )
@@ -202,6 +214,10 @@ class Settings(BaseSettings):
                 "ANTHROPIC_AUTH_TOKEN."
             )
         return self
+
+    @property
+    def effective_executor_task_lease_secret(self) -> str:
+        return resolve_executor_task_lease_secret(self)
 
 
 @lru_cache

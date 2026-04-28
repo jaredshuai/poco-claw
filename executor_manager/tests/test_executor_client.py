@@ -125,6 +125,44 @@ class TestExecutorClientExecuteTask:
             ).hexdigest()
             assert headers["X-Poco-Task-Lease-Signature"] == expected_signature
 
+    async def test_execute_task_signs_task_lease_with_dedicated_secret(self) -> None:
+        with patch("app.services.executor_client.get_settings"):
+            client = ExecutorClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"session_id": "session-123"}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch("app.services.executor_client.time.time", return_value=1000):
+                with patch("httpx.AsyncClient") as mock_client_cls:
+                    mock_client = AsyncMock()
+                    mock_client.__aenter__.return_value = mock_client
+                    mock_client.post = AsyncMock(return_value=mock_response)
+                    mock_client_cls.return_value = mock_client
+
+                    await client.execute_task(
+                        executor_url="http://executor:8080",
+                        session_id="session-123",
+                        run_id="run-456",
+                        prompt="Hello",
+                        callback_url="http://callback",
+                        callback_token="callback-token",
+                        task_lease_secret="lease-secret",
+                        config={"model": "claude"},
+                    )
+
+            call_args = mock_client.post.call_args
+            headers = call_args.kwargs["headers"]
+            assert headers["Authorization"] == "Bearer callback-token"
+            assert headers["X-Poco-Task-Lease-Expires-At"] == "1300"
+            expected_payload = "session-123\nrun-456\n1300".encode()
+            expected_signature = hmac.new(
+                b"lease-secret",
+                expected_payload,
+                hashlib.sha256,
+            ).hexdigest()
+            assert headers["X-Poco-Task-Lease-Signature"] == expected_signature
+
     async def test_execute_task_with_optional_params(self) -> None:
         with patch("app.services.executor_client.get_settings"):
             client = ExecutorClient()

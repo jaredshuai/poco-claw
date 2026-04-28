@@ -182,6 +182,7 @@ services:
       # Must be reachable from *executor containers* spawned by the manager.
       CALLBACK_BASE_URL: ${CALLBACK_BASE_URL:-http://host.docker.internal:8001}
       CALLBACK_TOKEN: ${CALLBACK_TOKEN:-change-this-token-in-production}
+      EXECUTOR_TASK_LEASE_SECRET: ${EXECUTOR_TASK_LEASE_SECRET:-}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-this-token-in-production}
 
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

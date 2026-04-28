@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from app.core.settings import Settings
+from app.core.settings import resolve_executor_task_lease_secret
 from app.services.config_resolver import ConfigResolver
 from app.services.container_pool import ContainerPool
 
@@ -28,6 +29,28 @@ class ExecutorManagerSettingsTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 Settings()
 
+    def test_executor_task_lease_secret_falls_back_to_callback_token(self) -> None:
+        settings = SimpleNamespace(
+            callback_token="callback-token",
+            executor_task_lease_secret="",
+        )
+
+        self.assertEqual(
+            resolve_executor_task_lease_secret(settings),
+            "callback-token",
+        )
+
+    def test_executor_task_lease_secret_prefers_dedicated_secret(self) -> None:
+        settings = SimpleNamespace(
+            callback_token="callback-token",
+            executor_task_lease_secret="lease-secret",
+        )
+
+        self.assertEqual(
+            resolve_executor_task_lease_secret(settings),
+            "lease-secret",
+        )
+
 
 class ContainerEnvironmentTests(unittest.TestCase):
     @staticmethod
@@ -38,6 +61,7 @@ class ContainerEnvironmentTests(unittest.TestCase):
             anthropic_auth_token="auth-token",
             callback_base_url="http://localhost:8001",
             callback_token="callback-token",
+            executor_task_lease_secret="lease-secret",
             default_model="claude-sonnet-4-20250514",
             executor_memory_limit="2g",
             executor_browser_memory_limit="4g",
@@ -69,6 +93,17 @@ class ContainerEnvironmentTests(unittest.TestCase):
 
         self.assertNotIn("ANTHROPIC_AUTH_TOKEN", environment)
         self.assertNotIn("ANTHROPIC_API_KEY", environment)
+
+    def test_container_environment_includes_task_lease_secret(self) -> None:
+        environment = ContainerPool._build_container_environment(
+            settings=self._make_settings(),
+            session_id="session-123",
+            user_id="user-456",
+            browser_enabled=False,
+        )
+
+        self.assertEqual(environment["CALLBACK_TOKEN"], "callback-token")
+        self.assertEqual(environment["EXECUTOR_TASK_LEASE_SECRET"], "lease-secret")
 
     def test_browser_container_uses_browser_memory_limit(self) -> None:
         memory_limit = ContainerPool._resolve_container_memory_limit(

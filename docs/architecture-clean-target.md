@@ -371,6 +371,7 @@ HTTP 可以作为同步命令入口，但不能作为唯一事实来源。跨服
 最终修复方向：
 
 - Executor Worker 只接受 Runtime Manager 下发的短期 signed task lease。
+- task lease 签名密钥独立于 callback bearer token，允许按边界单独轮换。
 - lease 绑定 run、session、tenant、executor instance、过期时间和权限范围。
 - Executor 端口即使暴露到 host，也不能被未授权调用方触发执行。
 

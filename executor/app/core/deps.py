@@ -13,6 +13,13 @@ def _expected_executor_token() -> str:
     return (os.getenv("CALLBACK_TOKEN") or "").strip()
 
 
+def _expected_executor_task_lease_secret() -> str:
+    dedicated_secret = (os.getenv("EXECUTOR_TASK_LEASE_SECRET") or "").strip()
+    if dedicated_secret:
+        return dedicated_secret
+    return _expected_executor_token()
+
+
 def require_executor_token(
     authorization: str | None = Header(default=None),
 ) -> None:
@@ -30,14 +37,14 @@ def require_executor_token(
 
 def _task_lease_signature(
     *,
-    callback_token: str,
+    task_lease_secret: str,
     session_id: str,
     run_id: str | None,
     expires_at: int,
 ) -> str:
     payload = f"{session_id}\n{run_id or ''}\n{expires_at}".encode()
     return hmac.new(
-        callback_token.encode(),
+        task_lease_secret.encode(),
         payload,
         hashlib.sha256,
     ).hexdigest()
@@ -51,8 +58,8 @@ def require_executor_task_lease(
     signature_header: str | None,
 ) -> None:
     """Validate the short-lived task lease bound to this execution request."""
-    expected_token = _expected_executor_token()
-    if not expected_token or not expires_at_header or not signature_header:
+    expected_secret = _expected_executor_task_lease_secret()
+    if not expected_secret or not expires_at_header or not signature_header:
         raise HTTPException(status_code=403, detail="Invalid executor task lease")
 
     try:
@@ -67,7 +74,7 @@ def require_executor_task_lease(
         raise HTTPException(status_code=403, detail="Executor task lease expired")
 
     expected_signature = _task_lease_signature(
-        callback_token=expected_token,
+        task_lease_secret=expected_secret,
         session_id=session_id,
         run_id=run_id,
         expires_at=expires_at,

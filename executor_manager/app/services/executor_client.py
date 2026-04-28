@@ -33,14 +33,14 @@ class ExecutorClient:
     @staticmethod
     def _task_lease_signature(
         *,
-        callback_token: str,
+        task_lease_secret: str,
         session_id: str,
         run_id: str | None,
         expires_at: int,
     ) -> str:
         payload = f"{session_id}\n{run_id or ''}\n{expires_at}".encode()
         return hmac.new(
-            callback_token.strip().encode(),
+            task_lease_secret.strip().encode(),
             payload,
             hashlib.sha256,
         ).hexdigest()
@@ -50,6 +50,7 @@ class ExecutorClient:
         cls,
         *,
         callback_token: str,
+        task_lease_secret: str,
         session_id: str,
         run_id: str | None,
     ) -> dict[str, str]:
@@ -59,7 +60,7 @@ class ExecutorClient:
             "Authorization": f"Bearer {callback_token}",
             TASK_LEASE_EXPIRES_AT_HEADER: str(expires_at),
             TASK_LEASE_SIGNATURE_HEADER: cls._task_lease_signature(
-                callback_token=callback_token,
+                task_lease_secret=task_lease_secret,
                 session_id=session_id,
                 run_id=run_id,
                 expires_at=expires_at,
@@ -75,6 +76,7 @@ class ExecutorClient:
         callback_url: str,
         callback_token: str,
         config: dict,
+        task_lease_secret: str | None = None,
         callback_base_url: str | None = None,
         sdk_session_id: str | None = None,
         permission_mode: str = "default",
@@ -87,10 +89,12 @@ class ExecutorClient:
             prompt: Task prompt
             callback_url: Callback URL
             callback_token: Callback token
+            task_lease_secret: Secret used to sign the short-lived task lease
             config: Task configuration
             callback_base_url: Base URL for callback-related APIs
             sdk_session_id: Claude SDK session ID for resuming conversations
         """
+        resolved_task_lease_secret = (task_lease_secret or callback_token).strip()
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{executor_url}/v1/tasks/execute",
@@ -107,6 +111,7 @@ class ExecutorClient:
                 },
                 headers=self._execution_headers(
                     callback_token=callback_token,
+                    task_lease_secret=resolved_task_lease_secret,
                     session_id=session_id,
                     run_id=run_id,
                 ),

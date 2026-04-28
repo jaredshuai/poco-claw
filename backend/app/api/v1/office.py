@@ -29,8 +29,10 @@ from app.schemas.office import (
 from app.schemas.response import Response
 from app.services.office_editing_service import (
     OnlyOfficeCommandClient,
+    SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
     SAVE_STATUS_SAVED,
+    SAVE_STATUS_SAVING,
     office_editing_store,
 )
 from app.services.office_viewer_service import build_viewer_config
@@ -466,9 +468,14 @@ async def get_save_status(
             message="Save request does not belong to the user",
         )
 
+    response_status = (
+        SAVE_STATUS_SAVING
+        if save_request.status == SAVE_STATUS_COMMITTING
+        else save_request.status
+    )
     return OfficeSaveStatusResponse(
         save_request_id=save_request.save_request_id,
-        status=save_request.status,  # type: ignore[arg-type]
+        status=response_status,  # type: ignore[arg-type]
         error_code=save_request.error_code,
         error_message=save_request.error_message,
         completed_at=save_request.completed_at.isoformat()
@@ -547,7 +554,11 @@ async def office_callback(
             or save_request.edit_session_id != edit_session.edit_session_id
         ):
             return {"error": 0}
-        if save_request.status in {SAVE_STATUS_SAVED, SAVE_STATUS_FAILED}:
+        if save_request.status in {
+            SAVE_STATUS_COMMITTING,
+            SAVE_STATUS_SAVED,
+            SAVE_STATUS_FAILED,
+        }:
             return {"error": 0}
         if not callback.url:
             editing_store.mark_failed(
@@ -566,6 +577,14 @@ async def office_callback(
             raise
 
         try:
+            claimed_save_request = editing_store.try_begin_commit(
+                save_request.save_request_id,
+                edit_session_id=edit_session.edit_session_id,
+            )
+            if claimed_save_request is None:
+                return {"error": 0}
+            save_request = claimed_save_request
+
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(callback.url)
                 response.raise_for_status()

@@ -757,6 +757,116 @@ class TestOfficeEditingFlow:
         )
         assert status.status == "saved"
 
+    def test_callback_status_6_ignores_duplicate_while_commit_in_progress(self):
+        from app.api.v1.office import (
+            editing_store,
+            force_save,
+            get_save_status,
+            get_viewer_config,
+            office_callback,
+        )
+        from app.schemas.office import (
+            OfficeCallbackRequest,
+            OfficeForceSaveRequest,
+        )
+
+        session = _make_session()
+        manifest = {
+            "files": [
+                _file_entry(
+                    "report.docx",
+                    key="ws/abc/report.docx",
+                    size=1024,
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ]
+        }
+        config_request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000105",
+            file_path="report.docx",
+            mode="edit",
+        )
+        mock_db = MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_storage.get_manifest.return_value = manifest
+            mock_storage.get_object_metadata.return_value = {
+                "content_length": 1024,
+                "etag": "etag-v1",
+                "last_modified": None,
+            }
+            mock_storage.presign_get.return_value = (
+                "https://s3.example.com/report.docx?sig=abc"
+            )
+            config = _run(
+                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+            )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.command_client") as mock_command,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_command.forcesave = AsyncMock(return_value=None)
+            save_result = _run(
+                force_save(
+                    request=OfficeForceSaveRequest(
+                        session_id=config_request.session_id,
+                        file_path="report.docx",
+                        edit_session_id=config.edit_session_id,
+                    ),
+                    user_id="user-1",
+                    db=mock_db,
+                )
+            )
+
+        assert (
+            editing_store.try_begin_commit(
+                save_result.save_request_id,
+                edit_session_id=config.edit_session_id,
+            )
+            is not None
+        )
+
+        status = _run(
+            get_save_status(
+                session_id=config_request.session_id,
+                save_request_id=save_result.save_request_id,
+                user_id="user-1",
+                db=mock_db,
+            )
+        )
+        assert status.status == "saving"
+
+        callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
+            "token"
+        ][0]
+        callback = OfficeCallbackRequest(
+            status=6,
+            key=config.document.key,
+            url="http://localhost:8100/cache/report.docx",
+            userdata=save_result.save_request_id,
+        )
+        callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client),
+            patch("app.api.v1.office.storage_service") as mock_storage,
+        ):
+            _run(office_callback(token=callback_token, request=callback_body))
+
+        mock_client.get.assert_not_called()
+        mock_storage.put_object.assert_not_called()
+
     def test_callback_manifest_failure_does_not_overwrite_original_object(self):
         from app.api.v1.office import (
             force_save,

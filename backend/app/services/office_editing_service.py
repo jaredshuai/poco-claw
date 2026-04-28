@@ -23,8 +23,14 @@ logger = logging.getLogger(__name__)
 
 SAVE_STATUS_PENDING = "pending"
 SAVE_STATUS_SAVING = "saving"
+SAVE_STATUS_COMMITTING = "committing"
 SAVE_STATUS_SAVED = "saved"
 SAVE_STATUS_FAILED = "failed"
+ACTIVE_SAVE_STATUSES = {
+    SAVE_STATUS_PENDING,
+    SAVE_STATUS_SAVING,
+    SAVE_STATUS_COMMITTING,
+}
 
 
 @dataclass
@@ -208,7 +214,7 @@ class OfficeEditingStore:
         for save_request in self._save_requests.values():
             if (
                 save_request.edit_session_id == edit_session_id
-                and save_request.status in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}
+                and save_request.status in ACTIVE_SAVE_STATUSES
             ):
                 return save_request
         return None
@@ -232,7 +238,7 @@ class OfficeEditingStore:
             for save_request in self._save_requests.values():
                 if (
                     save_request.edit_session_id == edit_session_id
-                    and save_request.status in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}
+                    and save_request.status in ACTIVE_SAVE_STATUSES
                 ):
                     self._mark(
                         save_request.save_request_id,
@@ -259,6 +265,47 @@ class OfficeEditingStore:
 
     def mark_saving(self, save_request_id: str) -> None:
         self._mark(save_request_id, SAVE_STATUS_SAVING)
+
+    def try_begin_commit(
+        self,
+        save_request_id: str,
+        *,
+        edit_session_id: str,
+    ) -> OfficeSaveRequest | None:
+        """Claim save writeback commit ownership for one callback handler."""
+        self.cleanup_expired()
+        save_request = self._save_requests.get(save_request_id)
+        if (
+            save_request is None
+            or save_request.edit_session_id != edit_session_id
+            or save_request.status not in {SAVE_STATUS_PENDING, SAVE_STATUS_SAVING}
+        ):
+            return None
+
+        previous_save_state = (
+            save_request.status,
+            save_request.updated_at,
+            save_request.completed_at,
+            save_request.error_code,
+            save_request.error_message,
+        )
+        now = datetime.now(UTC)
+        try:
+            save_request.status = SAVE_STATUS_COMMITTING
+            save_request.updated_at = now
+            save_request.error_code = None
+            save_request.error_message = None
+            self._persist_state()
+        except Exception:
+            (
+                save_request.status,
+                save_request.updated_at,
+                save_request.completed_at,
+                save_request.error_code,
+                save_request.error_message,
+            ) = previous_save_state
+            raise
+        return save_request
 
     def mark_saved(self, save_request_id: str) -> None:
         self._mark(save_request_id, SAVE_STATUS_SAVED, completed=True)

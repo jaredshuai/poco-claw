@@ -169,6 +169,35 @@ def test_file_backed_store_restores_active_edit_session_and_save_request(tmp_pat
     assert restored_save_request.edit_session_id == session.edit_session_id
 
 
+def test_try_begin_commit_allows_only_one_active_committer():
+    from app.services.office_editing_service import (
+        OfficeEditingStore,
+        SAVE_STATUS_COMMITTING,
+    )
+
+    store = OfficeEditingStore()
+    session = _create_session(store)
+    save_request = store.create_save_request(session)
+    store.mark_saving(save_request.save_request_id)
+
+    first = store.try_begin_commit(
+        save_request.save_request_id,
+        edit_session_id=session.edit_session_id,
+    )
+    second = store.try_begin_commit(
+        save_request.save_request_id,
+        edit_session_id=session.edit_session_id,
+    )
+
+    assert first is not None
+    assert first.save_request_id == save_request.save_request_id
+    assert second is None
+    assert (
+        store.get_save_request(save_request.save_request_id).status
+        == SAVE_STATUS_COMMITTING
+    )
+
+
 def test_file_backed_store_persists_discarded_callback_token_revocation(tmp_path):
     from app.services.office_editing_service import OfficeEditingStore
 

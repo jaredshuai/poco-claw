@@ -16,6 +16,7 @@ from app.schemas.run import (
     RunStartRequest,
 )
 from app.services.run_claim_prompt_policy import RunClaimPromptPolicy
+from app.services.run_claim_schedule_policy import RunClaimSchedulePolicy
 from app.services.run_lifecycle_service import RunLifecycleService
 from app.services.run_transition_policy import (
     RUN_TRANSITION_NOOP,
@@ -63,14 +64,8 @@ class RunService:
     ) -> RunClaimResponse | None:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
 
-        schedule_modes = (
-            [
-                m.strip()
-                for m in request.schedule_modes
-                if isinstance(m, str) and m.strip()
-            ]
-            if request.schedule_modes
-            else None
+        schedule_modes = RunClaimSchedulePolicy.normalize_schedule_modes(
+            request.schedule_modes
         )
 
         db_run = RunRepository.claim_next(

@@ -3,7 +3,7 @@
 import logging
 import uuid
 from typing import Annotated
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import httpx
 import jwt
@@ -49,13 +49,12 @@ from app.services.office_save_status_service import (
     OfficeSaveStatusQuery,
     OfficeSaveStatusUseCase,
 )
-from app.services.office_viewer_service import build_viewer_config
+from app.services.office_viewer_config_use_case import (
+    OfficeViewerConfigCommand,
+    OfficeViewerConfigUseCase,
+)
 from app.services.session_service import SessionService
 from app.services.storage_service import S3StorageService
-from app.utils.workspace_manifest import (
-    extract_manifest_files,
-    normalize_manifest_path,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -65,76 +64,6 @@ session_service = SessionService()
 storage_service = S3StorageService()
 editing_store = office_editing_store
 command_client = OnlyOfficeCommandClient()
-
-
-def _resolve_file_object_key(
-    db_session,
-    file_path: str,
-) -> tuple[str, str | None, int | None]:
-    """Look up the S3 object key, MIME type, and size for *file_path*.
-
-    Returns ``(object_key, mime_type, file_size)``.  *file_size* may be
-    ``None`` when the manifest does not include a ``size`` field.
-    Raises ``AppException`` if the file is not found in the manifest.
-    """
-    if not db_session.workspace_manifest_key:
-        raise AppException(
-            error_code=ErrorCode.NOT_FOUND,
-            message="Workspace export not ready",
-        )
-
-    manifest = storage_service.get_manifest(db_session.workspace_manifest_key)
-    manifest_files = extract_manifest_files(manifest)
-    prefix = (db_session.workspace_files_prefix or "").rstrip("/")
-    normalized_target = normalize_manifest_path(file_path) or file_path
-
-    for file_entry in manifest_files:
-        entry_path = normalize_manifest_path(file_entry.get("path"))
-        if not entry_path or entry_path != normalized_target:
-            continue
-        object_key = (
-            file_entry.get("key")
-            or file_entry.get("object_key")
-            or file_entry.get("oss_key")
-            or file_entry.get("s3_key")
-        )
-        if not object_key and prefix:
-            object_key = f"{prefix}/{entry_path.lstrip('/')}"
-        if not object_key:
-            continue
-        # Enforce workspace prefix boundary: reject keys that escape the
-        # current session's workspace scope (prevents cross-session access).
-        if prefix:
-            normalized_key = normalize_manifest_path(object_key) or object_key
-            normalized_prefix = normalize_manifest_path(prefix) or prefix
-            if not (
-                normalized_key == normalized_prefix
-                or normalized_key.startswith(f"{normalized_prefix}/")
-            ):
-                raise AppException(
-                    error_code=ErrorCode.FORBIDDEN,
-                    message="Workspace manifest object key escapes workspace prefix",
-                    details={"file_path": file_path, "object_key": object_key},
-                )
-        mime_type = file_entry.get("mimeType") or file_entry.get("mime_type")
-        file_size = file_entry.get("size")
-        if file_size is not None:
-            try:
-                file_size = int(file_size)
-            except (ValueError, TypeError):
-                file_size = None
-        return object_key, mime_type, file_size
-
-    raise AppException(
-        error_code=ErrorCode.NOT_FOUND,
-        message=f"File not found in workspace: {file_path}",
-    )
-
-
-def _build_callback_url(token: str) -> str:
-    settings = get_settings()
-    base_url = settings.office_callback_base_url.rstrip("/")
-    return f"{base_url}/office/callback?token={quote(token)}"
 
 
 def _origin_tuple(raw_url: str) -> tuple[str, str, int] | None:
@@ -244,110 +173,27 @@ async def get_viewer_config(
     returns the complete OnlyOffice config with JWT signature.
     """
     db_session = session_service.get_session(db, request.session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
-
-    # normalize_manifest_path returns None for paths containing '..' or '.'
-    # segments, which is the canonical path-safety check in this codebase.
-    if not normalize_manifest_path(request.file_path):
-        raise AppException(
-            error_code=ErrorCode.BAD_REQUEST,
-            message="Invalid file path",
-        )
-
-    object_key, mime_type, manifest_size = _resolve_file_object_key(
-        db_session,
-        request.file_path,
-    )
-
-    # Server-side file size enforcement.  The manifest may include a ``size``
-    # field; fall back to an S3 HeadObject request when it does not.
-    # Fail fast if the object does not exist in storage at all.
     settings = get_settings()
-    size_limit = settings.office_file_size_limit_mb * 1024 * 1024
-    metadata = storage_service.get_object_metadata(object_key)
-    if metadata is None:
-        raise AppException(
-            error_code=ErrorCode.NOT_FOUND,
-            message=f"Workspace file is missing from storage: {request.file_path}",
-        )
-    file_size = (
-        manifest_size if manifest_size is not None else metadata["content_length"]
-    )
-    if file_size is not None and file_size > size_limit:
-        raise AppException(
-            error_code=ErrorCode.BAD_REQUEST,
-            message="File is too large for online preview",
-        )
-    presigned_url = storage_service.presign_get(
-        object_key,
-        response_content_disposition="inline",
-        response_content_type=mime_type or "application/octet-stream",
-        expires_in=settings.office_presign_expires_seconds,
-    )
-
-    file_name = (
-        request.file_path.rsplit("/", 1)[-1]
-        if "/" in request.file_path
-        else request.file_path
-    )
-    document_version = (
-        metadata.get("etag")
-        or str(metadata.get("last_modified") or "")
-        or str(file_size)
-    )
-
-    edit_session_id = None
-    callback_url = None
-    document_version_for_key = document_version or None
-    if request.mode == "edit":
-        edit_session_id = request.edit_session_id or str(uuid.uuid4())
-        document_version_for_key = (
-            f"{document_version}:{edit_session_id}"
-            if document_version
-            else edit_session_id
-        )
-
-    config = build_viewer_config(
-        file_name=file_name,
-        presigned_url=presigned_url,
-        object_key=object_key,
-        file_type=request.file_type,
-        language=request.language,
-        document_version=document_version_for_key,
-        mode=request.mode,
-        user_id=user_id if request.mode == "edit" else None,
-    )
-
-    if request.mode == "edit":
-        edit_session = editing_store.create_edit_session(
+    return OfficeViewerConfigUseCase(
+        storage_service=storage_service,
+        editing_store=editing_store,
+    ).execute(
+        OfficeViewerConfigCommand(
             session_id=str(request.session_id),
+            session_user_id=db_session.user_id,
             user_id=user_id,
             file_path=request.file_path,
-            object_key=object_key,
-            mime_type=mime_type,
-            manifest_key=db_session.workspace_manifest_key,
-            document_key=config.document.key,
-            edit_session_id=edit_session_id,
-        )
-        callback_url = _build_callback_url(edit_session.callback_token)
-        config = build_viewer_config(
-            file_name=file_name,
-            presigned_url=presigned_url,
-            object_key=object_key,
             file_type=request.file_type,
             language=request.language,
-            document_version=document_version_for_key,
             mode=request.mode,
-            callback_url=callback_url,
-            user_id=user_id,
+            edit_session_id=request.edit_session_id,
+            workspace_manifest_key=db_session.workspace_manifest_key,
+            workspace_files_prefix=db_session.workspace_files_prefix,
+            file_size_limit_bytes=settings.office_file_size_limit_mb * 1024 * 1024,
+            presign_expires_in=settings.office_presign_expires_seconds,
+            callback_base_url=settings.office_callback_base_url,
         )
-        config.edit_session_id = edit_session.edit_session_id
-
-    return config
+    )
 
 
 @router.get("/download-latest")

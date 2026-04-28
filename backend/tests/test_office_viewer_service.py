@@ -14,6 +14,38 @@ from app.services.office_viewer_service import (
     detect_extension,
     generate_document_key,
 )
+from app.services.office_viewer_config_use_case import (
+    OfficeViewerConfigCommand,
+    OfficeViewerConfigUseCase,
+)
+
+
+def _resolve_viewer_file(storage_service, workspace_session, file_path: str):
+    workspace_file = OfficeViewerConfigUseCase(
+        storage_service=storage_service,
+        editing_store=MagicMock(),
+    )._resolve_workspace_file(
+        OfficeViewerConfigCommand(
+            session_id="session-123",
+            session_user_id="user-1",
+            user_id="user-1",
+            file_path=file_path,
+            file_type=None,
+            language="en",
+            mode="view",
+            edit_session_id=None,
+            workspace_manifest_key=workspace_session.workspace_manifest_key,
+            workspace_files_prefix=getattr(
+                workspace_session,
+                "workspace_files_prefix",
+                "",
+            ),
+            file_size_limit_bytes=1024 * 1024,
+            presign_expires_in=3600,
+            callback_base_url="http://localhost:8000/api/v1",
+        )
+    )
+    return workspace_file.object_key, workspace_file.mime_type, workspace_file.file_size
 
 
 class TestDetectExtension:
@@ -244,7 +276,6 @@ class TestResolveFileObjectKey:
         },
     )
     def test_returns_size_from_manifest(self):
-        from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
 
         get_settings.cache_clear()
@@ -265,12 +296,13 @@ class TestResolveFileObjectKey:
                 ],
             }
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                object_key, mime_type, file_size = _resolve_file_object_key(
-                    mock_session,
-                    "report.docx",
-                )
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            object_key, mime_type, file_size = _resolve_viewer_file(
+                mock_storage,
+                mock_session,
+                "report.docx",
+            )
 
             assert object_key == "ws/abc/report.docx"
             assert (
@@ -292,7 +324,6 @@ class TestResolveFileObjectKey:
         },
     )
     def test_returns_none_size_when_manifest_lacks_size(self):
-        from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
 
         get_settings.cache_clear()
@@ -312,12 +343,13 @@ class TestResolveFileObjectKey:
                 ],
             }
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                object_key, mime_type, file_size = _resolve_file_object_key(
-                    mock_session,
-                    "data.xlsx",
-                )
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            object_key, mime_type, file_size = _resolve_viewer_file(
+                mock_storage,
+                mock_session,
+                "data.xlsx",
+            )
 
             assert object_key == "data.xlsx"
             assert mime_type is None
@@ -336,7 +368,6 @@ class TestResolveFileObjectKey:
         },
     )
     def test_raises_when_file_not_found(self):
-        from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
 
         get_settings.cache_clear()
@@ -348,10 +379,10 @@ class TestResolveFileObjectKey:
 
             manifest = {"files": []}
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                with pytest.raises(AppException) as exc:
-                    _resolve_file_object_key(mock_session, "missing.docx")
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            with pytest.raises(AppException) as exc:
+                _resolve_viewer_file(mock_storage, mock_session, "missing.docx")
 
             assert exc.value.error_code == ErrorCode.NOT_FOUND
             assert "not found" in exc.value.message.lower()
@@ -369,7 +400,6 @@ class TestResolveFileObjectKey:
         },
     )
     def test_raises_when_no_manifest_key(self):
-        from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
 
         get_settings.cache_clear()
@@ -379,7 +409,7 @@ class TestResolveFileObjectKey:
             mock_session.workspace_manifest_key = None
 
             with pytest.raises(AppException) as exc:
-                _resolve_file_object_key(mock_session, "any.docx")
+                _resolve_viewer_file(MagicMock(), mock_session, "any.docx")
 
             assert exc.value.error_code == ErrorCode.NOT_FOUND
         finally:
@@ -396,7 +426,6 @@ class TestResolveFileObjectKey:
         },
     )
     def test_rejects_key_escaping_workspace_prefix(self):
-        from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
 
         get_settings.cache_clear()
@@ -416,10 +445,10 @@ class TestResolveFileObjectKey:
                 ],
             }
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                with pytest.raises(AppException) as exc:
-                    _resolve_file_object_key(mock_session, "secrets.docx")
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            with pytest.raises(AppException) as exc:
+                _resolve_viewer_file(mock_storage, mock_session, "secrets.docx")
 
             assert exc.value.error_code == ErrorCode.FORBIDDEN
             assert "escapes" in exc.value.message.lower()
@@ -437,7 +466,6 @@ class TestResolveFileObjectKey:
         },
     )
     def test_allows_key_within_workspace_prefix(self):
-        from app.api.v1.office import _resolve_file_object_key
         from app.core.settings import get_settings
 
         get_settings.cache_clear()
@@ -457,12 +485,13 @@ class TestResolveFileObjectKey:
                 ],
             }
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                object_key, _, _ = _resolve_file_object_key(
-                    mock_session,
-                    "report.docx",
-                )
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            object_key, _, _ = _resolve_viewer_file(
+                mock_storage,
+                mock_session,
+                "report.docx",
+            )
 
             assert object_key == "ws/session-abc/report.docx"
         finally:
@@ -500,19 +529,16 @@ class TestFileSizeEnforcement:
                 ],
             }
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                # The route calls _resolve_file_object_key internally, but
-                # we test it at the function level here for simplicity.
-                from app.api.v1.office import _resolve_file_object_key
-
-                mock_session = MagicMock()
-                mock_session.workspace_manifest_key = "manifest.json"
-                mock_session.workspace_files_prefix = ""
-                object_key, _, file_size = _resolve_file_object_key(
-                    mock_session,
-                    "big.docx",
-                )
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            mock_session = MagicMock()
+            mock_session.workspace_manifest_key = "manifest.json"
+            mock_session.workspace_files_prefix = ""
+            object_key, _, file_size = _resolve_viewer_file(
+                mock_storage,
+                mock_session,
+                "big.docx",
+            )
 
             assert file_size == 2 * 1024 * 1024
             # Caller (the route) would then compare against the limit:
@@ -547,17 +573,16 @@ class TestFileSizeEnforcement:
                 ],
             }
 
-            with patch("app.api.v1.office.storage_service") as mock_storage:
-                mock_storage.get_manifest.return_value = manifest
-                from app.api.v1.office import _resolve_file_object_key
-
-                mock_session = MagicMock()
-                mock_session.workspace_manifest_key = "manifest.json"
-                mock_session.workspace_files_prefix = ""
-                _, _, file_size = _resolve_file_object_key(
-                    mock_session,
-                    "small.docx",
-                )
+            mock_storage = MagicMock()
+            mock_storage.get_manifest.return_value = manifest
+            mock_session = MagicMock()
+            mock_session.workspace_manifest_key = "manifest.json"
+            mock_session.workspace_files_prefix = ""
+            _, _, file_size = _resolve_viewer_file(
+                mock_storage,
+                mock_session,
+                "small.docx",
+            )
 
             assert file_size == 512 * 1024
             assert file_size <= 1 * 1024 * 1024  # within 1 MB limit

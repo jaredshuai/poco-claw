@@ -15,6 +15,7 @@ from app.schemas.run import (
     RunResponse,
     RunStartRequest,
 )
+from app.services.run_claim_prompt_policy import RunClaimPromptPolicy
 from app.services.run_lifecycle_service import RunLifecycleService
 from app.services.run_transition_policy import (
     RUN_TRANSITION_NOOP,
@@ -29,23 +30,6 @@ run_lifecycle_service = RunLifecycleService()
 
 class RunService:
     """Service layer for run queue operations."""
-
-    def _extract_prompt_from_message(self, message_content: object) -> str | None:
-        if not isinstance(message_content, dict):
-            return None
-
-        content_blocks = message_content.get("content")
-        if not isinstance(content_blocks, list):
-            return None
-
-        for block in content_blocks:
-            if not isinstance(block, dict):
-                continue
-            if "TextBlock" in str(block.get("_type", "")) and isinstance(
-                block.get("text"), str
-            ):
-                return block["text"]
-        return None
 
     def get_run(self, db: Session, run_id: uuid.UUID) -> RunResponse:
         db_run = RunRepository.get_by_id(db, run_id)
@@ -114,9 +98,9 @@ class RunService:
                 message=f"Message not found: {db_run.user_message_id}",
             )
 
-        prompt = (
-            self._extract_prompt_from_message(db_message.content)
-            or db_message.text_preview
+        prompt = RunClaimPromptPolicy.extract_prompt(
+            db_message.content,
+            db_message.text_preview,
         )
         if not prompt:
             raise AppException(

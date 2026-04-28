@@ -50,57 +50,6 @@ def expired_lease() -> datetime:
     return datetime.now(timezone.utc) - timedelta(seconds=1)
 
 
-class TestRunServiceExtractPromptFromMessage(unittest.TestCase):
-    """Test _extract_prompt_from_message method."""
-
-    def test_non_dict_content(self) -> None:
-        service = RunService()
-        result = service._extract_prompt_from_message("not a dict")
-        self.assertIsNone(result)
-
-    def test_no_content_key(self) -> None:
-        service = RunService()
-        result = service._extract_prompt_from_message({"other": "value"})
-        self.assertIsNone(result)
-
-    def test_content_not_list(self) -> None:
-        service = RunService()
-        result = service._extract_prompt_from_message({"content": "not a list"})
-        self.assertIsNone(result)
-
-    def test_empty_content_list(self) -> None:
-        service = RunService()
-        result = service._extract_prompt_from_message({"content": []})
-        self.assertIsNone(result)
-
-    def test_no_text_block(self) -> None:
-        service = RunService()
-        content = [{"_type": "OtherBlock", "data": "value"}]
-        result = service._extract_prompt_from_message({"content": content})
-        self.assertIsNone(result)
-
-    def test_text_block_found(self) -> None:
-        service = RunService()
-        content = [
-            {"_type": "TextBlock", "text": "Hello world"},
-            {"_type": "OtherBlock", "data": "value"},
-        ]
-        result = service._extract_prompt_from_message({"content": content})
-        self.assertEqual(result, "Hello world")
-
-    def test_block_not_dict(self) -> None:
-        service = RunService()
-        content = ["not a dict", {"_type": "TextBlock", "text": "found"}]
-        result = service._extract_prompt_from_message({"content": content})
-        self.assertEqual(result, "found")
-
-    def test_text_not_string(self) -> None:
-        service = RunService()
-        content = [{"_type": "TextBlock", "text": 123}]
-        result = service._extract_prompt_from_message({"content": content})
-        self.assertIsNone(result)
-
-
 class TestRunServiceGetRun(unittest.TestCase):
     """Test get_run method."""
 

@@ -333,20 +333,17 @@ class RunDispatchService:
                     **ctx,
                 },
             )
-            try:
-                step_started = time.perf_counter()
-                await self.backend_client.start_run(run_id=run_id, worker_id=worker_id)
-                logger.info(
-                    "timing",
-                    extra={
-                        "step": "run_dispatch_backend_start_run",
-                        "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                        "worker_id": worker_id,
-                        **ctx,
-                    },
-                )
-            except Exception as e:
-                logger.error(f"Failed to mark run {run_id} as running: {e}")
+            step_started = time.perf_counter()
+            await self.backend_client.start_run(run_id=run_id, worker_id=worker_id)
+            logger.info(
+                "timing",
+                extra={
+                    "step": "run_dispatch_backend_start_run",
+                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                    "worker_id": worker_id,
+                    **ctx,
+                },
+            )
 
             logger.info(f"Dispatched run {run_id} (session={session_id})")
             logger.info(

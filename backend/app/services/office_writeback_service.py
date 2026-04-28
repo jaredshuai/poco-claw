@@ -43,7 +43,7 @@ class OfficeSaveWritebackService:
             if edit_session.manifest_key
             else edit_session.object_key
         )
-        manifest_committed = False
+        visible_writeback_committed = False
 
         try:
             self.storage_service.put_object(
@@ -63,7 +63,9 @@ class OfficeSaveWritebackService:
                     metadata=metadata,
                     content_size=len(content),
                 )
-                manifest_committed = True
+                visible_writeback_committed = True
+            else:
+                visible_writeback_committed = True
 
             try:
                 self.editing_store.complete_save_request(
@@ -72,7 +74,7 @@ class OfficeSaveWritebackService:
                     object_key=writeback_object_key,
                 )
             except Exception as exc:
-                if manifest_committed:
+                if visible_writeback_committed:
                     raise OfficeWritebackStateCommitError(
                         "Office writeback storage commit succeeded, but save state commit failed"
                     ) from exc
@@ -80,7 +82,7 @@ class OfficeSaveWritebackService:
         except OfficeWritebackStateCommitError:
             raise
         except Exception:
-            if edit_session.manifest_key and not manifest_committed:
+            if edit_session.manifest_key and not visible_writeback_committed:
                 self._delete_staged_object(writeback_object_key)
             raise
 

@@ -1,10 +1,44 @@
 """Tests for app/api/v1/user_input_requests.py."""
 
+import importlib.util
+import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+
+def _load_user_input_requests_module_from_source():
+    module_name = "_user_input_requests_import_probe"
+    module_path = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "api"
+        / "v1"
+        / "user_input_requests.py"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_user_input_requests_module_import_does_not_initialize_backend_client() -> None:
+    with patch(
+        "app.services.backend_client.BackendClient",
+        side_effect=AssertionError("backend client should be lazy"),
+    ):
+        module = _load_user_input_requests_module_from_source()
+
+    assert module.create_user_input_request is not None
 
 
 class TestUserInputRequestsEndpoints(unittest.TestCase):

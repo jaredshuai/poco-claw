@@ -11,7 +11,14 @@ from app.services.backend_client import BackendClient
 
 router = APIRouter(prefix="/user-input-requests", tags=["user-input-requests"])
 
-backend_client = BackendClient()
+backend_client: BackendClient | None = None
+
+
+def get_backend_client() -> BackendClient:
+    global backend_client
+    if backend_client is None:
+        backend_client = BackendClient()
+    return backend_client
 
 
 @router.post("", response_model=ResponseSchema[UserInputRequestResponse])
@@ -19,7 +26,8 @@ async def create_user_input_request(
     request: UserInputRequestCreateRequest,
     _: None = Depends(require_callback_token),
 ) -> JSONResponse:
-    result = await backend_client.create_user_input_request(request.model_dump())
+    backend = get_backend_client()
+    result = await backend.create_user_input_request(request.model_dump())
     return Response.success(data=result, message="User input request created")
 
 
@@ -28,5 +36,6 @@ async def get_user_input_request(
     request_id: str,
     _: None = Depends(require_callback_token),
 ) -> JSONResponse:
-    result = await backend_client.get_user_input_request(request_id)
+    backend = get_backend_client()
+    result = await backend.get_user_input_request(request_id)
     return Response.success(data=result, message="User input request retrieved")

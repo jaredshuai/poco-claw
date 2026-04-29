@@ -18,10 +18,14 @@ from app.schemas.usage_analytics import (
     UsageAnalyticsSummary,
     UsageMetricSummary,
 )
+from app.services.clock import Clock, SystemClock
 
 
 class UsageAnalyticsService:
     """Service layer for user-level usage analytics."""
+
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
 
     @staticmethod
     def _get_timezone(timezone_name: str) -> ZoneInfo:
@@ -54,6 +58,9 @@ class UsageAnalyticsService:
     def _day_bounds(target_day: date, tzinfo: ZoneInfo) -> tuple[datetime, datetime]:
         day_start = datetime.combine(target_day, time.min, tzinfo)
         return day_start, day_start + timedelta(days=1)
+
+    def _today(self, tzinfo: ZoneInfo) -> date:
+        return self._clock.now_utc().astimezone(tzinfo).date()
 
     @staticmethod
     def _to_summary(row: object) -> UsageMetricSummary:
@@ -230,7 +237,7 @@ class UsageAnalyticsService:
         timezone_name: str,
     ) -> UsageAnalyticsResponse:
         tzinfo = self._get_timezone(timezone_name)
-        local_today = datetime.now(tzinfo).date()
+        local_today = self._today(tzinfo)
         resolved_month = (target_month or local_today).replace(day=1)
 
         if target_day is not None and (

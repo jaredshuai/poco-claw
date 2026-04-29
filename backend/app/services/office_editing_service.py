@@ -9,7 +9,6 @@ import json
 import logging
 from pathlib import Path
 import secrets
-import uuid
 
 import httpx
 import jwt
@@ -18,6 +17,7 @@ from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.settings import get_settings
 from app.services.clock import Clock, SystemClock
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 
 
 logger = logging.getLogger(__name__)
@@ -74,12 +74,14 @@ class OfficeEditingStore:
         *,
         state_path: str | Path | None = None,
         clock: Clock | None = None,
+        id_generator: IdGenerator | None = None,
     ) -> None:
         self._edit_sessions: dict[str, OfficeEditSession] = {}
         self._tokens: dict[str, str] = {}
         self._save_requests: dict[str, OfficeSaveRequest] = {}
         self._state_path = Path(state_path) if state_path else None
         self._clock = clock or SystemClock()
+        self._id_generator = id_generator or UuidIdGenerator()
         self._load_state()
 
     def _now(self) -> datetime:
@@ -99,7 +101,7 @@ class OfficeEditingStore:
     ) -> OfficeEditSession:
         now = self._now()
         settings = get_settings()
-        resolved_edit_session_id = edit_session_id or str(uuid.uuid4())
+        resolved_edit_session_id = edit_session_id or self._id_generator.new_id()
         existing = self._edit_sessions.get(resolved_edit_session_id)
         if existing is not None:
             self._tokens.pop(existing.callback_token, None)
@@ -203,7 +205,7 @@ class OfficeEditingStore:
         now = self._now()
         settings = get_settings()
         save_request = OfficeSaveRequest(
-            save_request_id=str(uuid.uuid4()),
+            save_request_id=self._id_generator.new_id(),
             edit_session_id=session.edit_session_id,
             session_id=session.session_id,
             user_id=session.user_id,

@@ -15,6 +15,14 @@ class FixedClock:
         return self._now
 
 
+class FixedIdGenerator:
+    def __init__(self, *ids: str) -> None:
+        self._ids = list(ids)
+
+    def new_id(self) -> str:
+        return self._ids.pop(0)
+
+
 def _create_session(store):
     return store.create_edit_session(
         session_id="00000000-0000-0000-0000-000000000001",
@@ -116,6 +124,17 @@ def test_save_request_ttl_uses_store_clock():
     assert save_request.created_at == now
     assert save_request.updated_at == now
     assert save_request.expires_at == now + timedelta(seconds=7)
+
+
+def test_edit_and_save_request_ids_use_injected_id_generator():
+    from app.services.office_editing_service import OfficeEditingStore
+
+    store = OfficeEditingStore(id_generator=FixedIdGenerator("edit-1", "save-1"))
+    session = _create_session(store)
+    save_request = store.create_save_request(session)
+
+    assert session.edit_session_id == "edit-1"
+    assert save_request.save_request_id == "save-1"
 
 
 def test_recreating_edit_session_revokes_previous_callback_token():

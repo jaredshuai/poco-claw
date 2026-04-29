@@ -1,8 +1,9 @@
 import logging
 import re
 import time
+from collections.abc import Callable
 from inspect import isawaitable
-from typing import Any, TypedDict
+from typing import Any, Protocol, TypedDict
 from urllib.parse import urlparse
 
 from app.core.settings import get_settings
@@ -21,6 +22,32 @@ _HOOK_PHASE_ORDER = {
     "error": 3,
     "teardown": 4,
 }
+
+
+class ConfigBackendClient(Protocol):
+    async def get_env_map(self, user_id: str) -> dict[str, str]: ...
+
+    async def get_execution_settings(self, user_id: str) -> dict: ...
+
+    async def resolve_mcp_config(self, user_id: str, server_ids: list[int]) -> dict: ...
+
+    async def resolve_skill_config(
+        self, user_id: str, skill_ids: list[int]
+    ) -> dict: ...
+
+    async def resolve_plugin_config(
+        self, user_id: str, plugin_ids: list[int]
+    ) -> dict: ...
+
+    async def resolve_subagents(
+        self, user_id: str, subagent_ids: list[int] | None
+    ) -> dict: ...
+
+    async def update_run_metadata(self, run_id: str, metadata: dict) -> None: ...
+
+
+def build_config_backend_client() -> ConfigBackendClient:
+    return BackendClient()
 
 
 class ProviderRuntimeSpec(TypedDict):
@@ -120,8 +147,16 @@ def _resolve_env_value(value: Any, env_map: dict[str, str]) -> Any:
 
 
 class ConfigResolver:
-    def __init__(self, backend_client: BackendClient | None = None) -> None:
-        self.backend_client = backend_client or BackendClient()
+    def __init__(
+        self,
+        backend_client: ConfigBackendClient | None = None,
+        *,
+        backend_client_factory: Callable[[], ConfigBackendClient] | None = None,
+    ) -> None:
+        factory = backend_client_factory or build_config_backend_client
+        self.backend_client = (
+            backend_client if backend_client is not None else factory()
+        )
         self.settings = get_settings()
 
     async def resolve(

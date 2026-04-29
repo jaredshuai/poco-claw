@@ -122,6 +122,27 @@ class TestConfigResolverInit(unittest.TestCase):
                 ConfigResolver()
                 mock_bc.assert_called_once()
 
+    def test_init_uses_injected_backend_factory_without_constructing_default(
+        self,
+    ) -> None:
+        mock_client = MagicMock()
+        with (
+            patch("app.services.config_resolver.get_settings") as mock_settings,
+            patch(
+                "app.services.config_resolver.BackendClient",
+                side_effect=AssertionError(
+                    "backend client should be provided by factory"
+                ),
+            ),
+        ):
+            mock_settings.return_value = MagicMock()
+
+            resolver = ConfigResolver(
+                backend_client_factory=lambda: mock_client,
+            )
+
+            assert resolver.backend_client == mock_client
+
 
 class TestConfigResolverNormalizeIds(unittest.TestCase):
     """Test ConfigResolver._normalize_ids."""

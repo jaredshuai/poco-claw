@@ -44,6 +44,32 @@ class TestScheduledTaskDispatchServiceInit(unittest.TestCase):
             assert service.backend_client is mock_backend
             assert service.settings is mock_settings
 
+    def test_init_uses_injected_backend_factory_without_constructing_default(
+        self,
+    ) -> None:
+        mock_backend = MagicMock()
+        mock_settings = MagicMock()
+
+        with (
+            patch(
+                "app.services.scheduled_task_dispatch_service.BackendClient",
+                side_effect=AssertionError(
+                    "backend client should be provided by factory"
+                ),
+            ),
+            patch(
+                "app.services.scheduled_task_dispatch_service.get_settings"
+            ) as mock_get_settings,
+        ):
+            mock_get_settings.return_value = mock_settings
+
+            service = ScheduledTaskDispatchService(
+                backend_client_factory=lambda: mock_backend,
+            )
+
+            assert service.backend_client is mock_backend
+            assert service.settings is mock_settings
+
 
 class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
     """Test ScheduledTaskDispatchService.dispatch_due."""

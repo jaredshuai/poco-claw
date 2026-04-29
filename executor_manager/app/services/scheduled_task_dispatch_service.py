@@ -1,18 +1,36 @@
 import logging
 import time
+from collections.abc import Callable
+from typing import Any, Protocol
 
-from app.services.backend_client import BackendClient
 from app.core.settings import get_settings
+from app.services.backend_client import BackendClient
 
 logger = logging.getLogger(__name__)
+
+
+class ScheduledTaskBackendClient(Protocol):
+    async def dispatch_due_scheduled_tasks(self, *, limit: int) -> dict[str, Any]: ...
+
+
+def build_scheduled_task_backend_client() -> ScheduledTaskBackendClient:
+    return BackendClient()
 
 
 class ScheduledTaskDispatchService:
     """Background service that asks Backend to enqueue due scheduled tasks."""
 
-    def __init__(self, backend_client: BackendClient | None = None) -> None:
+    def __init__(
+        self,
+        backend_client: ScheduledTaskBackendClient | None = None,
+        *,
+        backend_client_factory: Callable[[], ScheduledTaskBackendClient] | None = None,
+    ) -> None:
         self.settings = get_settings()
-        self.backend_client = backend_client or BackendClient()
+        factory = backend_client_factory or build_scheduled_task_backend_client
+        self.backend_client = (
+            backend_client if backend_client is not None else factory()
+        )
 
     async def dispatch_due(self) -> None:
         started = time.perf_counter()

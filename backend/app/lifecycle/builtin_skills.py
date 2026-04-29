@@ -1,7 +1,9 @@
 import hashlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from sqlalchemy.orm import Session
 
@@ -81,13 +83,32 @@ class BuiltinSkillBundle:
     asset_dir_exists: bool
 
 
+class BuiltinSkillStorage(Protocol):
+    def delete_prefix(self, *, prefix: str) -> int: ...
+
+    def exists(self, key: str) -> bool: ...
+
+    def sync_directory(self, *, source_dir: Path, prefix: str) -> int: ...
+
+
+def build_builtin_skill_storage() -> BuiltinSkillStorage:
+    return S3StorageService()
+
+
 class SkillBootstrapService:
     """Ensures built-in skills exist in the database."""
 
     @classmethod
-    def bootstrap_builtin_skills(cls, db: Session) -> None:
+    def bootstrap_builtin_skills(
+        cls,
+        db: Session,
+        *,
+        storage_service_factory: Callable[[], BuiltinSkillStorage] | None = None,
+    ) -> None:
         """Create or update all built-in skills."""
-        storage_service = cls._build_storage_service()
+        storage_service = cls._build_storage_service(
+            storage_service_factory=storage_service_factory,
+        )
         cls._cleanup_removed_builtin_skills(db, storage_service)
         for definition in BUILTIN_SKILLS:
             bundle = cls._build_bundle(definition)
@@ -103,7 +124,7 @@ class SkillBootstrapService:
     def _cleanup_removed_builtin_skills(
         cls,
         db: Session,
-        storage_service: S3StorageService | None,
+        storage_service: BuiltinSkillStorage | None,
     ) -> None:
         declared_names = {definition.name for definition in BUILTIN_SKILLS}
         existing_skills = SkillRepository.list_by_scope_and_owner(
@@ -222,7 +243,7 @@ class SkillBootstrapService:
     @classmethod
     def _sync_bundle_assets(
         cls,
-        storage_service: S3StorageService | None,
+        storage_service: BuiltinSkillStorage | None,
         bundle: BuiltinSkillBundle,
         existing: Skill | None,
     ) -> None:
@@ -270,9 +291,13 @@ class SkillBootstrapService:
         )
 
     @staticmethod
-    def _build_storage_service() -> S3StorageService | None:
+    def _build_storage_service(
+        *,
+        storage_service_factory: Callable[[], BuiltinSkillStorage] | None = None,
+    ) -> BuiltinSkillStorage | None:
+        factory = storage_service_factory or build_builtin_skill_storage
         try:
-            return S3StorageService()
+            return factory()
         except Exception:
             logger.warning("builtin_skill_storage_unavailable", exc_info=True)
             return None

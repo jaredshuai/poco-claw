@@ -11,7 +11,7 @@ import zipfile
 import base64
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from typing import Any, IO, Iterable
+from typing import Any, IO, Iterable, Protocol
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
@@ -39,6 +39,24 @@ _SKILL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 _FILENAME_CLEAN = re.compile(r"[^a-zA-Z0-9._-]+")
 _MAX_FILES_PER_SKILL = 5000
 _MAX_UNCOMPRESSED_BYTES_PER_SKILL = 500 * 1024 * 1024
+
+
+class SkillImportStorage(Protocol):
+    def upload_fileobj(
+        self,
+        *,
+        fileobj: IO[bytes],
+        key: str,
+        content_type: str | None = None,
+    ) -> None: ...
+
+    def download_file(self, *, key: str, destination: Path) -> None: ...
+
+    def exists(self, key: str) -> bool: ...
+
+
+def build_skill_import_storage() -> SkillImportStorage:
+    return S3StorageService()
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -103,11 +121,15 @@ def _strip_common_root(path: PurePosixPath, common_root: str | None) -> PurePosi
 class SkillImportService:
     def __init__(
         self,
-        storage_service: S3StorageService | None = None,
+        storage_service: SkillImportStorage | None = None,
         *,
+        storage_service_factory: Callable[[], SkillImportStorage] | None = None,
         id_generator: IdGenerator | None = None,
     ) -> None:
-        self.storage_service = storage_service or S3StorageService()
+        self.storage_service: SkillImportStorage | None = storage_service
+        self.storage_service_factory = (
+            storage_service_factory or build_skill_import_storage
+        )
         self._id_generator = id_generator or UuidIdGenerator()
 
     def discover(
@@ -247,7 +269,7 @@ class SkillImportService:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_root = Path(tmp_dir)
             zip_path = tmp_root / "archive.zip"
-            self.storage_service.download_file(key=archive_key, destination=zip_path)
+            self._storage_service().download_file(key=archive_key, destination=zip_path)
 
             try:
                 zipf = zipfile.ZipFile(zip_path)
@@ -334,7 +356,7 @@ class SkillImportService:
 
         if source_path is not None:
             with source_path.open("rb") as f:
-                self.storage_service.upload_fileobj(
+                self._storage_service().upload_fileobj(
                     fileobj=f, key=key, content_type="application/zip"
                 )
             return key
@@ -343,7 +365,7 @@ class SkillImportService:
                 source_bytes.seek(0)
             except Exception:
                 pass
-            self.storage_service.upload_fileobj(
+            self._storage_service().upload_fileobj(
                 fileobj=source_bytes, key=key, content_type="application/zip"
             )
             return key
@@ -369,7 +391,7 @@ class SkillImportService:
     def _upload_archive_meta(self, *, archive_key: str, source: dict[str, Any]) -> None:
         meta_key = self._meta_key_from_archive_key(archive_key=archive_key)
         payload = json.dumps(source).encode("utf-8")
-        self.storage_service.upload_fileobj(
+        self._storage_service().upload_fileobj(
             fileobj=io.BytesIO(payload),
             key=meta_key,
             content_type="application/json",
@@ -377,10 +399,11 @@ class SkillImportService:
 
     def _resolve_archive_source(self, *, archive_key: str) -> dict[str, Any]:
         meta_key = self._meta_key_from_archive_key(archive_key=archive_key)
-        if self.storage_service.exists(meta_key):
+        storage_service = self._storage_service()
+        if storage_service.exists(meta_key):
             with tempfile.TemporaryDirectory() as tmp_dir:
                 meta_path = Path(tmp_dir) / "meta.json"
-                self.storage_service.download_file(key=meta_key, destination=meta_path)
+                storage_service.download_file(key=meta_key, destination=meta_path)
                 try:
                     data = json.loads(meta_path.read_text("utf-8"))
                 except Exception:
@@ -1126,12 +1149,17 @@ class SkillImportService:
                 )
 
             with zipf.open(info, "r") as f:
-                self.storage_service.upload_fileobj(
+                self._storage_service().upload_fileobj(
                     fileobj=f, key=key, content_type=content_type
                 )
             uploaded += 1
 
         return uploaded
+
+    def _storage_service(self) -> SkillImportStorage:
+        if self.storage_service is None:
+            self.storage_service = self.storage_service_factory()
+        return self.storage_service
 
     @staticmethod
     def _extract_skill_description(

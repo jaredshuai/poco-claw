@@ -17,6 +17,7 @@ import jwt
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.settings import get_settings
+from app.services.clock import Clock, SystemClock
 
 
 logger = logging.getLogger(__name__)
@@ -68,12 +69,21 @@ class OfficeSaveRequest:
 class OfficeEditingStore:
     """Short-lived edit/save state with optional file-backed recovery."""
 
-    def __init__(self, *, state_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        state_path: str | Path | None = None,
+        clock: Clock | None = None,
+    ) -> None:
         self._edit_sessions: dict[str, OfficeEditSession] = {}
         self._tokens: dict[str, str] = {}
         self._save_requests: dict[str, OfficeSaveRequest] = {}
         self._state_path = Path(state_path) if state_path else None
+        self._clock = clock or SystemClock()
         self._load_state()
+
+    def _now(self) -> datetime:
+        return self._clock.now_utc().astimezone(UTC)
 
     def create_edit_session(
         self,
@@ -87,7 +97,7 @@ class OfficeEditingStore:
         document_key: str,
         edit_session_id: str | None = None,
     ) -> OfficeEditSession:
-        now = datetime.now(UTC)
+        now = self._now()
         settings = get_settings()
         resolved_edit_session_id = edit_session_id or str(uuid.uuid4())
         existing = self._edit_sessions.get(resolved_edit_session_id)

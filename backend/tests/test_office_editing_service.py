@@ -7,6 +7,14 @@ import os
 from unittest.mock import MagicMock, patch
 
 
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now_utc(self) -> datetime:
+        return self._now
+
+
 def _create_session(store):
     return store.create_edit_session(
         session_id="00000000-0000-0000-0000-000000000001",
@@ -36,15 +44,13 @@ def test_edit_session_ttl_uses_settings():
     from app.core.settings import get_settings
     from app.services.office_editing_service import OfficeEditingStore
 
+    now = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
     with patch.dict(os.environ, {"OFFICE_EDIT_SESSION_TTL_SECONDS": "2"}, clear=False):
         get_settings.cache_clear()
-        before = datetime.now(UTC)
-        session = _create_session(OfficeEditingStore())
-        after = datetime.now(UTC)
+        session = _create_session(OfficeEditingStore(clock=FixedClock(now)))
         get_settings.cache_clear()
 
-    assert before + timedelta(seconds=2) <= session.expires_at
-    assert session.expires_at <= after + timedelta(seconds=2)
+    assert session.expires_at == now + timedelta(seconds=2)
 
 
 def test_cleanup_expired_revokes_callback_token_and_fails_active_save_request():

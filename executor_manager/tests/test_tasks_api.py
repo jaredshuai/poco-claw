@@ -1,9 +1,39 @@
 """Tests for app/api/v1/tasks.py."""
 
+import importlib.util
+from pathlib import Path
+import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+
+def _load_tasks_module_from_source():
+    module_name = "_tasks_api_import_probe"
+    module_path = (
+        Path(__file__).resolve().parents[1] / "app" / "api" / "v1" / "tasks.py"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_tasks_module_import_does_not_initialize_service() -> None:
+    with patch(
+        "app.services.task_service.TaskService",
+        side_effect=AssertionError("task service should be lazy"),
+    ):
+        module = _load_tasks_module_from_source()
+
+    assert module.create_task is not None
 
 
 class TestTasksEndpoints(unittest.TestCase):

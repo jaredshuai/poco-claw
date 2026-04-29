@@ -135,6 +135,67 @@ class TestTaskServiceCreateTask(unittest.TestCase):
             config={"browser_enabled": False},
         )
 
+    def test_create_task_uses_injected_scheduler_and_target_resolver(self) -> None:
+        """Test task scheduling and runtime target resolution use injected ports."""
+        mock_settings = MagicMock()
+        mock_settings.anthropic_api_key = "test-key"
+        mock_backend_client = MagicMock()
+        mock_backend_client.create_session = AsyncMock(
+            return_value={
+                "session_id": "new-session-123",
+                "sdk_session_id": "sdk-123",
+            }
+        )
+        mock_scheduler = MagicMock()
+        mock_target_resolver = MagicMock()
+        mock_target_resolver.resolve_executor_target = AsyncMock(
+            return_value=("http://executor.local", "container-from-port")
+        )
+
+        with patch(
+            "app.services.task_service.get_settings", return_value=mock_settings
+        ):
+            service = TaskService(
+                id_generator=FixedIdGenerator("task-fixed"),
+                backend_client_factory=lambda: mock_backend_client,
+                task_scheduler_factory=lambda: mock_scheduler,
+                target_resolver=mock_target_resolver,
+            )
+
+        global_scheduler = MagicMock()
+        global_scheduler.add_job.side_effect = AssertionError(
+            "scheduler should be injected"
+        )
+        with (
+            patch("app.services.task_service.scheduler", global_scheduler),
+            patch(
+                "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
+                new_callable=AsyncMock,
+                side_effect=AssertionError("target resolver should be injected"),
+            ),
+        ):
+            import asyncio
+
+            result = asyncio.run(
+                service.create_task(
+                    user_id="user-123",
+                    prompt="Test prompt",
+                    config={"container_mode": "persistent", "browser_enabled": True},
+                    session_id=None,
+                )
+            )
+
+        assert result.task_id == "task-fixed"
+        assert result.container_id == "container-from-port"
+        mock_scheduler.add_job.assert_called_once()
+        mock_target_resolver.resolve_executor_target.assert_awaited_once_with(
+            session_id="new-session-123",
+            user_id="user-123",
+            browser_enabled=True,
+            container_mode="persistent",
+            container_id=None,
+        )
+
     def test_create_task_new_session(self) -> None:
         """Test creating a task with a new session."""
         service = self._create_service()

@@ -37,10 +37,51 @@ class TaskBackendClient(Protocol):
     async def get_session(self, session_id: str) -> dict[str, Any]: ...
 
 
+class TaskScheduler(Protocol):
+    def add_job(self, func: Callable[..., Any], **kwargs: Any) -> Any: ...
+
+    def get_job(self, job_id: str) -> Any: ...
+
+
+class TaskTargetResolver(Protocol):
+    async def resolve_executor_target(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]: ...
+
+
 def build_backend_client() -> TaskBackendClient:
     from app.services.backend_client import BackendClient
 
     return BackendClient()
+
+
+def build_task_scheduler() -> TaskScheduler:
+    return scheduler
+
+
+class TaskDispatcherTargetResolver:
+    async def resolve_executor_target(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]:
+        return await TaskDispatcher.resolve_executor_target(
+            session_id=session_id,
+            user_id=user_id,
+            browser_enabled=browser_enabled,
+            container_mode=container_mode,
+            container_id=container_id,
+        )
 
 
 class TaskService:
@@ -51,10 +92,14 @@ class TaskService:
         *,
         id_generator: IdGenerator | None = None,
         backend_client_factory: Callable[[], TaskBackendClient] | None = None,
+        task_scheduler_factory: Callable[[], TaskScheduler] | None = None,
+        target_resolver: TaskTargetResolver | None = None,
     ) -> None:
         self.settings = get_settings()
         self.id_generator = id_generator or UuidIdGenerator()
         self.backend_client_factory = backend_client_factory or build_backend_client
+        self.task_scheduler_factory = task_scheduler_factory or build_task_scheduler
+        self.target_resolver = target_resolver or TaskDispatcherTargetResolver()
 
     async def create_task(
         self,
@@ -128,7 +173,7 @@ class TaskService:
             if container_id or container_mode == "persistent":
                 step_started = time.perf_counter()
                 browser_enabled = bool(config.get("browser_enabled"))
-                _, container_id = await TaskDispatcher.resolve_executor_target(
+                _, container_id = await self.target_resolver.resolve_executor_target(
                     session_id=session_id,
                     user_id=user_id,
                     browser_enabled=browser_enabled,
@@ -150,7 +195,8 @@ class TaskService:
                 )
             enqueued_at = time.perf_counter()
             step_started = time.perf_counter()
-            scheduler.add_job(
+            task_scheduler = self.task_scheduler_factory()
+            task_scheduler.add_job(
                 TaskDispatcher.dispatch,
                 args=[
                     task_id,
@@ -220,7 +266,8 @@ class TaskService:
         Raises:
             AppException: If task not found in scheduler
         """
-        job = scheduler.get_job(task_id)
+        task_scheduler = self.task_scheduler_factory()
+        job = task_scheduler.get_job(task_id)
 
         if job:
             return TaskStatusResponse(

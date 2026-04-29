@@ -28,10 +28,15 @@ _PENDING_STATUSES = {"pending", "failed", "creating"}
 
 
 class PendingSkillCreationService:
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: S3StorageService | None = None,
+        *,
+        skill_workspace_service: SkillWorkspaceService | None = None,
+    ) -> None:
         self.storage_service = storage_service
-        self.skill_workspace_service = SkillWorkspaceService(
-            storage_service=storage_service
+        self.skill_workspace_service = skill_workspace_service or SkillWorkspaceService(
+            storage_service=storage_service,
         )
 
     def detect_and_create_pending(

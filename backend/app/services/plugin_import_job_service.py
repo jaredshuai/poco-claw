@@ -1,6 +1,5 @@
 import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -16,14 +15,20 @@ from app.schemas.plugin_import import (
     PluginImportCommitResponse,
     PluginImportJobResponse,
 )
+from app.services.clock import Clock, SystemClock
 from app.services.plugin_import_service import PluginImportService
 
 logger = logging.getLogger(__name__)
 
 
 class PluginImportJobService:
-    def __init__(self, import_service: PluginImportService | None = None) -> None:
+    def __init__(
+        self,
+        import_service: PluginImportService | None = None,
+        clock: Clock | None = None,
+    ) -> None:
         self.import_service = import_service or PluginImportService()
+        self._clock = clock or SystemClock()
 
     def enqueue_commit(
         self,
@@ -80,7 +85,7 @@ class PluginImportJobService:
             job_ref = job
             job.status = "running"
             job.progress = 0
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = self._clock.now_utc()
             job.error = None
             db.commit()
 
@@ -111,8 +116,8 @@ class PluginImportJobService:
         finally:
             db.close()
 
-    @staticmethod
     def _mark_success(
+        self,
         db: Session,
         job: PluginImportJob,
         result: PluginImportCommitResponse,
@@ -121,14 +126,13 @@ class PluginImportJobService:
         job.progress = 100
         job.result = result.model_dump()
         job.error = None
-        job.finished_at = datetime.now(timezone.utc)
+        job.finished_at = self._clock.now_utc()
         db.commit()
 
-    @staticmethod
-    def _mark_failed(db: Session, job: PluginImportJob, error: str) -> None:
+    def _mark_failed(self, db: Session, job: PluginImportJob, error: str) -> None:
         job.status = "failed"
         job.error = error
-        job.finished_at = datetime.now(timezone.utc)
+        job.finished_at = self._clock.now_utc()
         db.commit()
 
     @staticmethod

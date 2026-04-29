@@ -1,5 +1,7 @@
 import re
 import uuid
+from collections.abc import Callable
+from typing import Protocol
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -25,6 +27,22 @@ from app.utils.workspace_manifest import (
 _SKILL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
+class SkillWorkspaceStorage(Protocol):
+    def get_text(self, key: str) -> str: ...
+
+    def copy_prefix(self, *, source_prefix: str, destination_prefix: str) -> int: ...
+
+    def exists(self, key: str) -> bool: ...
+
+    def get_manifest(self, key: str) -> object: ...
+
+    def put_object(self, *, key: str, body: bytes, content_type: str) -> None: ...
+
+
+def build_skill_workspace_storage() -> SkillWorkspaceStorage:
+    return S3StorageService()
+
+
 class WorkspaceSkillInfo(BaseModel):
     folder_path: str
     detected_name: str
@@ -43,11 +61,15 @@ class SkillWorkspaceService:
 
     def __init__(
         self,
-        storage_service: S3StorageService | None = None,
+        storage_service: SkillWorkspaceStorage | None = None,
         *,
+        storage_service_factory: Callable[[], SkillWorkspaceStorage] | None = None,
         id_generator: IdGenerator | None = None,
     ) -> None:
-        self.storage_service = storage_service
+        self.storage_service: SkillWorkspaceStorage | None = storage_service
+        self.storage_service_factory = (
+            storage_service_factory or build_skill_workspace_storage
+        )
         self._id_generator = id_generator or UuidIdGenerator()
 
     def inspect_workspace_skill(
@@ -289,9 +311,9 @@ class SkillWorkspaceService:
             )
         return workspace_prefix
 
-    def _storage_service(self) -> S3StorageService:
+    def _storage_service(self) -> SkillWorkspaceStorage:
         if self.storage_service is None:
-            self.storage_service = S3StorageService()
+            self.storage_service = self.storage_service_factory()
         return self.storage_service
 
     def _rewrite_skill_markdown(

@@ -6,6 +6,21 @@ from app.models.agent_session import AgentSession
 from app.services.skill_workspace_service import SkillWorkspaceService
 
 
+def test_storage_service_uses_injected_factory_without_constructing_s3() -> None:
+    storage_service = MagicMock()
+
+    with patch(
+        "app.services.skill_workspace_service.S3StorageService",
+        side_effect=AssertionError("storage should be provided by factory"),
+    ):
+        service = SkillWorkspaceService(
+            storage_service_factory=lambda: storage_service,
+        )
+
+        assert service._storage_service() is storage_service
+        assert service._storage_service() is storage_service
+
+
 class FixedIdGenerator:
     def __init__(self, *ids: str) -> None:
         self._ids = list(ids)

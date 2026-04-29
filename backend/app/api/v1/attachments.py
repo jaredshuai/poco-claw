@@ -13,7 +13,7 @@ from app.services.storage_service import S3StorageService
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
-storage_service = S3StorageService()
+storage_service: S3StorageService | None = None
 id_generator = UuidIdGenerator()
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]+")
@@ -49,11 +49,19 @@ def get_attachment_id_generator() -> IdGenerator:
     return id_generator
 
 
+def get_storage_service() -> S3StorageService:
+    global storage_service
+    if storage_service is None:
+        storage_service = S3StorageService()
+    return storage_service
+
+
 @router.post("/upload", response_model=ResponseSchema[InputFile])
 async def upload_attachment(
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
     id_generator: IdGenerator = Depends(get_attachment_id_generator),
+    storage_service: S3StorageService = Depends(get_storage_service),
 ) -> JSONResponse:
     """Upload a user attachment to storage."""
     settings = get_settings()

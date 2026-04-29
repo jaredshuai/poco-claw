@@ -3,6 +3,7 @@ import importlib
 import io
 import json
 import os
+import sys
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import MagicMock, patch
@@ -38,8 +39,9 @@ def _load_attachments_module():
         return module
 
 
-def test_upload_attachment_uses_injected_id_generator_for_storage_key():
+def test_upload_attachment_uses_injected_dependencies_for_storage_key():
     attachments = _load_attachments_module()
+    storage_service = MagicMock()
     file = cast(
         UploadFile,
         SimpleNamespace(
@@ -49,14 +51,14 @@ def test_upload_attachment_uses_injected_id_generator_for_storage_key():
         ),
     )
 
-    with patch.object(attachments, "storage_service") as storage_service:
-        response = asyncio.run(
-            attachments.upload_attachment(
-                file=file,
-                user_id="user-123",
-                id_generator=FixedIdGenerator("attachment-fixed"),
-            )
+    response = asyncio.run(
+        attachments.upload_attachment(
+            file=file,
+            user_id="user-123",
+            id_generator=FixedIdGenerator("attachment-fixed"),
+            storage_service=storage_service,
         )
+    )
 
     assert response.status_code == 200
     body = json.loads(response.body)
@@ -67,3 +69,15 @@ def test_upload_attachment_uses_injected_id_generator_for_storage_key():
         key="attachments/user-123/attachment-fixed/file",
         content_type="text/plain",
     )
+
+
+def test_attachments_module_import_does_not_initialize_storage_service():
+    sys.modules.pop("app.api.v1.attachments", None)
+
+    with patch(
+        "app.services.storage_service.S3StorageService",
+        side_effect=AssertionError("storage should be lazy"),
+    ):
+        module = importlib.import_module("app.api.v1.attachments")
+
+    assert module.upload_attachment is not None

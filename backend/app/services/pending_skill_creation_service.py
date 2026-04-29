@@ -1,6 +1,8 @@
 import re
 import uuid
+from collections.abc import Callable
 from pathlib import PurePosixPath
+from typing import Protocol
 
 from sqlalchemy.orm import Session
 
@@ -27,16 +29,37 @@ _ALLOWED_HIDDEN_SKILL_ROOTS = frozenset({".config", ".config_data"})
 _PENDING_STATUSES = {"pending", "failed", "creating"}
 
 
+class PendingSkillStorage(Protocol):
+    def get_manifest(self, key: str) -> object: ...
+
+    def get_text(self, key: str) -> str: ...
+
+    def copy_prefix(self, *, source_prefix: str, destination_prefix: str) -> int: ...
+
+    def exists(self, key: str) -> bool: ...
+
+    def put_object(self, *, key: str, body: bytes, content_type: str) -> None: ...
+
+
+def build_pending_skill_storage() -> PendingSkillStorage:
+    return S3StorageService()
+
+
 class PendingSkillCreationService:
     def __init__(
         self,
-        storage_service: S3StorageService | None = None,
+        storage_service: PendingSkillStorage | None = None,
         *,
+        storage_service_factory: Callable[[], PendingSkillStorage] | None = None,
         skill_workspace_service: SkillWorkspaceService | None = None,
     ) -> None:
-        self.storage_service = storage_service
+        self.storage_service: PendingSkillStorage | None = storage_service
+        self.storage_service_factory = (
+            storage_service_factory or build_pending_skill_storage
+        )
         self.skill_workspace_service = skill_workspace_service or SkillWorkspaceService(
             storage_service=storage_service,
+            storage_service_factory=storage_service_factory,
         )
 
     def detect_and_create_pending(
@@ -375,9 +398,9 @@ class PendingSkillCreationService:
 
         return candidates
 
-    def _storage_service(self) -> S3StorageService:
+    def _storage_service(self) -> PendingSkillStorage:
         if self.storage_service is None:
-            self.storage_service = S3StorageService()
+            self.storage_service = self.storage_service_factory()
         return self.storage_service
 
     @staticmethod

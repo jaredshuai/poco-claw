@@ -347,7 +347,7 @@ class OfficeEditingStore:
         save_request = self._save_requests.get(save_request_id)
         if not save_request:
             return
-        now = datetime.now(UTC)
+        now = self._now()
         save_request.status = status
         save_request.updated_at = now
         save_request.error_code = error_code

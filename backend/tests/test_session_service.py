@@ -710,6 +710,8 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_user_input_repo: MagicMock,
         mock_tool_repo: MagicMock,
     ) -> None:
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = SessionService(clock=FixedClock(now))
         mock_session = self._make_session()
         mock_session_repo.get_by_id.return_value = mock_session
 
@@ -724,9 +726,10 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         mock_queue_repo.mark_canceled.return_value = 0
         mock_tool_repo.list_unfinished_by_session.return_value = []
 
-        self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
+        service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
         self.assertEqual(mock_request.status, "expired")
+        self.assertEqual(mock_request.expires_at, now)
 
     @patch("app.services.session_service.ToolExecutionRepository")
     @patch("app.services.session_service.UserInputRequestRepository")

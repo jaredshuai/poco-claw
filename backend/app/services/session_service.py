@@ -216,7 +216,7 @@ class SessionService:
                 message="Session does not belong to the user",
             )
 
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
         runs = (
             db.query(AgentRun)
             .filter(AgentRun.session_id == session_id)

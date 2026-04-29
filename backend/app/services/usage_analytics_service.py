@@ -203,8 +203,8 @@ class UsageAnalyticsService:
             )
         return buckets
 
-    @staticmethod
     def _resolve_day(
+        self,
         target_day: date | None,
         *,
         target_month: date,
@@ -222,7 +222,7 @@ class UsageAnalyticsService:
         if non_empty_days:
             return non_empty_days[-1]
 
-        today = datetime.now(tzinfo).date()
+        today = self._today(tzinfo)
         if today.year == target_month.year and today.month == target_month.month:
             return today
         return target_month.replace(day=1)

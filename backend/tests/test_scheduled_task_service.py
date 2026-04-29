@@ -50,16 +50,18 @@ class TestScheduledTaskServiceClock(unittest.TestCase):
 
     @patch("app.services.scheduled_task_service.ScheduledTaskResponse")
     @patch("app.services.scheduled_task_service.ScheduledTaskRepository")
-    @patch("app.services.scheduled_task_service.task_service")
     def test_create_task_computes_next_run_from_clock(
         self,
-        mock_task_service: MagicMock,
         mock_task_repo: MagicMock,
         mock_response: MagicMock,
     ) -> None:
-        mock_task_service._build_config_snapshot.return_value = {}
+        task_service = MagicMock()
+        task_service._build_config_snapshot.return_value = {}
         mock_task_repo.create.return_value = self._make_task()
-        service = ScheduledTaskService(clock=FixedClock(self.now))
+        service = ScheduledTaskService(
+            clock=FixedClock(self.now),
+            task_service=task_service,
+        )
         service._validate_timezone = MagicMock(return_value="UTC")
         service._compute_next_run_at = MagicMock(return_value=self.next_run_at)
 
@@ -83,6 +85,7 @@ class TestScheduledTaskServiceClock(unittest.TestCase):
         )
         create_kwargs = mock_task_repo.create.call_args.kwargs
         self.assertEqual(create_kwargs["next_run_at"], self.next_run_at)
+        task_service._build_config_snapshot.assert_called_once()
         mock_response.model_validate.assert_called_once()
 
     @patch("app.services.scheduled_task_service.ScheduledTaskResponse")

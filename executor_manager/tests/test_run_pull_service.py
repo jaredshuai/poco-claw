@@ -107,7 +107,8 @@ class TestExtractEnabledSkillNames(unittest.TestCase):
 class TestRunPullServiceDependencies(unittest.TestCase):
     """Test RunPullService dependency injection."""
 
-    def test_constructor_accepts_injected_collaborators(self) -> None:
+    def test_constructor_rejects_dispatch_adapter_dependencies(self) -> None:
+        """Dispatch adapters belong behind RunDispatchService, not RunPullService."""
         settings = MagicMock(
             max_concurrent_tasks=5,
             task_claim_lease_seconds=30,
@@ -116,54 +117,13 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         )
         backend_client = MagicMock()
         executor_client = MagicMock()
-        container_pool = MagicMock()
-        config_resolver = MagicMock()
-        skill_stager = MagicMock()
-        plugin_stager = MagicMock()
-        attachment_stager = MagicMock()
-        claude_md_stager = MagicMock()
-        slash_command_stager = MagicMock()
-        subagent_stager = MagicMock()
 
-        with (
-            patch(
-                "app.services.run_pull_service.BackendClient",
-                side_effect=AssertionError("BackendClient should be injected"),
-            ),
-            patch(
-                "app.services.run_dispatch_service.ExecutorClient",
-                side_effect=AssertionError("ExecutorClient should be injected"),
-            ),
-            patch(
-                "app.services.run_dispatch_service.ConfigResolver",
-                side_effect=AssertionError("ConfigResolver should be injected"),
-            ),
-        ):
-            service = RunPullService(
+        with self.assertRaises(TypeError):
+            RunPullService(
                 settings=settings,
                 backend_client=backend_client,
                 executor_client=executor_client,
-                container_pool=container_pool,
-                config_resolver=config_resolver,
-                skill_stager=skill_stager,
-                plugin_stager=plugin_stager,
-                attachment_stager=attachment_stager,
-                claude_md_stager=claude_md_stager,
-                slash_command_stager=slash_command_stager,
-                subagent_stager=subagent_stager,
             )
-
-        assert service.settings is settings
-        assert service.backend_client is backend_client
-        assert service.executor_client is executor_client
-        assert service.container_pool is container_pool
-        assert service.config_resolver is config_resolver
-        assert service.skill_stager is skill_stager
-        assert service.plugin_stager is plugin_stager
-        assert service.attachment_stager is attachment_stager
-        assert service.claude_md_stager is claude_md_stager
-        assert service.slash_command_stager is slash_command_stager
-        assert service.subagent_stager is subagent_stager
 
     def test_handle_claim_delegates_to_injected_dispatch_service(self) -> None:
         """RunPullService should not need dispatch adapters when a use case is injected."""

@@ -26,33 +26,13 @@ class RunPullService:
         *,
         settings: Any | None = None,
         backend_client: Any | None = None,
-        executor_client: Any | None = None,
-        container_pool: Any | None = None,
-        config_resolver: Any | None = None,
-        skill_stager: Any | None = None,
-        plugin_stager: Any | None = None,
-        attachment_stager: Any | None = None,
-        claude_md_stager: Any | None = None,
-        slash_command_stager: Any | None = None,
-        subagent_stager: Any | None = None,
         dispatch_service: Any | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.backend_client = backend_client or BackendClient()
         self.dispatch_service = dispatch_service or RunDispatchService.create_default(
-            **self._build_dispatch_kwargs(
-                settings=self.settings,
-                backend_client=self.backend_client,
-                executor_client=executor_client,
-                container_pool=container_pool,
-                config_resolver=config_resolver,
-                skill_stager=skill_stager,
-                plugin_stager=plugin_stager,
-                attachment_stager=attachment_stager,
-                claude_md_stager=claude_md_stager,
-                slash_command_stager=slash_command_stager,
-                subagent_stager=subagent_stager,
-            )
+            settings=self.settings,
+            backend_client=self.backend_client,
         )
 
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
@@ -64,10 +44,6 @@ class RunPullService:
         self._window_locks: dict[str, asyncio.Lock] = {}
         self._inflight_run_ids: set[str] = set()
         self._inflight_lock = asyncio.Lock()
-
-    @staticmethod
-    def _build_dispatch_kwargs(**values: Any) -> dict[str, Any]:
-        return {key: value for key, value in values.items() if value is not None}
 
     @property
     def executor_client(self) -> Any:

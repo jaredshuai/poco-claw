@@ -1,10 +1,18 @@
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.schemas.callback import AgentCallbackRequest, CallbackStatus
 from app.services.callback_service import CallbackService
+
+
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now_utc(self) -> datetime:
+        return self._now
 
 
 def create_mock_db_session(
@@ -466,7 +474,8 @@ class TestCallbackServiceExtractToolExecutions(unittest.TestCase):
     def test_tool_result_block_updates_existing(self) -> None:
         db = MagicMock()
         session_id = uuid.uuid4()
-        service = CallbackService()
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = CallbackService(clock=FixedClock(now))
         message = {
             "content": [
                 {
@@ -481,10 +490,12 @@ class TestCallbackServiceExtractToolExecutions(unittest.TestCase):
             "app.services.callback_service.ToolExecutionRepository"
         ) as mock_repo:
             existing = MagicMock()
-            existing.created_at = datetime.now(timezone.utc)
+            existing.created_at = now - timedelta(seconds=3)
+            existing.duration_ms = None
             mock_repo.get_by_session_and_tool_use_id.return_value = existing
             service._extract_tool_executions(db, message, session_id, 1)
             self.assertEqual(existing.is_error, True)
+            self.assertEqual(existing.duration_ms, 3000)
 
     def test_non_dict_block(self) -> None:
         db = MagicMock()

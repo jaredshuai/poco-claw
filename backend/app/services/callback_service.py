@@ -1,6 +1,5 @@
 import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -20,6 +19,7 @@ from app.schemas.callback import (
 )
 from app.services.deliverable_detection_service import DeliverableDetectionService
 from app.services.mcp_connection_service import McpConnectionService
+from app.services.clock import Clock, SystemClock
 from app.services.run_lifecycle_service import RunLifecycleService
 from app.services.im import ImEventService
 from app.services.pending_skill_creation_service import PendingSkillCreationService
@@ -35,11 +35,13 @@ class CallbackService:
 
     def __init__(
         self,
+        clock: Clock | None = None,
         run_lifecycle_service: RunLifecycleService | None = None,
         session_queue_service: SessionQueueService | None = None,
         session_service: SessionService | None = None,
         pending_skill_creation_service: PendingSkillCreationService | None = None,
     ) -> None:
+        self._clock = clock or SystemClock()
         self._run_lifecycle = run_lifecycle_service or RunLifecycleService()
         self._session_queue = session_queue_service or SessionQueueService()
         self._session_service = session_service or SessionService()
@@ -300,7 +302,7 @@ class CallbackService:
             existing.is_error = bool(is_error)
 
             if existing.duration_ms is None and existing.created_at is not None:
-                duration = datetime.now(timezone.utc) - existing.created_at
+                duration = self._clock.now_utc() - existing.created_at
                 existing.duration_ms = int(duration.total_seconds() * 1000)
 
     def _extract_and_persist_usage(

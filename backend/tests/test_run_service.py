@@ -9,6 +9,14 @@ from app.schemas.run import RunClaimRequest, RunFailRequest, RunStartRequest
 from app.services.run_service import RunService
 
 
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now_utc(self) -> datetime:
+        return self._now
+
+
 def create_mock_run(
     run_id: uuid.UUID | None = None,
     session_id: uuid.UUID | None = None,
@@ -146,15 +154,13 @@ class TestRunServiceClaimNextRun(unittest.TestCase):
         db = MagicMock()
         now = datetime(2026, 4, 28, 12, 0, tzinfo=timezone.utc)
         request = RunClaimRequest(worker_id="worker-1")
-        with patch("app.services.run_service.datetime") as mock_datetime:
-            mock_datetime.now.return_value = now
-            with patch("app.services.run_service.RunRepository") as mock_repo:
-                mock_repo.claim_next.return_value = None
-                service = RunService()
-                result = service.claim_next_run(db, request)
-                self.assertIsNone(result)
-                call_args = mock_repo.claim_next.call_args
-                self.assertEqual(call_args.kwargs["now"], now)
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.claim_next.return_value = None
+            service = RunService(clock=FixedClock(now))
+            result = service.claim_next_run(db, request)
+            self.assertIsNone(result)
+            call_args = mock_repo.claim_next.call_args
+            self.assertEqual(call_args.kwargs["now"], now)
 
     def test_session_not_found(self) -> None:
         db = MagicMock()
@@ -481,19 +487,15 @@ class TestRunServiceStartRun(unittest.TestCase):
             claimed_by="worker-1",
         )
 
-        with patch("app.services.run_service.datetime") as mock_datetime:
-            mock_datetime.now.return_value = now
-            with patch("app.services.run_service.RunRepository") as mock_repo:
-                mock_repo.get_by_id.return_value = mock_run
-                with patch(
-                    "app.services.run_service.RunTransitionPolicy"
-                ) as mock_policy:
-                    mock_policy.evaluate_start.return_value = "noop"
-                    service = RunService()
-                    result = service.start_run(db, run_id, request)
-                    self.assertIsNotNone(result)
-                    call_args = mock_policy.evaluate_start.call_args
-                    self.assertEqual(call_args.kwargs["now"], now)
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            with patch("app.services.run_service.RunTransitionPolicy") as mock_policy:
+                mock_policy.evaluate_start.return_value = "noop"
+                service = RunService(clock=FixedClock(now))
+                result = service.start_run(db, run_id, request)
+                self.assertIsNotNone(result)
+                call_args = mock_policy.evaluate_start.call_args
+                self.assertEqual(call_args.kwargs["now"], now)
 
     def test_run_start_rejects_unclaimed_queued_run(self) -> None:
         db = MagicMock()
@@ -647,24 +649,20 @@ class TestRunServiceFailRun(unittest.TestCase):
             started_at=None,
         )
 
-        with patch("app.services.run_service.datetime") as mock_datetime:
-            mock_datetime.now.return_value = now
-            with patch("app.services.run_service.RunRepository") as mock_repo:
-                mock_repo.get_by_id.return_value = mock_run
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            with patch("app.services.run_service.RunTransitionPolicy") as mock_policy:
+                mock_policy.evaluate_fail.return_value = "apply"
                 with patch(
-                    "app.services.run_service.RunTransitionPolicy"
-                ) as mock_policy:
-                    mock_policy.evaluate_fail.return_value = "apply"
-                    with patch(
-                        "app.services.run_service.run_lifecycle_service"
-                    ) as mock_lifecycle:
-                        service = RunService()
-                        result = service.fail_run(db, run_id, request)
-                        self.assertIsNotNone(result)
-                        call_args = mock_policy.evaluate_fail.call_args
-                        self.assertEqual(call_args.kwargs["now"], now)
-                        self.assertEqual(mock_run.started_at, now)
-                        mock_lifecycle.finalize_terminal.assert_called_once()
+                    "app.services.run_service.run_lifecycle_service"
+                ) as mock_lifecycle:
+                    service = RunService(clock=FixedClock(now))
+                    result = service.fail_run(db, run_id, request)
+                    self.assertIsNotNone(result)
+                    call_args = mock_policy.evaluate_fail.call_args
+                    self.assertEqual(call_args.kwargs["now"], now)
+                    self.assertEqual(mock_run.started_at, now)
+                    mock_lifecycle.finalize_terminal.assert_called_once()
 
     def test_run_fail_rejects_unclaimed_running_run(self) -> None:
         db = MagicMock()

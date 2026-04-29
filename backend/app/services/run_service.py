@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -15,6 +14,7 @@ from app.schemas.run import (
     RunResponse,
     RunStartRequest,
 )
+from app.services.clock import Clock, SystemClock
 from app.services.run_claim_prompt_policy import RunClaimPromptPolicy
 from app.services.run_claim_schedule_policy import RunClaimSchedulePolicy
 from app.services.run_lifecycle_service import RunLifecycleService
@@ -31,6 +31,9 @@ run_lifecycle_service = RunLifecycleService()
 
 class RunService:
     """Service layer for run queue operations."""
+
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
 
     def get_run(self, db: Session, run_id: uuid.UUID) -> RunResponse:
         db_run = RunRepository.get_by_id(db, run_id)
@@ -66,7 +69,7 @@ class RunService:
         lease_seconds = RunWorkerLeasePolicy.normalize_lease_seconds(
             request.lease_seconds
         )
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
 
         schedule_modes = RunClaimSchedulePolicy.normalize_schedule_modes(
             request.schedule_modes
@@ -123,7 +126,7 @@ class RunService:
         self, db: Session, run_id: uuid.UUID, request: RunStartRequest
     ) -> RunResponse:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
 
         db_run = RunRepository.get_by_id(db, run_id)
         if not db_run:
@@ -151,7 +154,7 @@ class RunService:
         request: RunFailRequest,
     ) -> RunResponse:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
 
         db_run = RunRepository.get_by_id(db, run_id)
         if not db_run:

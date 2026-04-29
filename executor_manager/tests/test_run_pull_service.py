@@ -184,6 +184,31 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         )
         assert service.dispatch_service is dispatch_service
 
+    def test_constructor_uses_injected_backend_factory_without_constructing_default(
+        self,
+    ) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+        dispatch_service = MagicMock()
+
+        with patch(
+            "app.services.run_pull_service.BackendClient",
+            side_effect=AssertionError("backend client should be provided by factory"),
+        ):
+            service = RunPullService(
+                settings=settings,
+                backend_client_factory=lambda: backend_client,
+                dispatch_service=dispatch_service,
+            )
+
+        assert service.backend_client is backend_client
+        assert service.dispatch_service is dispatch_service
+
 
 class TestGetWindowLock(unittest.TestCase):
     """Test RunPullService._get_window_lock."""

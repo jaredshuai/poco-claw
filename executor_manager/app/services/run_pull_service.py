@@ -3,6 +3,7 @@ import logging
 import os
 import socket
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -16,6 +17,10 @@ logger = logging.getLogger(__name__)
 __all__ = ["RunPullService"]
 
 
+def build_run_pull_backend_client() -> Any:
+    return BackendClient()
+
+
 class RunPullService:
     """Background service that pulls queued runs from Backend."""
 
@@ -24,11 +29,15 @@ class RunPullService:
         *,
         settings: Any | None = None,
         backend_client: Any | None = None,
+        backend_client_factory: Callable[[], Any] | None = None,
         dispatch_service: Any | None = None,
         clock: Clock | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.backend_client = backend_client or BackendClient()
+        factory = backend_client_factory or build_run_pull_backend_client
+        self.backend_client = (
+            backend_client if backend_client is not None else factory()
+        )
         self.dispatch_service = dispatch_service or RunDispatchService.create_default(
             settings=self.settings,
             backend_client=self.backend_client,

@@ -1,9 +1,9 @@
 import asyncio
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
 
+from app.core.clock import Clock, SystemClock
 from app.core.observability.request_context import (
     generate_request_id,
     generate_trace_id,
@@ -19,11 +19,16 @@ class UserInputClient:
         callback_token: str | None = None,
         timeout: float = 10.0,
         poll_interval: float = 0.5,
+        clock: Clock | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.callback_token = (callback_token or "").strip()
         self.timeout = timeout
         self.poll_interval = poll_interval
+        self.clock = clock or SystemClock()
+
+    def _now_epoch_seconds(self) -> float:
+        return self.clock.now_utc().timestamp()
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -66,8 +71,8 @@ class UserInputClient:
     async def wait_for_answer(
         self, request_id: str, timeout_seconds: float = 60
     ) -> dict[str, Any] | None:
-        deadline = datetime.now(timezone.utc).timestamp() + timeout_seconds
-        while datetime.now(timezone.utc).timestamp() < deadline:
+        deadline = self._now_epoch_seconds() + timeout_seconds
+        while self._now_epoch_seconds() < deadline:
             payload = await self.get_request(request_id)
             status = payload.get("status")
             if status == "answered":

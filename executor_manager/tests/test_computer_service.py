@@ -90,6 +90,22 @@ class TestComputerServiceInit(unittest.TestCase):
         assert service._workspace_manager is mock_workspace
         assert service._storage_service is mock_storage
 
+    def test_init_uses_injected_storage_factory_without_constructing_s3(self) -> None:
+        mock_workspace = MagicMock()
+        mock_storage = MagicMock()
+
+        with patch(
+            "app.services.computer_service.S3StorageService",
+            side_effect=AssertionError("storage should be provided by factory"),
+        ):
+            service = ComputerService(
+                workspace_manager=mock_workspace,
+                storage_service_factory=lambda: mock_storage,
+            )
+
+        assert service._workspace_manager is mock_workspace
+        assert service._storage_service is mock_storage
+
 
 class TestComputerServiceUploadBrowserScreenshot(unittest.TestCase):
     """Test ComputerService.upload_browser_screenshot."""

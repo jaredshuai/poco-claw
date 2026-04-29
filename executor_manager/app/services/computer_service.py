@@ -1,4 +1,6 @@
 import re
+from collections.abc import Callable
+from typing import Protocol
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -8,6 +10,20 @@ from app.services.workspace_manager import WorkspaceManager
 
 
 _SAFE_TOKEN = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+class ComputerStorage(Protocol):
+    def put_object(
+        self,
+        *,
+        key: str,
+        body: bytes,
+        content_type: str | None = None,
+    ) -> None: ...
+
+
+def build_computer_storage() -> ComputerStorage:
+    return S3StorageService()
 
 
 def _sanitize_token(value: str) -> str:
@@ -24,10 +40,14 @@ class ComputerService:
         self,
         *,
         workspace_manager: WorkspaceManager | None = None,
-        storage_service: S3StorageService | None = None,
+        storage_service: ComputerStorage | None = None,
+        storage_service_factory: Callable[[], ComputerStorage] | None = None,
     ) -> None:
+        factory = storage_service_factory or build_computer_storage
         self._workspace_manager = workspace_manager or WorkspaceManager()
-        self._storage_service = storage_service or S3StorageService()
+        self._storage_service = (
+            storage_service if storage_service is not None else factory()
+        )
 
     def upload_browser_screenshot(
         self,

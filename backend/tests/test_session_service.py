@@ -1281,6 +1281,71 @@ class TestSessionServiceRegenerateFromMessage(unittest.TestCase):
 
         self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
 
+    @patch("app.services.session_service.RunRepository")
+    @patch("app.services.session_service.UserInputRequestRepository")
+    @patch("app.services.session_service.MessageRepository")
+    @patch("app.services.session_service.SessionQueueItemRepository")
+    @patch("app.services.session_service.SessionRepository")
+    def test_regenerate_expires_pending_requests_with_clock(
+        self,
+        mock_session_repo: MagicMock,
+        mock_queue_repo: MagicMock,
+        mock_msg_repo: MagicMock,
+        mock_user_input_repo: MagicMock,
+        mock_run_repo: MagicMock,
+    ) -> None:
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = SessionService(clock=FixedClock(now))
+        mock_session = self._make_session()
+        mock_session_repo.get_by_id.return_value = mock_session
+        mock_queue_repo.has_active_items.return_value = False
+
+        user_message = MagicMock()
+        user_message.session_id = self.session_id
+        user_message.role = "user"
+        user_message.id = 1
+        assistant_message = MagicMock()
+        assistant_message.session_id = self.session_id
+        assistant_message.role = "assistant"
+        assistant_message.id = 2
+
+        def get_by_id_side_effect(db, msg_id):
+            if msg_id == 1:
+                return user_message
+            return assistant_message
+
+        mock_msg_repo.get_by_id.side_effect = get_by_id_side_effect
+
+        latest_run_query = MagicMock()
+        latest_run_query.filter.return_value = latest_run_query
+        latest_run_query.order_by.return_value = latest_run_query
+        latest_run_query.first.return_value = None
+        runs_query = MagicMock()
+        runs_query.filter.return_value = runs_query
+        runs_query.all.return_value = []
+        messages_query = MagicMock()
+        messages_query.filter.return_value = messages_query
+        messages_query.all.return_value = []
+        self.db.query.side_effect = [latest_run_query, runs_query, messages_query]
+
+        pending_request = MagicMock()
+        mock_user_input_repo.list_pending_by_session.return_value = [pending_request]
+        db_run = MagicMock()
+        db_run.id = uuid.uuid4()
+        db_run.status = "queued"
+        mock_run_repo.create.return_value = db_run
+
+        service.regenerate_from_message(
+            self.db,
+            self.session_id,
+            user_id=self.user_id,
+            user_message_id=1,
+            assistant_message_id=2,
+        )
+
+        self.assertEqual(pending_request.status, "expired")
+        self.assertEqual(pending_request.expires_at, now)
+
 
 class TestSessionServiceRegenerateFromMessageExtended(unittest.TestCase):
     """Extended tests for regenerate_from_message method."""

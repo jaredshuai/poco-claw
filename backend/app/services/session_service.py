@@ -554,7 +554,7 @@ class SessionService:
         pending_requests = UserInputRequestRepository.list_pending_by_session(
             db, db_session.id
         )
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
         for entry in pending_requests:
             entry.status = "expired"
             entry.expires_at = now

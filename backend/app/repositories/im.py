@@ -241,12 +241,17 @@ class ImEventOutboxRepository:
         return rows
 
     @staticmethod
-    def mark_delivered(db: Session, *, event_id: uuid.UUID | str) -> None:
+    def mark_delivered(
+        db: Session,
+        *,
+        event_id: uuid.UUID | str,
+        now_utc: datetime,
+    ) -> None:
         row = db.get(ImEventOutbox, ImEventOutboxRepository._normalize_id(event_id))
         if row is None:
             return
         row.status = "delivered"
-        row.delivered_at = datetime.now(timezone.utc)
+        row.delivered_at = now_utc
         row.lease_expires_at = None
         row.last_error = None
 

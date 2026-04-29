@@ -1190,9 +1190,10 @@ class ClaimedEvent:
 
 
 class ImEventDispatcher:
-    def __init__(self) -> None:
+    def __init__(self, clock: Clock | None = None) -> None:
         self.settings = get_settings()
         self._backend_event_service = BackendEventService()
+        self._clock = clock or SystemClock()
 
     @property
     def enabled(self) -> bool:
@@ -1281,11 +1282,14 @@ class ImEventDispatcher:
         finally:
             db.close()
 
-    @staticmethod
-    def _mark_delivered(event_id: str) -> None:
+    def _mark_delivered(self, event_id: str) -> None:
         db = SessionLocal()
         try:
-            ImEventOutboxRepository.mark_delivered(db, event_id=event_id)
+            ImEventOutboxRepository.mark_delivered(
+                db,
+                event_id=event_id,
+                now_utc=self._clock.now_utc(),
+            )
             db.commit()
         except Exception:
             db.rollback()

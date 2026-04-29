@@ -55,3 +55,20 @@ def test_user_input_request_created_event_uses_service_clock_when_created_at_mis
     payload = create.call_args.kwargs["payload"]
     occurred_at = datetime.fromisoformat(payload["occurred_at"].replace("Z", "+00:00"))
     assert occurred_at == now
+
+
+def test_dispatcher_mark_delivered_passes_clock_to_repository():
+    from app.services.im import ImEventDispatcher
+
+    now = datetime(2025, 2, 15, 10, 30, tzinfo=UTC)
+    dispatcher = ImEventDispatcher(clock=FixedClock(now))
+    db = MagicMock()
+
+    with (
+        patch("app.services.im.SessionLocal", return_value=db),
+        patch("app.services.im.ImEventOutboxRepository.mark_delivered") as mark,
+    ):
+        dispatcher._mark_delivered("event-1")
+
+    mark.assert_called_once_with(db, event_id="event-1", now_utc=now)
+    db.commit.assert_called_once_with()

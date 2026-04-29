@@ -5,7 +5,6 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import ValidationError
@@ -42,6 +41,7 @@ from app.schemas.im import (
 from app.schemas.session import SessionResponse, SessionStateResponse, TaskConfig
 from app.schemas.task import TaskEnqueueRequest, TaskEnqueueResponse
 from app.schemas.user_input_request import UserInputAnswerRequest
+from app.services.clock import Clock, SystemClock
 from app.services.im_providers import NotificationGateway
 from app.services.session_service import SessionService
 from app.services.session_title_service import SessionTitleService
@@ -1043,6 +1043,9 @@ class BackendEventService:
 class ImEventService:
     EVENT_VERSION = 1
 
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
+
     def enqueue_assistant_message_created(
         self,
         db: Session,
@@ -1152,7 +1155,7 @@ class ImEventService:
             id=str(uuid.uuid4()),
             type="user_input_request.created",
             version=self.EVENT_VERSION,
-            occurred_at=request.created_at or datetime.now(timezone.utc),
+            occurred_at=request.created_at or self._clock.now_utc(),
             user_id=db_session.user_id,
             session=_build_session_snapshot(db_session),
             user_input_request=UserInputRequestSnapshot(

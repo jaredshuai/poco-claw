@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any, Protocol
 
 from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
 from app.services.backend_client import BackendClient
@@ -11,6 +13,42 @@ from app.services.workspace_export_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class CallbackBackendClient(Protocol):
+    async def forward_callback(
+        self, callback_data: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+    async def record_mcp_transition(
+        self,
+        *,
+        run_id: str,
+        session_id: str,
+        server_name: str,
+        to_state: str,
+        event_source: str = "executor_manager",
+        error_message: str | None = None,
+        metadata: dict | None = None,
+    ) -> None: ...
+
+    async def record_permission_audit(
+        self,
+        *,
+        run_id: str,
+        session_id: str,
+        tool_name: str,
+        tool_input: dict | None = None,
+        policy_action: str = "allow",
+        policy_rule_id: str | None = None,
+        policy_reason: str | None = None,
+        audit_mode: bool = True,
+        context: dict | None = None,
+    ) -> None: ...
+
+
+class CallbackWorkspaceExportService(Protocol):
+    def export_workspace(self, session_id: str) -> Any: ...
 
 
 backend_client: BackendClient | None = None
@@ -34,8 +72,25 @@ def get_workspace_export_service() -> WorkspaceExportService:
 class CallbackService:
     """Service layer for callback processing."""
 
-    def __init__(self, *, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Clock | None = None,
+        backend_client_factory: Callable[[], CallbackBackendClient] | None = None,
+        workspace_export_service_factory: Callable[[], CallbackWorkspaceExportService]
+        | None = None,
+    ) -> None:
         self.clock = clock or SystemClock()
+        self._backend_client_factory = backend_client_factory or get_backend_client
+        self._workspace_export_service_factory = (
+            workspace_export_service_factory or get_workspace_export_service
+        )
+
+    def _get_backend_client(self) -> CallbackBackendClient:
+        return self._backend_client_factory()
+
+    def _get_workspace_export_service(self) -> CallbackWorkspaceExportService:
+        return self._workspace_export_service_factory()
 
     def _now_utc(self) -> datetime:
         now = self.clock.now_utc()
@@ -222,7 +277,7 @@ class CallbackService:
             payload = payload_model.model_dump(mode="json")
 
             # Forward callback to backend
-            backend = get_backend_client()
+            backend = self._get_backend_client()
             backend_response = await backend.forward_callback(payload)
 
             if callback.status in ["completed", "failed"]:
@@ -275,7 +330,7 @@ class CallbackService:
         if not isinstance(new_message, dict):
             return
         try:
-            backend = get_backend_client()
+            backend = self._get_backend_client()
             await backend.record_mcp_transition(
                 run_id=callback.run_id or "",
                 session_id=callback.session_id,
@@ -300,7 +355,7 @@ class CallbackService:
         if not isinstance(new_message, dict):
             return
         try:
-            backend = get_backend_client()
+            backend = self._get_backend_client()
             await backend.record_permission_audit(
                 run_id=callback.run_id or "",
                 session_id=callback.session_id,
@@ -323,7 +378,7 @@ class CallbackService:
 
     async def _export_and_forward(self, callback: AgentCallbackRequest) -> None:
         try:
-            exporter = get_workspace_export_service()
+            exporter = self._get_workspace_export_service()
             result = await asyncio.to_thread(
                 exporter.export_workspace, callback.session_id
             )
@@ -352,7 +407,7 @@ class CallbackService:
         payload = payload_model.model_dump(mode="json")
 
         try:
-            backend = get_backend_client()
+            backend = self._get_backend_client()
             await backend.forward_callback(payload)
         except Exception:
             logger.exception(

@@ -48,6 +48,33 @@ def test_callback_service_module_import_does_not_initialize_concrete_adapters() 
     assert module.CallbackService is not None
 
 
+def test_callback_service_uses_injected_factories_without_constructing_defaults() -> (
+    None
+):
+    backend = MagicMock()
+    exporter = MagicMock()
+
+    with (
+        patch(
+            "app.services.callback_service.BackendClient",
+            side_effect=AssertionError("backend client should be provided by factory"),
+        ),
+        patch(
+            "app.services.callback_service.WorkspaceExportService",
+            side_effect=AssertionError(
+                "workspace exporter should be provided by factory"
+            ),
+        ),
+    ):
+        service = CallbackService(
+            backend_client_factory=lambda: backend,
+            workspace_export_service_factory=lambda: exporter,
+        )
+
+        assert service._get_backend_client() is backend
+        assert service._get_workspace_export_service() is exporter
+
+
 class TestIsInternalMcpServer(unittest.TestCase):
     """Test CallbackService._is_internal_mcp_server."""
 

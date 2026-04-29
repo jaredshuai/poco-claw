@@ -8,14 +8,11 @@ from typing import Any
 
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
-from app.services.run_dispatch_service import (
-    RunDispatchService,
-    _extract_enabled_skill_names,
-)
+from app.services.run_dispatch_service import RunDispatchService
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RunPullService", "_extract_enabled_skill_names"]
+__all__ = ["RunPullService"]
 
 
 class RunPullService:

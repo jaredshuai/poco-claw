@@ -5,10 +5,11 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.run_pull_service import (
-    RunPullService,
+import app.services.run_pull_service as run_pull_module
+from app.services.run_dispatch_service import (
     _extract_enabled_skill_names,
 )
+from app.services.run_pull_service import RunPullService
 
 
 class TestExtractEnabledSkillNames(unittest.TestCase):
@@ -106,6 +107,9 @@ class TestExtractEnabledSkillNames(unittest.TestCase):
 
 class TestRunPullServiceDependencies(unittest.TestCase):
     """Test RunPullService dependency injection."""
+
+    def test_public_exports_stay_at_pull_boundary(self) -> None:
+        assert run_pull_module.__all__ == ["RunPullService"]
 
     def test_constructor_rejects_dispatch_adapter_dependencies(self) -> None:
         """Dispatch adapters belong behind RunDispatchService, not RunPullService."""

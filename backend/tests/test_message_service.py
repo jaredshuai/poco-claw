@@ -414,6 +414,34 @@ class TestMessageServiceGetMessageAttachmentsDelta(unittest.TestCase):
 class TestMessageServiceGetMessageAttachments(unittest.TestCase):
     """Test get_message_attachments method."""
 
+    def test_get_message_attachments_uses_injected_storage_factory(self) -> None:
+        db = MagicMock()
+        session_id = uuid.uuid4()
+        storage = MagicMock()
+        storage.presign_get.return_value = "https://presigned.url"
+        file = InputFile(
+            source="attachments/user-123/file.txt",
+            content_type="text/plain",
+            name="file.txt",
+        )
+
+        with (
+            patch.object(
+                MessageService,
+                "_build_message_id_to_attachments",
+                return_value={1: [file]},
+            ),
+            patch(
+                "app.services.message_service.S3StorageService",
+                side_effect=AssertionError("storage should be injected"),
+            ),
+        ):
+            service = MessageService(storage_service_factory=lambda: storage)
+            result = service.get_message_attachments(db, session_id, user_id="user-123")
+
+        self.assertEqual(result[0].attachments[0].url, "https://presigned.url")
+        storage.presign_get.assert_called_once()
+
     def test_get_message_attachments_empty(self) -> None:
         db = MagicMock()
         session_id = uuid.uuid4()

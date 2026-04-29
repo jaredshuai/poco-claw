@@ -1,5 +1,7 @@
 import logging
 import uuid
+from collections.abc import Callable
+from typing import Protocol
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -26,8 +28,32 @@ from app.services.storage_service import S3StorageService
 logger = logging.getLogger(__name__)
 
 
+class MessageStorage(Protocol):
+    def presign_get(
+        self,
+        key: str,
+        *,
+        response_content_disposition: str | None = None,
+        response_content_type: str | None = None,
+    ) -> str: ...
+
+
+def build_message_storage() -> MessageStorage:
+    return S3StorageService()
+
+
 class MessageService:
     """Service layer for message queries."""
+
+    def __init__(
+        self,
+        *,
+        storage_service_factory: Callable[[], MessageStorage] | None = None,
+    ) -> None:
+        self.storage_service_factory = storage_service_factory or build_message_storage
+
+    def _get_storage_service(self) -> MessageStorage:
+        return self.storage_service_factory()
 
     @staticmethod
     def _collect_message_attachments(
@@ -62,7 +88,7 @@ class MessageService:
         raw_attachments: list[InputFile],
         *,
         user_id: str,
-        storage_service: S3StorageService,
+        storage_service: MessageStorage,
     ) -> list[InputFileWithUrl]:
         key_prefix = f"attachments/{user_id}/"
 
@@ -95,7 +121,7 @@ class MessageService:
         user_id: str,
         message_id_to_attachments: dict[int, list[InputFile]],
     ) -> list[MessageWithFilesResponse]:
-        storage_service = S3StorageService()
+        storage_service = self._get_storage_service()
         base_messages = self._build_message_responses(db, messages, user_id=user_id)
 
         result: list[MessageWithFilesResponse] = []
@@ -310,7 +336,7 @@ class MessageService:
         message_id_to_attachments = self._build_message_id_to_attachments(
             db, session_id
         )
-        storage_service = S3StorageService()
+        storage_service = self._get_storage_service()
         result: list[MessageAttachmentsResponse] = []
         for message_id, attachments in sorted(message_id_to_attachments.items()):
             result.append(
@@ -360,7 +386,7 @@ class MessageService:
             page_message_ids,
         )
         message_id_to_attachments = self._collect_message_attachments(runs)
-        storage_service = S3StorageService()
+        storage_service = self._get_storage_service()
         items: list[MessageAttachmentsResponse] = []
         for message_id in page_message_ids:
             attachments = message_id_to_attachments.get(message_id) or []

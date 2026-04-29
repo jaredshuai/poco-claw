@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from typing import Any, Protocol
 
 import httpx
@@ -71,8 +72,9 @@ class DingTalkClient:
     provider = "dingtalk"
     max_text_length = 1800
 
-    def __init__(self) -> None:
+    def __init__(self, now_seconds: Callable[[], float] | None = None) -> None:
         settings = get_settings()
+        self._now_seconds = now_seconds or time.time
         self._enabled = bool(settings.dingtalk_enabled)
         self._fallback_webhook = (settings.dingtalk_webhook_url or "").strip()
         self._open_base_url = (settings.dingtalk_open_base_url or "").rstrip("/")
@@ -119,13 +121,13 @@ class DingTalkClient:
 
         ttl = int(expire) if isinstance(expire, int) and expire > 0 else 7200
         self._access_token = str(token)
-        self._token_expire_ts = time.time() + max(120, ttl - 60)
+        self._token_expire_ts = self._now_seconds() + max(120, ttl - 60)
 
     async def _get_access_token(self) -> str:
         if (
             self._access_token
             and self._token_expire_ts > 0
-            and self._token_expire_ts > time.time()
+            and self._token_expire_ts > self._now_seconds()
         ):
             return self._access_token
 
@@ -133,7 +135,7 @@ class DingTalkClient:
             if (
                 self._access_token
                 and self._token_expire_ts > 0
-                and self._token_expire_ts > time.time()
+                and self._token_expire_ts > self._now_seconds()
             ):
                 return self._access_token
             await self._refresh_access_token()

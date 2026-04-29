@@ -1,18 +1,23 @@
-from datetime import datetime, timezone
-
 from sqlalchemy.orm import Session
 
 from app.models.agent_run import AgentRun
 from app.models.agent_session import AgentSession
 from app.repositories.scheduled_task_repository import ScheduledTaskRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.clock import Clock, SystemClock
 from app.services.session_queue_service import SessionQueueService
-
-session_queue_service = SessionQueueService()
 
 
 class RunLifecycleService:
     TERMINAL_STATUSES = {"completed", "failed", "canceled"}
+
+    def __init__(
+        self,
+        clock: Clock | None = None,
+        session_queue_service: SessionQueueService | None = None,
+    ) -> None:
+        self._clock = clock or SystemClock()
+        self._session_queue_service = session_queue_service or SessionQueueService()
 
     def _sync_scheduled_task_last_status(self, db: Session, db_run: AgentRun) -> None:
         if not db_run.scheduled_task_id:
@@ -41,9 +46,9 @@ class RunLifecycleService:
         if db_run.status in self.TERMINAL_STATUSES:
             return db_session
 
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
         if db_run.status in {"queued", "claimed"}:
-            session_queue_service.clear_execution_state(db_session)
+            self._session_queue_service.clear_execution_state(db_session)
             db_run.status = "running"
         if db_run.started_at is None:
             db_run.started_at = now
@@ -75,7 +80,7 @@ class RunLifecycleService:
             db.flush()
             return db_session, None
 
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
         db_run.status = status
         if db_run.finished_at is None:
             db_run.finished_at = now
@@ -85,7 +90,7 @@ class RunLifecycleService:
         if status == "completed":
             db_run.progress = 100
             db_run.last_error = None
-            promoted_run = session_queue_service.promote_next_if_available(
+            promoted_run = self._session_queue_service.promote_next_if_available(
                 db, db_session
             )
             if promoted_run is None:
@@ -93,10 +98,10 @@ class RunLifecycleService:
         elif status == "failed":
             if error_message:
                 db_run.last_error = error_message
-            session_queue_service.pause_active_items(db, db_session.id)
+            self._session_queue_service.pause_active_items(db, db_session.id)
             db_session.status = "failed"
         elif status == "canceled":
-            session_queue_service.cancel_active_items(db, db_session.id)
+            self._session_queue_service.cancel_active_items(db, db_session.id)
             db_session.status = "canceled"
 
         self._sync_scheduled_task_last_status(db, db_run)

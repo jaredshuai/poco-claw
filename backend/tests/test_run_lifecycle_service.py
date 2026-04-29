@@ -1,8 +1,17 @@
 import unittest
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from app.services.run_lifecycle_service import RunLifecycleService
+
+
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now_utc(self) -> datetime:
+        return self._now
 
 
 class TestRunLifecycleServiceSyncScheduledTask(unittest.TestCase):
@@ -64,7 +73,12 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     """Test RunLifecycleService.mark_running."""
 
     def setUp(self) -> None:
-        self.service = RunLifecycleService()
+        self.now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        self.queue_service = MagicMock()
+        self.service = RunLifecycleService(
+            clock=FixedClock(self.now),
+            session_queue_service=self.queue_service,
+        )
         self.db = MagicMock()
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
@@ -78,10 +92,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_terminal_status_unchanged(
-        self, mock_queue: MagicMock, mock_repo: MagicMock
-    ) -> None:
+    def test_terminal_status_unchanged(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
         mock_repo.get_by_id_for_update.return_value = db_session
 
@@ -94,10 +105,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self.assertEqual(result, db_session)
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_queued_to_running(
-        self, mock_queue: MagicMock, mock_repo: MagicMock
-    ) -> None:
+    def test_queued_to_running(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
         db_session.status = "pending"
         mock_repo.get_by_id_for_update.return_value = db_session
@@ -110,15 +118,20 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self.service.mark_running(self.db, db_run)
 
         self.assertEqual(db_run.status, "running")
-        self.assertIsNotNone(db_run.started_at)
-        mock_queue.clear_execution_state.assert_called_once()
+        self.assertEqual(db_run.started_at, self.now)
+        self.queue_service.clear_execution_state.assert_called_once()
 
 
 class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
     """Test RunLifecycleService.finalize_terminal."""
 
     def setUp(self) -> None:
-        self.service = RunLifecycleService()
+        self.now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        self.queue_service = MagicMock()
+        self.service = RunLifecycleService(
+            clock=FixedClock(self.now),
+            session_queue_service=self.queue_service,
+        )
         self.db = MagicMock()
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
@@ -132,10 +145,7 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         self.assertEqual(result, (None, None))
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_completed_status(
-        self, mock_queue: MagicMock, mock_repo: MagicMock
-    ) -> None:
+    def test_completed_status(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
         mock_repo.get_by_id_for_update.return_value = db_session
 
@@ -144,17 +154,16 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         db_run.status = "running"
         db_run.finished_at = None
 
-        mock_queue.promote_next_if_available.return_value = None
+        self.queue_service.promote_next_if_available.return_value = None
 
         self.service.finalize_terminal(self.db, db_run, status="completed")
 
         self.assertEqual(db_run.status, "completed")
         self.assertEqual(db_run.progress, 100)
-        self.assertIsNotNone(db_run.finished_at)
+        self.assertEqual(db_run.finished_at, self.now)
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_failed_status(self, mock_queue: MagicMock, mock_repo: MagicMock) -> None:
+    def test_failed_status(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
         mock_repo.get_by_id_for_update.return_value = db_session
 
@@ -169,11 +178,11 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
 
         self.assertEqual(db_run.status, "failed")
         self.assertEqual(db_run.last_error, "Error message")
-        mock_queue.pause_active_items.assert_called_once()
+        self.assertEqual(db_run.finished_at, self.now)
+        self.queue_service.pause_active_items.assert_called_once()
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    @patch("app.services.run_lifecycle_service.session_queue_service")
-    def test_canceled_status(self, mock_queue: MagicMock, mock_repo: MagicMock) -> None:
+    def test_canceled_status(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
         mock_repo.get_by_id_for_update.return_value = db_session
 
@@ -185,7 +194,8 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         self.service.finalize_terminal(self.db, db_run, status="canceled")
 
         self.assertEqual(db_run.status, "canceled")
-        mock_queue.cancel_active_items.assert_called_once()
+        self.assertEqual(db_run.finished_at, self.now)
+        self.queue_service.cancel_active_items.assert_called_once()
 
 
 if __name__ == "__main__":

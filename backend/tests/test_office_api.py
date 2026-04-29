@@ -1,6 +1,7 @@
 """Route-level integration tests for the Office viewer API endpoints."""
 
 import asyncio
+import importlib
 import os
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
@@ -68,6 +69,19 @@ def _signed_callback_body(payload: dict) -> dict:
             algorithm="HS256",
         )
     }
+
+
+def test_office_module_import_does_not_initialize_storage_service():
+    import app.api.v1.office as office_module
+
+    with patch(
+        "app.services.storage_service.S3StorageService",
+        side_effect=AssertionError("storage should be lazy"),
+    ):
+        reloaded = importlib.reload(office_module)
+
+    assert reloaded.get_viewer_config is not None
+    importlib.reload(office_module)
 
 
 class TestViewerConfig:

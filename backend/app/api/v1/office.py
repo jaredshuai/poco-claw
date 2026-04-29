@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/office", tags=["office"])
 
 session_service = SessionService()
-storage_service = S3StorageService()
+storage_service: S3StorageService | None = None
 editing_store = office_editing_store
 command_client = OnlyOfficeCommandClient()
 
@@ -88,6 +88,13 @@ def _validate_callback_download_url(raw_url: str) -> None:
             error_code=ErrorCode.FORBIDDEN,
             message="OnlyOffice callback download URL is not trusted",
         )
+
+
+def get_storage_service() -> S3StorageService:
+    global storage_service
+    if storage_service is None:
+        storage_service = S3StorageService()
+    return storage_service
 
 
 def _extract_bearer_token(authorization: str | None) -> str | None:
@@ -175,7 +182,7 @@ async def get_viewer_config(
     db_session = session_service.get_session(db, request.session_id)
     settings = get_settings()
     return OfficeViewerConfigUseCase(
-        storage_service=storage_service,
+        storage_service=get_storage_service(),
         editing_store=editing_store,
     ).execute(
         OfficeViewerConfigCommand(
@@ -206,7 +213,7 @@ async def download_latest(
     """Return a short-lived URL for the latest saved workspace file."""
     db_session = session_service.get_session(db, session_id)
     settings = get_settings()
-    result = OfficeDownloadLatestUseCase(storage_service=storage_service).execute(
+    result = OfficeDownloadLatestUseCase(storage_service=get_storage_service()).execute(
         OfficeDownloadLatestCommand(
             session_id=str(session_id),
             session_user_id=db_session.user_id,
@@ -327,7 +334,7 @@ async def office_callback(
         ) from exc
 
     await OfficeCallbackUseCase(
-        storage_service=storage_service,
+        storage_service=get_storage_service(),
         editing_store=editing_store,
         validate_download_url=_validate_callback_download_url,
     ).handle(

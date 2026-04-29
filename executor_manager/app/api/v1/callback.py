@@ -11,7 +11,14 @@ from app.services.callback_service import CallbackService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/callback", tags=["callback"])
-callback_service = CallbackService()
+callback_service: CallbackService | None = None
+
+
+def get_callback_service() -> CallbackService:
+    global callback_service
+    if callback_service is None:
+        callback_service = CallbackService()
+    return callback_service
 
 
 @router.post("", response_model=ResponseSchema[CallbackReceiveResponse])
@@ -20,5 +27,6 @@ async def receive_callback(
     _: None = Depends(require_callback_token),
 ) -> JSONResponse:
     """Receive callback from Executor and forward to Backend."""
-    result = await callback_service.process_callback(callback)
+    service = get_callback_service()
+    result = await service.process_callback(callback)
     return Response.success(data=result.model_dump(), message="Callback received")

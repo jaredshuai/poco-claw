@@ -645,6 +645,20 @@ class TestSkillServiceStorageService(unittest.TestCase):
 
         self.assertEqual(result, mock_storage)
 
+    def test_storage_service_uses_injected_factory_without_constructing_s3(
+        self,
+    ) -> None:
+        mock_storage = MagicMock()
+
+        with patch(
+            "app.services.skill_service.S3StorageService",
+            side_effect=AssertionError("storage should be provided by factory"),
+        ):
+            service = SkillService(storage_service_factory=lambda: mock_storage)
+
+            self.assertEqual(service._storage_service(), mock_storage)
+            self.assertEqual(service._storage_service(), mock_storage)
+
     def test_storage_service_lazy_init(self) -> None:
         service = SkillService(storage_service=None)
 

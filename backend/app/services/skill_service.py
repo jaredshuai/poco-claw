@@ -2,8 +2,9 @@ import hashlib
 import json
 import mimetypes
 import re
+from collections.abc import Callable, Iterable
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -33,6 +34,36 @@ from app.utils.workspace_manifest import (
 _SKILL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
+class SkillStorage(Protocol):
+    def list_objects(self, prefix: str) -> Iterable[str]: ...
+
+    def presign_get(
+        self,
+        key: str,
+        *,
+        response_content_disposition: str | None = None,
+        response_content_type: str | None = None,
+    ) -> str: ...
+
+    def exists(self, key: str) -> bool: ...
+
+    def copy_prefix(self, *, source_prefix: str, destination_prefix: str) -> int: ...
+
+    def get_text(self, key: str) -> str: ...
+
+    def put_object(
+        self,
+        *,
+        key: str,
+        body: bytes,
+        content_type: str | None = None,
+    ) -> None: ...
+
+
+def build_skill_storage() -> SkillStorage:
+    return S3StorageService()
+
+
 def _validate_skill_name(name: str) -> str:
     value = (name or "").strip()
     if not value or value in {".", ".."} or not _SKILL_NAME_PATTERN.fullmatch(value):
@@ -46,11 +77,13 @@ def _validate_skill_name(name: str) -> str:
 class SkillService:
     def __init__(
         self,
-        storage_service: S3StorageService | None = None,
+        storage_service: SkillStorage | None = None,
         *,
+        storage_service_factory: Callable[[], SkillStorage] | None = None,
         id_generator: IdGenerator | None = None,
     ) -> None:
-        self.storage_service = storage_service
+        self.storage_service: SkillStorage | None = storage_service
+        self.storage_service_factory = storage_service_factory or build_skill_storage
         self._id_generator = id_generator or UuidIdGenerator()
 
     def list_skills(self, db: Session, user_id: str) -> list[SkillResponse]:
@@ -310,9 +343,9 @@ class SkillService:
             ),
         )
 
-    def _storage_service(self) -> S3StorageService:
+    def _storage_service(self) -> SkillStorage:
         if self.storage_service is None:
-            self.storage_service = S3StorageService()
+            self.storage_service = self.storage_service_factory()
         return self.storage_service
 
     def _version_skill_assets(

@@ -61,9 +61,16 @@ session_service = SessionService()
 message_service = MessageService()
 tool_execution_service = ToolExecutionService()
 usage_service = UsageService()
-storage_service = S3StorageService()
+storage_service: S3StorageService | None = None
 pending_skill_creation_service = PendingSkillCreationService()
 workspace_archive_service = WorkspaceArchiveService()
+
+
+def get_storage_service() -> S3StorageService:
+    global storage_service
+    if storage_service is None:
+        storage_service = S3StorageService()
+    return storage_service
 
 
 def _cancel_executor_manager(session_id: uuid.UUID, reason: str | None) -> bool:
@@ -589,9 +596,10 @@ async def get_session_browser_screenshot(
         session_id=str(session_id),
         tool_use_id=tool_use_id,
     )
-    if not storage_service.exists(key):
+    storage = get_storage_service()
+    if not storage.exists(key):
         raise HTTPException(status_code=404, detail="Browser screenshot not ready")
-    url = storage_service.presign_get(
+    url = storage.presign_get(
         key,
         response_content_disposition="inline",
         response_content_type="image/png",
@@ -643,7 +651,8 @@ async def get_session_workspace_files(
     if not db_session.workspace_manifest_key:
         return Response.success(data=[], message="Workspace export not ready")
 
-    manifest = storage_service.get_manifest(db_session.workspace_manifest_key)
+    storage = get_storage_service()
+    manifest = storage.get_manifest(db_session.workspace_manifest_key)
     raw_nodes = build_nodes_from_manifest(manifest)
     manifest_files = extract_manifest_files(manifest)
     prefix = (db_session.workspace_files_prefix or "").rstrip("/")
@@ -664,7 +673,7 @@ async def get_session_workspace_files(
         if not object_key:
             continue
         mime_type = file_entry.get("mimeType") or file_entry.get("mime_type")
-        file_url_map[file_path] = storage_service.presign_get(
+        file_url_map[file_path] = storage.presign_get(
             object_key,
             response_content_disposition="inline",
             response_content_type=mime_type,
@@ -706,7 +715,8 @@ async def get_session_workspace_archive(
             message="Workspace export not ready",
         )
 
-    url = storage_service.presign_get(
+    storage = get_storage_service()
+    url = storage.presign_get(
         archive_key,
         response_content_disposition=f'attachment; filename="{filename}"',
         response_content_type="application/zip",

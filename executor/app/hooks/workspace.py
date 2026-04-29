@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
 from typing import Any
 
+from app.core.clock import Clock, SystemClock
 from app.hooks.base import AgentHook, ExecutionContext
 from app.schemas.enums import FileStatus
 from app.schemas.state import FileChange, WorkspaceState
@@ -17,6 +17,9 @@ from app.utils.git.operations import (
 
 class WorkspaceHook(AgentHook):
     """Hook that monitors workspace file changes and updates state."""
+
+    def __init__(self, *, clock: Clock | None = None) -> None:
+        self.clock = clock or SystemClock()
 
     async def on_agent_response(self, context: ExecutionContext, message: Any) -> None:
         """Capture Git-tracked file changes after each agent response.
@@ -43,7 +46,7 @@ class WorkspaceHook(AgentHook):
                 total_added_lines=total_added,
                 total_deleted_lines=total_deleted,
                 file_changes=file_changes,
-                last_change=datetime.now(timezone.utc),
+                last_change=self.clock.now_utc(),
             )
         except GitNotRepositoryError:
             context.current_state.workspace_state = WorkspaceState()

@@ -521,6 +521,52 @@ class TestProcessCallback(unittest.TestCase):
         task_dispatcher.on_task_complete.assert_not_called()
         mock_create_task.assert_called_once()
 
+    def test_process_callback_uses_injected_workspace_path_filter(self) -> None:
+        """Test state patch filtering uses the injected workspace path boundary."""
+
+        class ExplodingWorkspaceManager:
+            def __getattr__(self, name: str) -> object:
+                raise AssertionError("workspace path filter should be injected")
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "received"}
+        )
+        workspace_path_filter = MagicMock()
+        workspace_path_filter.is_ignored.side_effect = lambda path: path == "hidden.txt"
+        state = AgentCurrentState(
+            workspace_state=WorkspaceState(
+                file_changes=[
+                    FileChange(path="src/main.py", status="modified", added_lines=10),
+                    FileChange(path="hidden.txt", status="added", added_lines=5),
+                ],
+                last_change=datetime.now(timezone.utc),
+            )
+        )
+
+        with patch(
+            "app.services.callback_service.workspace_manager",
+            ExplodingWorkspaceManager(),
+        ):
+            service = CallbackService(
+                backend_client_factory=lambda: mock_backend_client,
+                workspace_path_filter=workspace_path_filter,
+            )
+            callback = self._create_callback(state_patch=state)
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+        assert result.status == "received"
+        payload = mock_backend_client.forward_callback.call_args.args[0]
+        file_changes = payload["state_patch"]["workspace_state"]["file_changes"]
+        assert [item["path"] for item in file_changes] == ["src/main.py"]
+        assert payload["state_patch"]["workspace_state"]["total_added_lines"] == 10
+        assert payload["state_patch"]["workspace_state"]["total_deleted_lines"] == 0
+        workspace_path_filter.is_ignored.assert_any_call("src/main.py")
+        workspace_path_filter.is_ignored.assert_any_call("hidden.txt")
+
     def test_process_callback_with_state_patch(self) -> None:
         """Test callback processing with state_patch data."""
         mock_backend_client = MagicMock()

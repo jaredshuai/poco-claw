@@ -55,6 +55,10 @@ class CallbackRuntimeCleanup(Protocol):
     async def on_task_complete(self, session_id: str) -> None: ...
 
 
+class CallbackWorkspacePathFilter(Protocol):
+    def is_ignored(self, path: str) -> bool: ...
+
+
 backend_client: BackendClient | None = None
 workspace_export_service: WorkspaceExportService | None = None
 
@@ -80,6 +84,40 @@ class TaskDispatcherRuntimeCleanup:
         await TaskDispatcher.on_task_complete(session_id)
 
 
+def is_ignored_workspace_path(path: str) -> bool:
+    """Check whether a workspace-relative path should be ignored."""
+    clean = (path or "").replace("\\", "/").strip()
+    if not clean:
+        return True
+
+    # Normalise common prefixes while keeping the path relative.
+    while clean.startswith("./"):
+        clean = clean[2:]
+    clean = clean.lstrip("/")
+
+    parts = [p for p in clean.split("/") if p]
+    if not parts:
+        return True
+    # Defensive: never allow traversal-like paths to leak into state.
+    if any(p in (".", "..") for p in parts):
+        return True
+
+    ignore_names = workspace_manager._ignore_names
+    ignore_dot = workspace_manager.ignore_dot_files
+
+    for part in parts:
+        if part in ignore_names:
+            return True
+        if ignore_dot and part.startswith("."):
+            return True
+    return False
+
+
+class WorkspaceManagerPathFilter:
+    def is_ignored(self, path: str) -> bool:
+        return is_ignored_workspace_path(path)
+
+
 class CallbackService:
     """Service layer for callback processing."""
 
@@ -91,6 +129,7 @@ class CallbackService:
         workspace_export_service_factory: Callable[[], CallbackWorkspaceExportService]
         | None = None,
         runtime_cleanup: CallbackRuntimeCleanup | None = None,
+        workspace_path_filter: CallbackWorkspacePathFilter | None = None,
     ) -> None:
         self.clock = clock or SystemClock()
         self._backend_client_factory = backend_client_factory or get_backend_client
@@ -98,6 +137,9 @@ class CallbackService:
             workspace_export_service_factory or get_workspace_export_service
         )
         self._runtime_cleanup = runtime_cleanup or TaskDispatcherRuntimeCleanup()
+        self._workspace_path_filter = (
+            workspace_path_filter or WorkspaceManagerPathFilter()
+        )
 
     def _get_backend_client(self) -> CallbackBackendClient:
         return self._backend_client_factory()
@@ -123,35 +165,14 @@ class CallbackService:
         This keeps /sessions state_patch.workspace_state.file_changes consistent with the
         workspace export/list ignore policy in executor_manager WorkspaceManager.
         """
-        clean = (path or "").replace("\\", "/").strip()
-        if not clean:
-            return True
-
-        # Normalise common prefixes while keeping the path relative.
-        while clean.startswith("./"):
-            clean = clean[2:]
-        clean = clean.lstrip("/")
-
-        parts = [p for p in clean.split("/") if p]
-        if not parts:
-            return True
-        # Defensive: never allow traversal-like paths to leak into state.
-        if any(p in (".", "..") for p in parts):
-            return True
-
-        ignore_names = workspace_manager._ignore_names
-        ignore_dot = workspace_manager.ignore_dot_files
-
-        for part in parts:
-            if part in ignore_names:
-                return True
-            if ignore_dot and part.startswith("."):
-                return True
-        return False
+        return is_ignored_workspace_path(path)
 
     @classmethod
     def _filter_state_patch(
-        cls, callback: AgentCallbackRequest
+        cls,
+        callback: AgentCallbackRequest,
+        *,
+        is_ignored_path: Callable[[str], bool] | None = None,
     ) -> AgentCallbackRequest:
         state = callback.state_patch
         if not state:
@@ -180,10 +201,9 @@ class CallbackService:
                 else callback.model_copy(update={"state_patch": updated_state})
             )
         file_changes = workspace_state.file_changes
+        path_filter = is_ignored_path or cls._is_ignored_workspace_path
 
-        filtered_changes = [
-            fc for fc in file_changes if not cls._is_ignored_workspace_path(fc.path)
-        ]
+        filtered_changes = [fc for fc in file_changes if not path_filter(fc.path)]
         if len(filtered_changes) == len(file_changes):
             return (
                 callback
@@ -262,7 +282,10 @@ class CallbackService:
             },
         )
 
-        callback = self._filter_state_patch(callback)
+        callback = self._filter_state_patch(
+            callback,
+            is_ignored_path=self._workspace_path_filter.is_ignored,
+        )
 
         if callback.state_patch:
             state = callback.state_patch

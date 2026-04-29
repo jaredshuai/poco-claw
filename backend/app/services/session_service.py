@@ -23,6 +23,7 @@ from app.repositories.usage_log_repository import UsageLogRepository
 from app.repositories.user_input_request_repository import UserInputRequestRepository
 from app.schemas.session import SessionCreateRequest, SessionUpdateRequest
 from app.schemas.task import TaskEnqueueResponse
+from app.services.clock import Clock, SystemClock
 
 logger = logging.getLogger(__name__)
 JsonValueT = TypeVar("JsonValueT")
@@ -30,6 +31,9 @@ JsonValueT = TypeVar("JsonValueT")
 
 class SessionService:
     """Service layer for session management."""
+
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
 
     @staticmethod
     def _deepcopy_json(value: JsonValueT) -> JsonValueT:
@@ -125,7 +129,7 @@ class SessionService:
             if request.is_pinned:
                 if not db_session.is_pinned:
                     db_session.is_pinned = True
-                    db_session.pinned_at = datetime.now(timezone.utc)
+                    db_session.pinned_at = self._clock.now_utc()
             else:
                 db_session.is_pinned = False
                 db_session.pinned_at = None

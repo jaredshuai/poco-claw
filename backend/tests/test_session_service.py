@@ -13,6 +13,14 @@ from app.schemas.session import (
 from app.services.session_service import SessionService
 
 
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now_utc(self) -> datetime:
+        return self._now
+
+
 class TestSessionServiceDeepcopyJson(unittest.TestCase):
     """Test _deepcopy_json static method."""
 
@@ -246,15 +254,17 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
     @patch("app.services.session_service.SessionRepository")
     def test_update_session_pin(self, mock_repo: MagicMock) -> None:
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = SessionService(clock=FixedClock(now))
         mock_session = self._make_session(is_pinned=False)
         mock_repo.get_by_id.return_value = mock_session
 
         request = SessionUpdateRequest(is_pinned=True)
 
-        self.service.update_session(self.db, self.session_id, request)
+        service.update_session(self.db, self.session_id, request)
 
         self.assertTrue(mock_session.is_pinned)
-        self.assertIsNotNone(mock_session.pinned_at)
+        self.assertEqual(mock_session.pinned_at, now)
 
     @patch("app.services.session_service.SessionRepository")
     def test_update_session_unpin(self, mock_repo: MagicMock) -> None:

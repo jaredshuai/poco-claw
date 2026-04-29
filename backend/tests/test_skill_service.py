@@ -8,6 +8,14 @@ from app.schemas.skill import SkillCreateRequest, SkillUpdateRequest
 from app.services.skill_service import SkillService, _validate_skill_name
 
 
+class FixedIdGenerator:
+    def __init__(self, *ids: str) -> None:
+        self._ids = list(ids)
+
+    def new_id(self) -> str:
+        return self._ids.pop(0)
+
+
 class TestValidateSkillName(unittest.TestCase):
     """Test _validate_skill_name helper function."""
 
@@ -869,24 +877,36 @@ class TestSkillServiceVersionSkillAssets(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch("app.services.skill_service.uuid")
-    def test_version_assets_success(self, mock_uuid: MagicMock) -> None:
-        mock_uuid.uuid4.return_value = "test-uuid"
+    def test_version_assets_success(self) -> None:
+        service = SkillService(
+            storage_service=self.storage_service,
+            id_generator=FixedIdGenerator("version-fixed"),
+        )
         skill = self._make_skill()
         self.storage_service.copy_prefix.return_value = 2
         self.storage_service.get_text.return_value = "---\nname: old-name\n---\nContent"
         self.storage_service.put_object = MagicMock()
 
-        result = self.service._version_skill_assets(
+        result = service._version_skill_assets(
             skill=skill,
             user_id=self.user_id,
             target_name="new-name",
             target_description="New desc",
         )
 
+        expected_prefix = "skills/user-123/new-name/version-fixed"
         self.assertIsNotNone(result)
-        self.storage_service.copy_prefix.assert_called_once()
-        self.storage_service.get_text.assert_called_once()
+        self.assertEqual(
+            result,
+            {"s3_key": f"{expected_prefix}/", "is_prefix": True},
+        )
+        self.storage_service.copy_prefix.assert_called_once_with(
+            source_prefix="skills/user/skill",
+            destination_prefix=expected_prefix,
+        )
+        self.storage_service.get_text.assert_called_once_with(
+            f"{expected_prefix}/SKILL.md"
+        )
         self.storage_service.put_object.assert_called_once()
 
     def test_version_assets_no_files_copied(self) -> None:

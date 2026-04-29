@@ -1,8 +1,7 @@
-import mimetypes
-import re
-import uuid
 import hashlib
 import json
+import mimetypes
+import re
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -20,6 +19,7 @@ from app.schemas.skill import (
 )
 from app.schemas.workspace import FileNode
 from app.schemas.execution_settings import SkillManifestValidationResponse
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.storage_service import S3StorageService
 from app.services.source_utils import infer_capability_source
 from app.utils.markdown_front_matter import update_yaml_front_matter
@@ -44,8 +44,14 @@ def _validate_skill_name(name: str) -> str:
 
 
 class SkillService:
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: S3StorageService | None = None,
+        *,
+        id_generator: IdGenerator | None = None,
+    ) -> None:
         self.storage_service = storage_service
+        self._id_generator = id_generator or UuidIdGenerator()
 
     def list_skills(self, db: Session, user_id: str) -> list[SkillResponse]:
         skills = SkillRepository.list_visible(db, user_id=user_id)
@@ -335,7 +341,9 @@ class SkillService:
         if not source_prefix:
             return None
 
-        destination_prefix = f"skills/{user_id}/{target_name}/{uuid.uuid4()}"
+        destination_prefix = (
+            f"skills/{user_id}/{target_name}/{self._id_generator.new_id()}"
+        )
         storage_service = self._storage_service()
         copied = storage_service.copy_prefix(
             source_prefix=source_prefix,

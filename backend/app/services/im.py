@@ -1254,14 +1254,14 @@ class ImEventDispatcher:
         finally:
             db.close()
 
-    @staticmethod
-    def _claim_due_batch(limit: int, lease_seconds: int) -> list[ClaimedEvent]:
+    def _claim_due_batch(self, limit: int, lease_seconds: int) -> list[ClaimedEvent]:
         db = SessionLocal()
         try:
             rows = ImEventOutboxRepository.claim_due_batch(
                 db,
                 limit=limit,
                 lease_seconds=lease_seconds,
+                now_utc=self._clock.now_utc(),
             )
             db.commit()
             claimed: list[ClaimedEvent] = []

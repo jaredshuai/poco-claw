@@ -95,3 +95,29 @@ def test_dispatcher_mark_retry_passes_clock_to_repository():
         now_utc=now,
     )
     db.commit.assert_called_once_with()
+
+
+def test_dispatcher_claim_due_batch_passes_clock_to_repository():
+    from app.services.im import ImEventDispatcher
+
+    now = datetime(2025, 2, 15, 10, 30, tzinfo=UTC)
+    dispatcher = ImEventDispatcher(clock=FixedClock(now))
+    db = MagicMock()
+
+    with (
+        patch("app.services.im.SessionLocal", return_value=db),
+        patch(
+            "app.services.im.ImEventOutboxRepository.claim_due_batch",
+            return_value=[],
+        ) as claim,
+    ):
+        result = dispatcher._claim_due_batch(10, 30)
+
+    assert result == []
+    claim.assert_called_once_with(
+        db,
+        limit=10,
+        lease_seconds=30,
+        now_utc=now,
+    )
+    db.commit.assert_called_once_with()

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import or_, select
@@ -213,8 +213,9 @@ class ImEventOutboxRepository:
         *,
         limit: int,
         lease_seconds: int,
+        now_utc: datetime,
     ) -> list[ImEventOutbox]:
-        now = datetime.now(timezone.utc)
+        now = now_utc
         lease_until = now + timedelta(seconds=max(5, lease_seconds))
         stmt = (
             select(ImEventOutbox)

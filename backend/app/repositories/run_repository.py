@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, case, exists, or_, select, update
 from sqlalchemy.orm import Session, aliased
@@ -97,9 +97,8 @@ class RunRepository:
         session_db: Session,
         session_id: uuid.UUID,
         *,
-        now: datetime | None = None,
+        now: datetime,
     ) -> AgentRun | None:
-        current_time = now or datetime.now(timezone.utc)
         return (
             session_db.query(AgentRun)
             .filter(AgentRun.session_id == session_id)
@@ -108,7 +107,7 @@ class RunRepository:
                     AgentRun.status.in_(RunRepository.BLOCKING_STATUSES),
                     and_(
                         AgentRun.status == "queued",
-                        AgentRun.scheduled_at <= current_time,
+                        AgentRun.scheduled_at <= now,
                     ),
                 )
             )
@@ -122,9 +121,12 @@ class RunRepository:
 
     @staticmethod
     def get_latest_active_by_session(
-        session_db: Session, session_id: uuid.UUID
+        session_db: Session,
+        session_id: uuid.UUID,
+        *,
+        now: datetime,
     ) -> AgentRun | None:
-        return RunRepository.get_blocking_by_session(session_db, session_id)
+        return RunRepository.get_blocking_by_session(session_db, session_id, now=now)
 
     @staticmethod
     def list_by_session(

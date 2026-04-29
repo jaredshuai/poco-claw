@@ -15,6 +15,7 @@ from app.repositories.user_plugin_install_repository import UserPluginInstallRep
 from app.repositories.user_skill_install_repository import UserSkillInstallRepository
 from app.schemas.session import TaskConfig
 from app.schemas.task import TaskEnqueueRequest, TaskEnqueueResponse
+from app.services.clock import Clock, SystemClock
 from app.services.session_queue_service import SessionQueueService
 from app.services.model_config_service import get_allowed_model_ids, infer_provider_id
 from app.services.model_config_service import (
@@ -26,9 +27,14 @@ class TaskService:
     """Service layer for task enqueue operations."""
 
     def __init__(
-        self, session_queue_service: SessionQueueService | None = None
+        self,
+        session_queue_service: SessionQueueService | None = None,
+        clock: Clock | None = None,
     ) -> None:
-        self._session_queue_service = session_queue_service or SessionQueueService()
+        self._clock = clock or SystemClock()
+        self._session_queue_service = session_queue_service or SessionQueueService(
+            clock=self._clock
+        )
 
     @staticmethod
     def _validate_and_normalize_model(config: dict) -> None:
@@ -315,7 +321,11 @@ class TaskService:
                 if existing_response is not None:
                     return existing_response
 
-                blocking_run = RunRepository.get_blocking_by_session(db, db_session.id)
+                blocking_run = RunRepository.get_blocking_by_session(
+                    db,
+                    db_session.id,
+                    now=self._clock.now_utc(),
+                )
                 if blocking_run is not None:
                     base_config = session_queue_service.get_effective_base_config(
                         db, db_session

@@ -18,9 +18,13 @@ from app.schemas.session_queue_item import (
     SessionQueueItemUpdateRequest,
 )
 from app.schemas.task import TaskEnqueueResponse
+from app.services.clock import Clock, SystemClock
 
 
 class SessionQueueService:
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
+
     @staticmethod
     def _normalize_prompt(prompt: str) -> str:
         value = (prompt or "").strip()
@@ -228,7 +232,11 @@ class SessionQueueService:
     def promote_next_if_available(
         self, db: Session, db_session: AgentSession
     ) -> AgentRun | None:
-        if RunRepository.get_blocking_by_session(db, db_session.id):
+        if RunRepository.get_blocking_by_session(
+            db,
+            db_session.id,
+            now=self._clock.now_utc(),
+        ):
             return None
         item = SessionQueueItemRepository.get_head_for_update(db, db_session.id)
         if not item:
@@ -324,7 +332,11 @@ class SessionQueueService:
 
         item.status = "queued"
 
-        blocking_run = RunRepository.get_blocking_by_session(db, db_session.id)
+        blocking_run = RunRepository.get_blocking_by_session(
+            db,
+            db_session.id,
+            now=self._clock.now_utc(),
+        )
         if blocking_run is not None:
             self._move_item_to_front(
                 db,

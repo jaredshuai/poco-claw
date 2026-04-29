@@ -94,7 +94,11 @@ class CallbackService:
         if self._should_skip_active_run_fallback(callback):
             return db_session, None
 
-        return db_session, RunRepository.get_latest_active_by_session(db, db_session.id)
+        return db_session, RunRepository.get_latest_active_by_session(
+            db,
+            db_session.id,
+            now=self._clock.now_utc(),
+        )
 
     def _should_skip_active_run_fallback(
         self,
@@ -551,7 +555,11 @@ class CallbackService:
                 db_session.status = callback.status.value
 
         if callback.status == CallbackStatus.COMPLETED:
-            blocking_run = RunRepository.get_blocking_by_session(db, db_session.id)
+            blocking_run = RunRepository.get_blocking_by_session(
+                db,
+                db_session.id,
+                now=self._clock.now_utc(),
+            )
             if blocking_run is None and self._session_queue.has_active_items(
                 db, db_session.id
             ):

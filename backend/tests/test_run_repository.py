@@ -218,6 +218,10 @@ class TestRunRepositoryGetLatestTerminalBySession(unittest.TestCase):
 class TestRunRepositoryGetBlockingBySession(unittest.TestCase):
     """Test RunRepository.get_blocking_by_session method."""
 
+    def test_get_blocking_by_session_requires_explicit_now(self) -> None:
+        with self.assertRaises(TypeError):
+            RunRepository.get_blocking_by_session(MagicMock(), uuid.uuid4())
+
     def test_get_blocking_by_session_found(self) -> None:
         db = MagicMock()
         session_id = uuid.uuid4()
@@ -227,7 +231,11 @@ class TestRunRepositoryGetBlockingBySession(unittest.TestCase):
         db.query.return_value = mock_query
         mock_query.filter.return_value.filter.return_value.order_by.return_value.first.return_value = mock_run
 
-        result = RunRepository.get_blocking_by_session(db, session_id)
+        result = RunRepository.get_blocking_by_session(
+            db,
+            session_id,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertEqual(result, mock_run)
 
@@ -239,7 +247,11 @@ class TestRunRepositoryGetBlockingBySession(unittest.TestCase):
         db.query.return_value = mock_query
         mock_query.filter.return_value.filter.return_value.order_by.return_value.first.return_value = None
 
-        result = RunRepository.get_blocking_by_session(db, session_id)
+        result = RunRepository.get_blocking_by_session(
+            db,
+            session_id,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertIsNone(result)
 
@@ -269,7 +281,11 @@ class TestRunRepositoryGetLatestActiveBySession(unittest.TestCase):
         db.query.return_value = mock_query
         mock_query.filter.return_value.filter.return_value.order_by.return_value.first.return_value = mock_run
 
-        result = RunRepository.get_latest_active_by_session(db, session_id)
+        result = RunRepository.get_latest_active_by_session(
+            db,
+            session_id,
+            now=datetime.now(timezone.utc),
+        )
 
         self.assertEqual(result, mock_run)
 

@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import time
 
 import httpx
 
@@ -11,6 +10,7 @@ from app.core.observability.request_context import (
     get_request_id,
     get_trace_id,
 )
+from app.services.clock import Clock, SystemClock
 
 TASK_LEASE_TTL_SECONDS = 300
 TASK_LEASE_EXPIRES_AT_HEADER = "X-Poco-Task-Lease-Expires-At"
@@ -20,8 +20,9 @@ TASK_LEASE_SIGNATURE_HEADER = "X-Poco-Task-Lease-Signature"
 class ExecutorClient:
     """Client for calling the Executor service."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Clock | None = None) -> None:
         self.settings = get_settings()
+        self.clock = clock or SystemClock()
 
     @staticmethod
     def _trace_headers() -> dict[str, str]:
@@ -45,21 +46,23 @@ class ExecutorClient:
             hashlib.sha256,
         ).hexdigest()
 
-    @classmethod
+    def _now_epoch_seconds(self) -> int:
+        return int(self.clock.now_utc().timestamp())
+
     def _execution_headers(
-        cls,
+        self,
         *,
         callback_token: str,
         task_lease_secret: str,
         session_id: str,
         run_id: str | None,
     ) -> dict[str, str]:
-        expires_at = int(time.time()) + TASK_LEASE_TTL_SECONDS
+        expires_at = self._now_epoch_seconds() + TASK_LEASE_TTL_SECONDS
         return {
-            **cls._trace_headers(),
+            **self._trace_headers(),
             "Authorization": f"Bearer {callback_token}",
             TASK_LEASE_EXPIRES_AT_HEADER: str(expires_at),
-            TASK_LEASE_SIGNATURE_HEADER: cls._task_lease_signature(
+            TASK_LEASE_SIGNATURE_HEADER: self._task_lease_signature(
                 task_lease_secret=task_lease_secret,
                 session_id=session_id,
                 run_id=run_id,

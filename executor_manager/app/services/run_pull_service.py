@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
+from app.services.clock import Clock, SystemClock
 from app.services.run_dispatch_service import RunDispatchService
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class RunPullService:
         settings: Any | None = None,
         backend_client: Any | None = None,
         dispatch_service: Any | None = None,
+        clock: Clock | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.backend_client = backend_client or BackendClient()
@@ -31,6 +33,7 @@ class RunPullService:
             settings=self.settings,
             backend_client=self.backend_client,
         )
+        self.clock = clock or SystemClock()
 
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
         self._semaphore = asyncio.Semaphore(self.settings.max_concurrent_tasks)
@@ -139,6 +142,12 @@ class RunPullService:
             until_utc = until_utc.replace(tzinfo=timezone.utc)
         self._windows_until[window_id] = until_utc.astimezone(timezone.utc)
 
+    def _now_utc(self) -> datetime:
+        now = self.clock.now_utc()
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now.astimezone(timezone.utc)
+
     async def open_window(
         self,
         window_id: str,
@@ -156,7 +165,7 @@ class RunPullService:
 
         lock = self._get_window_lock(window_id)
         async with lock:
-            now_utc = datetime.now(timezone.utc)
+            now_utc = self._now_utc()
             until_utc = now_utc + timedelta(minutes=window_minutes)
             self._windows_until[window_id] = until_utc
             logger.info(
@@ -180,7 +189,7 @@ class RunPullService:
         if not until_utc:
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = self._now_utc()
         if now_utc >= until_utc:
             self._windows_until.pop(window_id, None)
             return

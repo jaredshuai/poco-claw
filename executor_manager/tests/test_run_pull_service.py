@@ -429,6 +429,27 @@ class TestOpenWindow(unittest.TestCase):
         assert "window-1" in service._windows_until
         assert service.poll.called is True
 
+    def test_open_window_uses_injected_clock(self) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+        )
+        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        clock = MagicMock()
+        clock.now_utc.return_value = fixed_now
+        service = RunPullService(
+            settings=settings,
+            backend_client=MagicMock(),
+            dispatch_service=MagicMock(),
+            clock=clock,
+        )
+        service.poll = AsyncMock()
+
+        asyncio.run(service.open_window("window-1", window_minutes=30))
+
+        assert service._windows_until["window-1"] == fixed_now + timedelta(minutes=30)
+        clock.now_utc.assert_called_once_with()
+
     def test_open_window_negative_minutes_defaults(self) -> None:
         """Test open_window with negative minutes defaults to 60."""
         service = self._create_service()
@@ -490,6 +511,29 @@ class TestPollWindow(unittest.TestCase):
         asyncio.run(service.poll_window("window-1"))
 
         assert service.poll.called is False
+
+    def test_poll_window_uses_injected_clock_for_expiry(self) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+        )
+        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        clock = MagicMock()
+        clock.now_utc.return_value = fixed_now
+        service = RunPullService(
+            settings=settings,
+            backend_client=MagicMock(),
+            dispatch_service=MagicMock(),
+            clock=clock,
+        )
+        service.poll = AsyncMock()
+        service.set_window_until("window-1", fixed_now - timedelta(seconds=1))
+
+        asyncio.run(service.poll_window("window-1"))
+
+        assert "window-1" not in service._windows_until
+        assert service.poll.called is False
+        clock.now_utc.assert_called_once_with()
 
     def test_poll_window_expired(self) -> None:
         """Test poll_window when window has expired."""

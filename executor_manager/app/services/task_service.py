@@ -1,5 +1,7 @@
 import logging
 import time
+from collections.abc import Callable
+from typing import Any, Protocol
 
 import httpx
 
@@ -19,12 +21,38 @@ from app.services.id_generator import IdGenerator, UuidIdGenerator
 logger = logging.getLogger(__name__)
 
 
+class TaskBackendSettings(Protocol):
+    backend_url: str
+
+
+class TaskBackendClient(Protocol):
+    @property
+    def settings(self) -> TaskBackendSettings: ...
+
+    @staticmethod
+    def _trace_headers() -> dict[str, str]: ...
+
+    async def create_session(self, user_id: str, config: dict) -> dict[str, Any]: ...
+
+
+def build_backend_client() -> TaskBackendClient:
+    from app.services.backend_client import BackendClient
+
+    return BackendClient()
+
+
 class TaskService:
     """Service layer for task operations."""
 
-    def __init__(self, *, id_generator: IdGenerator | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        id_generator: IdGenerator | None = None,
+        backend_client_factory: Callable[[], TaskBackendClient] | None = None,
+    ) -> None:
         self.settings = get_settings()
         self.id_generator = id_generator or UuidIdGenerator()
+        self.backend_client_factory = backend_client_factory or build_backend_client
 
     async def create_task(
         self,
@@ -47,15 +75,13 @@ class TaskService:
         Raises:
             AppException: If session creation or task scheduling fails
         """
-        from app.services.backend_client import BackendClient
-
         task_id = self.id_generator.new_id()
         started = time.perf_counter()
         request_id = get_request_id()
         trace_id = get_trace_id()
 
         try:
-            backend_client = BackendClient()
+            backend_client = self.backend_client_factory()
 
             # Continue existing session or create new one
             if session_id:
@@ -220,9 +246,7 @@ class TaskService:
         Raises:
             AppException: If session not found or backend request fails
         """
-        from app.services.backend_client import BackendClient
-
-        backend_client = BackendClient()
+        backend_client = self.backend_client_factory()
 
         try:
             async with httpx.AsyncClient() as client:

@@ -90,6 +90,51 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         assert mock_scheduler.add_job.call_args.kwargs["id"] == "task-fixed"
         assert mock_scheduler.add_job.call_args.kwargs["args"][0] == "task-fixed"
 
+    def test_create_task_uses_injected_backend_client_factory(self) -> None:
+        """Test creating a task can use an injected backend client boundary."""
+        mock_settings = MagicMock()
+        mock_settings.anthropic_api_key = "test-key"
+        mock_backend_client = MagicMock()
+        mock_backend_client.create_session = AsyncMock(
+            return_value={
+                "session_id": "new-session-123",
+                "sdk_session_id": "sdk-123",
+            }
+        )
+        with patch(
+            "app.services.task_service.get_settings", return_value=mock_settings
+        ):
+            service = TaskService(
+                id_generator=FixedIdGenerator("task-fixed"),
+                backend_client_factory=lambda: mock_backend_client,
+            )
+
+        mock_scheduler = MagicMock()
+
+        with (
+            patch(
+                "app.services.backend_client.BackendClient",
+                side_effect=AssertionError("backend client should be injected"),
+            ),
+            patch("app.services.task_service.scheduler", mock_scheduler),
+        ):
+            import asyncio
+
+            result = asyncio.run(
+                service.create_task(
+                    user_id="user-123",
+                    prompt="Test prompt",
+                    config={"browser_enabled": False},
+                    session_id=None,
+                )
+            )
+
+        assert result.task_id == "task-fixed"
+        mock_backend_client.create_session.assert_called_once_with(
+            user_id="user-123",
+            config={"browser_enabled": False},
+        )
+
     def test_create_task_new_session(self) -> None:
         """Test creating a task with a new session."""
         service = self._create_service()

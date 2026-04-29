@@ -7,7 +7,6 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 import zipfile
 import base64
 from collections.abc import Callable
@@ -31,6 +30,7 @@ from app.schemas.skill_import import (
     SkillImportDiscoverResponse,
     SkillImportResultItem,
 )
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.storage_service import S3StorageService
 from app.utils.markdown_front_matter import parse_yaml_front_matter
 
@@ -101,8 +101,14 @@ def _strip_common_root(path: PurePosixPath, common_root: str | None) -> PurePosi
 
 
 class SkillImportService:
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: S3StorageService | None = None,
+        *,
+        id_generator: IdGenerator | None = None,
+    ) -> None:
         self.storage_service = storage_service or S3StorageService()
+        self._id_generator = id_generator or UuidIdGenerator()
 
     def discover(
         self,
@@ -322,7 +328,7 @@ class SkillImportService:
         source_path: Path | None,
         source_bytes: IO[bytes] | None,
     ) -> str:
-        archive_id = str(uuid.uuid4())
+        archive_id = self._id_generator.new_id()
         safe_name = _sanitize_filename(filename)
         key = f"skill-imports/{user_id}/{archive_id}/{safe_name}"
 
@@ -947,7 +953,7 @@ class SkillImportService:
             ):
                 nested_candidate_dirs.append(cdir)
 
-        version_id = str(uuid.uuid4())
+        version_id = self._id_generator.new_id()
         prefix = f"skills/{user_id}/{skill_name}/{version_id}/"
 
         # Extract common root for path resolution

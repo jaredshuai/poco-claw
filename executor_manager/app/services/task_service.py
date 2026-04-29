@@ -1,6 +1,5 @@
 import logging
 import time
-import uuid
 
 import httpx
 
@@ -15,6 +14,7 @@ from app.schemas.task import (
     TaskCreateResponse,
     TaskStatusResponse,
 )
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,9 @@ logger = logging.getLogger(__name__)
 class TaskService:
     """Service layer for task operations."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, id_generator: IdGenerator | None = None) -> None:
         self.settings = get_settings()
+        self.id_generator = id_generator or UuidIdGenerator()
 
     async def create_task(
         self,
@@ -48,7 +49,7 @@ class TaskService:
         """
         from app.services.backend_client import BackendClient
 
-        task_id = str(uuid.uuid4())
+        task_id = self.id_generator.new_id()
         started = time.perf_counter()
         request_id = get_request_id()
         trace_id = get_trace_id()

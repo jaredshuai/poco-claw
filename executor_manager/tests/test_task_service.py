@@ -14,6 +14,14 @@ from app.schemas.task import (
 from app.services.task_service import TaskService
 
 
+class FixedIdGenerator:
+    def __init__(self, *ids: str) -> None:
+        self._ids = list(ids)
+
+    def new_id(self) -> str:
+        return self._ids.pop(0)
+
+
 class TestTaskServiceInit(unittest.TestCase):
     """Test TaskService.__init__."""
 
@@ -41,6 +49,46 @@ class TestTaskServiceCreateTask(unittest.TestCase):
             "app.services.task_service.get_settings", return_value=mock_settings
         ):
             return TaskService()
+
+    def test_create_task_uses_injected_id_generator(self) -> None:
+        """Test creating a task uses the injected task ID generator."""
+        mock_settings = MagicMock()
+        mock_settings.anthropic_api_key = "test-key"
+        with patch(
+            "app.services.task_service.get_settings", return_value=mock_settings
+        ):
+            service = TaskService(id_generator=FixedIdGenerator("task-fixed"))
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.create_session = AsyncMock(
+            return_value={
+                "session_id": "new-session-123",
+                "sdk_session_id": "sdk-123",
+            }
+        )
+        mock_scheduler = MagicMock()
+
+        with (
+            patch(
+                "app.services.backend_client.BackendClient",
+                return_value=mock_backend_client,
+            ),
+            patch("app.services.task_service.scheduler", mock_scheduler),
+        ):
+            import asyncio
+
+            result = asyncio.run(
+                service.create_task(
+                    user_id="user-123",
+                    prompt="Test prompt",
+                    config={"browser_enabled": False},
+                    session_id=None,
+                )
+            )
+
+        assert result.task_id == "task-fixed"
+        assert mock_scheduler.add_job.call_args.kwargs["id"] == "task-fixed"
+        assert mock_scheduler.add_job.call_args.kwargs["args"][0] == "task-fixed"
 
     def test_create_task_new_session(self) -> None:
         """Test creating a task with a new session."""

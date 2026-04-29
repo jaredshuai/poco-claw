@@ -1,7 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
+
+from app.services.clock import utc_now
 
 
 class CallbackStatus(str, Enum):
@@ -58,7 +60,7 @@ class AgentCurrentState(BaseModel):
 class AgentCallbackRequest(BaseModel):
     session_id: str
     run_id: str | None = None
-    time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    time: datetime = Field(default_factory=utc_now)
     status: CallbackStatus
     progress: int
     error_message: str | None = None

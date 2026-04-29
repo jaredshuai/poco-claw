@@ -40,6 +40,9 @@ class CallbackService:
         session_queue_service: SessionQueueService | None = None,
         session_service: SessionService | None = None,
         pending_skill_creation_service: PendingSkillCreationService | None = None,
+        im_event_service: ImEventService | None = None,
+        deliverable_detection_service: DeliverableDetectionService | None = None,
+        mcp_connection_service: McpConnectionService | None = None,
     ) -> None:
         self._clock = clock or SystemClock()
         self._run_lifecycle = run_lifecycle_service or RunLifecycleService()
@@ -48,9 +51,11 @@ class CallbackService:
         self._pending_skill_creation = (
             pending_skill_creation_service or PendingSkillCreationService()
         )
-        self._im_events = ImEventService()
-        self._deliverable_detection = DeliverableDetectionService()
-        self._mcp_connections = McpConnectionService()
+        self._im_events = im_event_service or ImEventService()
+        self._deliverable_detection = (
+            deliverable_detection_service or DeliverableDetectionService()
+        )
+        self._mcp_connections = mcp_connection_service or McpConnectionService()
 
     def _parse_run_id(self, raw_run_id: str | None) -> uuid.UUID | None:
         if not raw_run_id:

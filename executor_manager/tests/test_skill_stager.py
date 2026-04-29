@@ -36,6 +36,22 @@ class TestSkillStagerInit(unittest.TestCase):
         assert stager.storage_service is mock_storage
         assert stager.workspace_manager is mock_workspace
 
+    def test_init_uses_injected_storage_factory_without_constructing_s3(self) -> None:
+        mock_storage = MagicMock()
+        mock_workspace = MagicMock()
+
+        with patch(
+            "app.services.skill_stager.S3StorageService",
+            side_effect=AssertionError("storage should be provided by factory"),
+        ):
+            stager = SkillStager(
+                storage_service_factory=lambda: mock_storage,
+                workspace_manager=mock_workspace,
+            )
+
+        assert stager.storage_service is mock_storage
+        assert stager.workspace_manager is mock_workspace
+
 
 class TestSkillStagerValidateSkillName(unittest.TestCase):
     """Test SkillStager._validate_skill_name."""

@@ -2,8 +2,9 @@ import logging
 import re
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -13,13 +14,27 @@ from app.services.workspace_manager import WorkspaceManager
 logger = logging.getLogger(__name__)
 
 
+class SkillStorage(Protocol):
+    def download_prefix(self, *, prefix: str, destination_dir: Path) -> None: ...
+
+    def download_file(self, *, key: str, destination: Path) -> None: ...
+
+
+def build_skill_storage() -> SkillStorage:
+    return S3StorageService()
+
+
 class SkillStager:
     def __init__(
         self,
-        storage_service: S3StorageService | None = None,
+        storage_service: SkillStorage | None = None,
+        storage_service_factory: Callable[[], SkillStorage] | None = None,
         workspace_manager: WorkspaceManager | None = None,
     ) -> None:
-        self.storage_service = storage_service or S3StorageService()
+        factory = storage_service_factory or build_skill_storage
+        self.storage_service = (
+            storage_service if storage_service is not None else factory()
+        )
         self.workspace_manager = workspace_manager or WorkspaceManager()
 
     @staticmethod

@@ -1,8 +1,8 @@
 import logging
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 
+from app.core.clock import Clock, SystemClock
 from app.hooks.base import AgentHook, ExecutionContext
 from app.utils.git.operations import (
     GitError,
@@ -41,8 +41,11 @@ class RunSnapshotHook(AgentHook):
     repository in the workspace, and does not depend on callback/session state.
     """
 
-    def __init__(self, run_id: str | None = None) -> None:
+    def __init__(
+        self, run_id: str | None = None, *, clock: Clock | None = None
+    ) -> None:
         self._run_id_input = run_id
+        self.clock = clock or SystemClock()
         self._resolved_run_id: str | None = None
         self._failed: bool = False
         self._error_type: str | None = None
@@ -55,7 +58,7 @@ class RunSnapshotHook(AgentHook):
             self._resolved_run_id = self._run_id_input.strip()
             return self._resolved_run_id
 
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        ts = self.clock.now_utc().strftime("%Y%m%dT%H%M%SZ")
         self._resolved_run_id = f"{_sanitize_ref_token(context.session_id)}_{ts}"
         return self._resolved_run_id
 

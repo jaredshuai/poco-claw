@@ -33,6 +33,29 @@ def test_upload_archive_uses_injected_id_generator_for_archive_prefix():
     assert storage_service.upload_fileobj.call_args.kwargs["key"] == key
 
 
+def test_upload_archive_uses_injected_storage_factory_without_constructing_s3():
+    storage_service = MagicMock()
+
+    with patch(
+        "app.services.plugin_import_service.S3StorageService",
+        side_effect=AssertionError("storage should be provided by factory"),
+    ):
+        service = PluginImportService(
+            storage_service_factory=lambda: storage_service,
+            id_generator=FixedIdGenerator("archive-fixed"),
+        )
+
+        key = service._upload_archive(
+            user_id="user-123",
+            filename="plugin.zip",
+            source_path=None,
+            source_bytes=io.BytesIO(b"zip-bytes"),
+        )
+
+    assert key == "plugin-imports/user-123/archive-fixed/plugin.zip"
+    storage_service.upload_fileobj.assert_called_once()
+
+
 def test_import_one_uses_injected_id_generator_for_plugin_version_prefix():
     storage_service = MagicMock()
     service = PluginImportService(

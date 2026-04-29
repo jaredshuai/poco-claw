@@ -50,7 +50,9 @@ def test_workspace_export_module_import_does_not_initialize_storage_service() ->
     assert module.WorkspaceExportService is not None
 
 
-def test_workspace_export_uses_injected_storage_factory_without_constructing_s3() -> None:
+def test_workspace_export_uses_injected_storage_factory_without_constructing_s3() -> (
+    None
+):
     storage_service = MagicMock()
 
     with patch(

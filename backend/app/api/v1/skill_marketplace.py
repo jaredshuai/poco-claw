@@ -16,8 +16,22 @@ from app.services.skill_import_service import SkillImportService
 
 router = APIRouter(prefix="/skills/marketplace", tags=["skills"])
 
-skillsmp_service = SkillsMpService()
-import_service = SkillImportService()
+skillsmp_service: SkillsMpService | None = None
+import_service: SkillImportService | None = None
+
+
+def get_skillsmp_service() -> SkillsMpService:
+    global skillsmp_service
+    if skillsmp_service is None:
+        skillsmp_service = SkillsMpService()
+    return skillsmp_service
+
+
+def get_import_service() -> SkillImportService:
+    global import_service
+    if import_service is None:
+        import_service = SkillImportService()
+    return import_service
 
 
 @router.get(
@@ -28,7 +42,8 @@ async def get_skills_marketplace_status(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = skillsmp_service.get_marketplace_status(db, user_id=user_id)
+    service = get_skillsmp_service()
+    result = service.get_marketplace_status(db, user_id=user_id)
     return Response.success(data=result, message="SkillsMP marketplace status loaded")
 
 
@@ -44,7 +59,8 @@ async def search_skills_marketplace(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = await skillsmp_service.search(
+    service = get_skillsmp_service()
+    result = await service.search(
         db=db,
         user_id=user_id,
         query=q,
@@ -66,7 +82,8 @@ async def list_skills_marketplace_recommendations(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = await skillsmp_service.list_recommendations(
+    service = get_skillsmp_service()
+    result = await service.list_recommendations(
         db=db,
         user_id=user_id,
         limit=limit,
@@ -86,16 +103,18 @@ def discover_skills_marketplace_import(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    github_url = skillsmp_service.build_import_github_url(request.item)
-    archive_source = skillsmp_service.build_import_source(request.item)
-    result = import_service.discover(
+    service = get_skillsmp_service()
+    importer = get_import_service()
+    github_url = service.build_import_github_url(request.item)
+    archive_source = service.build_import_source(request.item)
+    result = importer.discover(
         db,
         user_id=user_id,
         file=None,
         github_url=github_url,
         archive_source_override=archive_source,
     )
-    preselected_relative_path = skillsmp_service.match_preselected_relative_path(
+    preselected_relative_path = service.match_preselected_relative_path(
         result.candidates,
         request.item.relative_skill_path,
     )

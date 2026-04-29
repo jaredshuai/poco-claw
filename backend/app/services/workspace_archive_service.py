@@ -1,7 +1,9 @@
 import hashlib
 import tempfile
 import zipfile
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
+from typing import Any, Protocol
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -14,11 +16,45 @@ from app.utils.workspace_manifest import (
 )
 
 
+class WorkspaceArchiveStorage(Protocol):
+    def get_manifest(self, key: str) -> dict[str, Any]: ...
+
+    def presign_get(
+        self,
+        key: str,
+        *,
+        response_content_disposition: str | None = None,
+        response_content_type: str | None = None,
+    ) -> str: ...
+
+    def download_file(self, *, key: str, destination: Path) -> None: ...
+
+    def upload_file(
+        self,
+        *,
+        file_path: str,
+        key: str,
+        content_type: str | None = None,
+    ) -> None: ...
+
+
+def build_workspace_archive_storage() -> WorkspaceArchiveStorage:
+    return S3StorageService()
+
+
 class WorkspaceArchiveService:
     """Create downloadable archives for exported workspace content."""
 
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
-        self.storage_service = storage_service
+    def __init__(
+        self,
+        storage_service: WorkspaceArchiveStorage | None = None,
+        *,
+        storage_service_factory: Callable[[], WorkspaceArchiveStorage] | None = None,
+    ) -> None:
+        self.storage_service: WorkspaceArchiveStorage | None = storage_service
+        self.storage_service_factory = (
+            storage_service_factory or build_workspace_archive_storage
+        )
 
     def get_folder_archive(
         self,
@@ -186,7 +222,7 @@ class WorkspaceArchiveService:
                 content_type="application/zip",
             )
 
-    def _storage_service(self) -> S3StorageService:
+    def _storage_service(self) -> WorkspaceArchiveStorage:
         if self.storage_service is None:
-            self.storage_service = S3StorageService()
+            self.storage_service = self.storage_service_factory()
         return self.storage_service

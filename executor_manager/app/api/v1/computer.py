@@ -7,7 +7,14 @@ from app.services.computer_service import ComputerService
 
 router = APIRouter(prefix="/computer", tags=["computer"])
 
-computer_service = ComputerService()
+computer_service: ComputerService | None = None
+
+
+def get_computer_service() -> ComputerService:
+    global computer_service
+    if computer_service is None:
+        computer_service = ComputerService()
+    return computer_service
 
 
 @router.post(
@@ -22,7 +29,8 @@ async def upload_browser_screenshot(
 ):
     """Upload a browser screenshot produced by the executor."""
     raw = await file.read()
-    payload = computer_service.upload_browser_screenshot(
+    service = get_computer_service()
+    payload = service.upload_browser_screenshot(
         session_id=session_id,
         tool_use_id=tool_use_id,
         content_type=file.content_type or "image/png",

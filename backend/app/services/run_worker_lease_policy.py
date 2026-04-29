@@ -43,7 +43,7 @@ class RunWorkerLeasePolicy:
             )
 
     @staticmethod
-    def ensure_active_claim(db_run: Any) -> None:
+    def ensure_active_claim(db_run: Any, *, now: datetime) -> None:
         lease_expires_at = getattr(db_run, "lease_expires_at", None)
         if lease_expires_at is None:
             raise AppException(
@@ -52,7 +52,9 @@ class RunWorkerLeasePolicy:
             )
         if lease_expires_at.tzinfo is None:
             lease_expires_at = lease_expires_at.replace(tzinfo=timezone.utc)
-        if lease_expires_at <= datetime.now(timezone.utc):
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        if lease_expires_at <= now:
             raise AppException(
                 error_code=ErrorCode.FORBIDDEN,
                 message="Run claim has expired",

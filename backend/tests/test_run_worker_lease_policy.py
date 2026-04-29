@@ -43,20 +43,28 @@ def test_ensure_worker_owns_run_rejects_other_worker() -> None:
 
 
 def test_ensure_active_claim_accepts_future_lease() -> None:
+    now = datetime.now(timezone.utc)
     db_run = SimpleNamespace(
-        lease_expires_at=datetime.now(timezone.utc) + timedelta(minutes=5)
+        lease_expires_at=now + timedelta(minutes=5),
     )
 
-    RunWorkerLeasePolicy.ensure_active_claim(db_run)
+    RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
+
+
+def test_ensure_active_claim_uses_supplied_now() -> None:
+    now = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    db_run = SimpleNamespace(lease_expires_at=now + timedelta(minutes=5))
+
+    RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
 
 
 def test_ensure_active_claim_rejects_expired_naive_lease() -> None:
+    now = datetime.now(timezone.utc)
     db_run = SimpleNamespace(
-        lease_expires_at=datetime.now(timezone.utc).replace(tzinfo=None)
-        - timedelta(minutes=5)
+        lease_expires_at=now.replace(tzinfo=None) - timedelta(minutes=5)
     )
 
     with pytest.raises(AppException) as exc_info:
-        RunWorkerLeasePolicy.ensure_active_claim(db_run)
+        RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
 
     assert exc_info.value.error_code is ErrorCode.FORBIDDEN

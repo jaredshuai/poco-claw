@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from app.core.errors.error_codes import ErrorCode
@@ -19,7 +20,12 @@ class RunTransitionPolicy:
     """Evaluate run status transitions without touching persistence."""
 
     @staticmethod
-    def evaluate_start(db_run: Any, worker_id: str) -> RunTransitionDecision:
+    def evaluate_start(
+        db_run: Any,
+        worker_id: str,
+        *,
+        now: datetime,
+    ) -> RunTransitionDecision:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
@@ -34,11 +40,16 @@ class RunTransitionPolicy:
             )
 
         RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
-        RunWorkerLeasePolicy.ensure_active_claim(db_run)
+        RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
         return RUN_TRANSITION_APPLY
 
     @staticmethod
-    def evaluate_fail(db_run: Any, worker_id: str) -> RunTransitionDecision:
+    def evaluate_fail(
+        db_run: Any,
+        worker_id: str,
+        *,
+        now: datetime,
+    ) -> RunTransitionDecision:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
@@ -50,5 +61,5 @@ class RunTransitionPolicy:
 
         RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
         if db_run.status == "claimed":
-            RunWorkerLeasePolicy.ensure_active_claim(db_run)
+            RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
         return RUN_TRANSITION_APPLY

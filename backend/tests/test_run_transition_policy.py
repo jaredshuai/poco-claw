@@ -11,6 +11,8 @@ from app.services.run_transition_policy import (
     RunTransitionPolicy,
 )
 
+DEFAULT_NOW = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+
 
 def _run(
     *,
@@ -21,44 +23,89 @@ def _run(
     return SimpleNamespace(
         status=status,
         claimed_by=claimed_by,
-        lease_expires_at=lease_expires_at
-        or datetime.now(timezone.utc) + timedelta(minutes=5),
+        lease_expires_at=lease_expires_at or DEFAULT_NOW + timedelta(minutes=5),
     )
 
 
 def test_start_transition_allows_claimed_run_with_active_lease() -> None:
-    decision = RunTransitionPolicy.evaluate_start(_run(status="claimed"), "worker-1")
+    decision = RunTransitionPolicy.evaluate_start(
+        _run(status="claimed"),
+        "worker-1",
+        now=DEFAULT_NOW,
+    )
 
     assert decision == RUN_TRANSITION_APPLY
 
 
 def test_start_transition_noops_terminal_run() -> None:
-    decision = RunTransitionPolicy.evaluate_start(_run(status="completed"), "worker-1")
+    decision = RunTransitionPolicy.evaluate_start(
+        _run(status="completed"),
+        "worker-1",
+        now=DEFAULT_NOW,
+    )
 
     assert decision == RUN_TRANSITION_NOOP
 
 
 def test_start_transition_rejects_unclaimed_queued_run() -> None:
     with pytest.raises(AppException) as exc_info:
-        RunTransitionPolicy.evaluate_start(_run(status="queued"), "worker-1")
+        RunTransitionPolicy.evaluate_start(
+            _run(status="queued"),
+            "worker-1",
+            now=DEFAULT_NOW,
+        )
 
     assert exc_info.value.error_code is ErrorCode.BAD_REQUEST
 
 
+def test_start_transition_uses_supplied_now_for_claim_freshness() -> None:
+    now = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    decision = RunTransitionPolicy.evaluate_start(
+        _run(status="claimed", lease_expires_at=now + timedelta(minutes=1)),
+        "worker-1",
+        now=now,
+    )
+
+    assert decision == RUN_TRANSITION_APPLY
+
+
 def test_fail_transition_allows_running_run_for_owner() -> None:
-    decision = RunTransitionPolicy.evaluate_fail(_run(status="running"), "worker-1")
+    decision = RunTransitionPolicy.evaluate_fail(
+        _run(status="running"),
+        "worker-1",
+        now=DEFAULT_NOW,
+    )
 
     assert decision == RUN_TRANSITION_APPLY
 
 
 def test_fail_transition_noops_terminal_run() -> None:
-    decision = RunTransitionPolicy.evaluate_fail(_run(status="failed"), "worker-1")
+    decision = RunTransitionPolicy.evaluate_fail(
+        _run(status="failed"),
+        "worker-1",
+        now=DEFAULT_NOW,
+    )
 
     assert decision == RUN_TRANSITION_NOOP
 
 
 def test_fail_transition_rejects_queued_run() -> None:
     with pytest.raises(AppException) as exc_info:
-        RunTransitionPolicy.evaluate_fail(_run(status="queued"), "worker-1")
+        RunTransitionPolicy.evaluate_fail(
+            _run(status="queued"),
+            "worker-1",
+            now=DEFAULT_NOW,
+        )
 
     assert exc_info.value.error_code is ErrorCode.BAD_REQUEST
+
+
+def test_fail_transition_uses_supplied_now_for_claim_freshness() -> None:
+    now = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    decision = RunTransitionPolicy.evaluate_fail(
+        _run(status="claimed", lease_expires_at=now + timedelta(minutes=1)),
+        "worker-1",
+        now=now,
+    )
+
+    assert decision == RUN_TRANSITION_APPLY

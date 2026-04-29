@@ -123,6 +123,7 @@ class RunService:
         self, db: Session, run_id: uuid.UUID, request: RunStartRequest
     ) -> RunResponse:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
+        now = datetime.now(timezone.utc)
 
         db_run = RunRepository.get_by_id(db, run_id)
         if not db_run:
@@ -131,7 +132,10 @@ class RunService:
                 message=f"Run not found: {run_id}",
             )
 
-        if RunTransitionPolicy.evaluate_start(db_run, worker_id) == RUN_TRANSITION_NOOP:
+        if (
+            RunTransitionPolicy.evaluate_start(db_run, worker_id, now=now)
+            == RUN_TRANSITION_NOOP
+        ):
             return RunResponse.model_validate(db_run)
 
         db_run.attempts += 1
@@ -147,6 +151,7 @@ class RunService:
         request: RunFailRequest,
     ) -> RunResponse:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
+        now = datetime.now(timezone.utc)
 
         db_run = RunRepository.get_by_id(db, run_id)
         if not db_run:
@@ -155,11 +160,14 @@ class RunService:
                 message=f"Run not found: {run_id}",
             )
 
-        if RunTransitionPolicy.evaluate_fail(db_run, worker_id) == RUN_TRANSITION_NOOP:
+        if (
+            RunTransitionPolicy.evaluate_fail(db_run, worker_id, now=now)
+            == RUN_TRANSITION_NOOP
+        ):
             return RunResponse.model_validate(db_run)
 
         if db_run.started_at is None:
-            db_run.started_at = datetime.now(timezone.utc)
+            db_run.started_at = now
         run_lifecycle_service.finalize_terminal(
             db,
             db_run,

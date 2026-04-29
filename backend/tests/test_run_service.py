@@ -470,6 +470,31 @@ class TestRunServiceStartRun(unittest.TestCase):
                 mock_lifecycle.mark_running.assert_called_once()
                 db.commit.assert_called_once()
 
+    def test_run_start_passes_current_time_to_transition_policy(self) -> None:
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        request = RunStartRequest(worker_id="worker-1")
+        mock_run = create_mock_run(
+            run_id=run_id,
+            status="running",
+            claimed_by="worker-1",
+        )
+
+        with patch("app.services.run_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = now
+            with patch("app.services.run_service.RunRepository") as mock_repo:
+                mock_repo.get_by_id.return_value = mock_run
+                with patch(
+                    "app.services.run_service.RunTransitionPolicy"
+                ) as mock_policy:
+                    mock_policy.evaluate_start.return_value = "noop"
+                    service = RunService()
+                    result = service.start_run(db, run_id, request)
+                    self.assertIsNotNone(result)
+                    call_args = mock_policy.evaluate_start.call_args
+                    self.assertEqual(call_args.kwargs["now"], now)
+
     def test_run_start_rejects_unclaimed_queued_run(self) -> None:
         db = MagicMock()
         run_id = uuid.uuid4()
@@ -609,6 +634,37 @@ class TestRunServiceFailRun(unittest.TestCase):
                 self.assertIsNotNone(result)
                 self.assertIsNotNone(mock_run.started_at)
                 mock_lifecycle.finalize_terminal.assert_called_once()
+
+    def test_run_fail_uses_current_time_for_transition_and_started_at(self) -> None:
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        request = RunFailRequest(worker_id="worker-1", error_message="Error")
+        mock_run = create_mock_run(
+            run_id=run_id,
+            status="running",
+            claimed_by="worker-1",
+            started_at=None,
+        )
+
+        with patch("app.services.run_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = now
+            with patch("app.services.run_service.RunRepository") as mock_repo:
+                mock_repo.get_by_id.return_value = mock_run
+                with patch(
+                    "app.services.run_service.RunTransitionPolicy"
+                ) as mock_policy:
+                    mock_policy.evaluate_fail.return_value = "apply"
+                    with patch(
+                        "app.services.run_service.run_lifecycle_service"
+                    ) as mock_lifecycle:
+                        service = RunService()
+                        result = service.fail_run(db, run_id, request)
+                        self.assertIsNotNone(result)
+                        call_args = mock_policy.evaluate_fail.call_args
+                        self.assertEqual(call_args.kwargs["now"], now)
+                        self.assertEqual(mock_run.started_at, now)
+                        mock_lifecycle.finalize_terminal.assert_called_once()
 
     def test_run_fail_rejects_unclaimed_running_run(self) -> None:
         db = MagicMock()

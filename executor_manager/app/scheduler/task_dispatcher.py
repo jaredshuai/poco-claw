@@ -1,5 +1,6 @@
 import logging
 import time
+from dataclasses import dataclass
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.core.observability.request_context import (
@@ -23,6 +24,32 @@ from app.services.slash_command_stager import SlashCommandStager
 from app.services.sub_agent_stager import SubAgentStager
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class TaskDispatchDependencies:
+    executor_client: ExecutorClient
+    backend_client: BackendClient
+    config_resolver: ConfigResolver
+    skill_stager: SkillStager
+    plugin_stager: PluginStager
+    attachment_stager: AttachmentStager
+    slash_command_stager: SlashCommandStager
+    subagent_stager: SubAgentStager
+
+
+def build_task_dispatch_dependencies() -> TaskDispatchDependencies:
+    backend_client = BackendClient()
+    return TaskDispatchDependencies(
+        executor_client=ExecutorClient(),
+        backend_client=backend_client,
+        config_resolver=ConfigResolver(backend_client),
+        skill_stager=SkillStager(),
+        plugin_stager=PluginStager(),
+        attachment_stager=AttachmentStager(),
+        slash_command_stager=SlashCommandStager(),
+        subagent_stager=SubAgentStager(),
+    )
 
 
 def _extract_enabled_skill_names(skills: object) -> list[str]:
@@ -83,6 +110,7 @@ class TaskDispatcher:
         request_id: str | None = None,
         trace_id: str | None = None,
         enqueued_at: float | None = None,
+        dependencies: TaskDispatchDependencies | None = None,
     ) -> None:
         """Dispatch task to executor.
 
@@ -97,14 +125,15 @@ class TaskDispatcher:
             enqueued_at: perf_counter timestamp when the task was enqueued (for queue delay)
         """
         settings = get_settings()
-        executor_client = ExecutorClient()
-        backend_client = BackendClient()
-        config_resolver = ConfigResolver(backend_client)
-        skill_stager = SkillStager()
-        plugin_stager = PluginStager()
-        attachment_stager = AttachmentStager()
-        slash_command_stager = SlashCommandStager()
-        subagent_stager = SubAgentStager()
+        dispatch_dependencies = dependencies or build_task_dispatch_dependencies()
+        executor_client = dispatch_dependencies.executor_client
+        backend_client = dispatch_dependencies.backend_client
+        config_resolver = dispatch_dependencies.config_resolver
+        skill_stager = dispatch_dependencies.skill_stager
+        plugin_stager = dispatch_dependencies.plugin_stager
+        attachment_stager = dispatch_dependencies.attachment_stager
+        slash_command_stager = dispatch_dependencies.slash_command_stager
+        subagent_stager = dispatch_dependencies.subagent_stager
 
         user_id = config.get("user_id", "")
         container_mode = config.get("container_mode", "ephemeral")

@@ -2,6 +2,7 @@ import os
 import asyncio
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -357,6 +358,40 @@ class TestAgentExecutorInjectMemoryMcp(unittest.TestCase):
 
 
 class TestAgentExecutorPermissionAsk(unittest.TestCase):
+    def test_exit_plan_mode_request_uses_injected_clock_for_expiry(self) -> None:
+        fixed_now = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        clock = MagicMock()
+        clock.now_utc.return_value = fixed_now
+        with patch.object(Path, "home", return_value=Path("/home/user")):
+            with patch.dict(os.environ, {"WORKSPACE_PATH": "/workspace"}):
+                user_input_client = MagicMock()
+                user_input_client.create_request = AsyncMock(
+                    return_value={"id": "req-1"}
+                )
+                user_input_client.wait_for_answer = AsyncMock(
+                    return_value={"answers": {"approved": "true"}}
+                )
+                executor = AgentExecutor(
+                    config=ExecutorConfig(
+                        session_id="session-123",
+                        user_input_client=user_input_client,
+                        clock=clock,
+                    ),
+                    hooks=[],
+                )
+
+                result = asyncio.run(
+                    executor._handle_exit_plan_mode({"plan": "ship it"})
+                )
+
+                assert type(result).__name__ == "PermissionResultAllow"
+                create_payload = user_input_client.create_request.await_args.args[0]
+                assert (
+                    create_payload["expires_at"]
+                    == (fixed_now + timedelta(minutes=10)).isoformat()
+                )
+                clock.now_utc.assert_called_once_with()
+
     def test_permission_ask_request_uses_frontend_compatible_question_payload(
         self,
     ) -> None:

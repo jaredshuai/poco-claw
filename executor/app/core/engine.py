@@ -4,7 +4,7 @@ import os
 import re
 import time
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeAgentOptions
@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
+from app.core.clock import Clock, SystemClock
 from app.core.mcp_config import inject_playwright_mcp
 from app.core.memory import (
     MEMORY_MCP_SERVER_KEY,
@@ -59,6 +60,7 @@ class ExecutorConfig:
     memory_client: MemoryClient | None = None
     request_id: str | None = None
     trace_id: str | None = None
+    clock: Clock | None = None
 
 
 load_dotenv()
@@ -95,6 +97,7 @@ class AgentExecutor:
         self.hooks = HookManager(hooks)
         self.user_input_client = config.user_input_client
         self.memory_client = config.memory_client
+        self.clock = config.clock or SystemClock()
         self.memory_mcp_server = (
             create_memory_mcp_server(config.memory_client)
             if config.memory_client
@@ -209,9 +212,7 @@ class AgentExecutor:
         if user_input_client is None:
             return PermissionResultDeny(message="User input client not configured")
         try:
-            plan_expires_at = (
-                datetime.now(timezone.utc) + timedelta(minutes=10)
-            ).isoformat()
+            plan_expires_at = (self.clock.now_utc() + timedelta(minutes=10)).isoformat()
             request_payload = {
                 "session_id": self.session_id,
                 "tool_name": "ExitPlanMode",

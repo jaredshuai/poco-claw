@@ -66,9 +66,17 @@ def _command(**overrides: str | int | None) -> OfficeViewerConfigCommand:
     return OfficeViewerConfigCommand(**values)
 
 
-def _edit_session() -> OfficeEditSession:
+class FixedIdGenerator:
+    def __init__(self, *ids: str) -> None:
+        self._ids = list(ids)
+
+    def new_id(self) -> str:
+        return self._ids.pop(0)
+
+
+def _edit_session(edit_session_id: str = "edit-123") -> OfficeEditSession:
     return OfficeEditSession(
-        edit_session_id="edit-123",
+        edit_session_id=edit_session_id,
         session_id="session-123",
         user_id="user-123",
         file_path="docs/report.docx",
@@ -142,6 +150,24 @@ def test_viewer_config_creates_edit_session_and_callback_url() -> None:
     )
     editing_store.create_edit_session.assert_called_once()
     assert editing_store.create_edit_session.call_args.kwargs["document_key"]
+
+
+def test_viewer_config_uses_injected_id_generator_for_edit_session_id() -> None:
+    storage_service = _storage_service()
+    editing_store = MagicMock()
+    editing_store.create_edit_session.return_value = _edit_session("generated-edit")
+
+    result = OfficeViewerConfigUseCase(
+        storage_service=storage_service,
+        editing_store=editing_store,
+        id_generator=FixedIdGenerator("generated-edit"),
+    ).execute(_command(mode="edit"))
+
+    assert result.edit_session_id == "generated-edit"
+    assert (
+        editing_store.create_edit_session.call_args.kwargs["edit_session_id"]
+        == "generated-edit"
+    )
 
 
 def test_viewer_config_rejects_too_large_file() -> None:

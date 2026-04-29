@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 from urllib.parse import quote
-import uuid
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.schemas.office import OfficeViewerConfigResponse
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.office_editing_service import OfficeEditSession
 from app.services.office_viewer_service import build_viewer_config
 from app.services.office_workspace_file_resolver import (
@@ -75,9 +75,11 @@ class OfficeViewerConfigUseCase:
         *,
         storage_service: OfficeViewerConfigStorage,
         editing_store: OfficeViewerConfigEditingStore,
+        id_generator: IdGenerator | None = None,
     ) -> None:
         self.storage_service = storage_service
         self.editing_store = editing_store
+        self.id_generator = id_generator or UuidIdGenerator()
 
     def execute(self, command: OfficeViewerConfigCommand) -> OfficeViewerConfigResponse:
         if command.session_user_id != command.user_id:
@@ -154,7 +156,7 @@ class OfficeViewerConfigUseCase:
         edit_session_id = None
         document_version_for_key = document_version or None
         if command.mode == "edit":
-            edit_session_id = command.edit_session_id or str(uuid.uuid4())
+            edit_session_id = command.edit_session_id or self.id_generator.new_id()
             document_version_for_key = (
                 f"{document_version}:{edit_session_id}"
                 if document_version

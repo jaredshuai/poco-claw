@@ -12,8 +12,22 @@ from app.services.backend_client import BackendClient
 from app.services.workspace_export_service import WorkspaceExportService
 
 router = APIRouter(prefix="/skills", tags=["skills"])
-backend_client = BackendClient()
-workspace_export_service = WorkspaceExportService()
+backend_client: BackendClient | None = None
+workspace_export_service: WorkspaceExportService | None = None
+
+
+def get_backend_client() -> BackendClient:
+    global backend_client
+    if backend_client is None:
+        backend_client = BackendClient()
+    return backend_client
+
+
+def get_workspace_export_service() -> WorkspaceExportService:
+    global workspace_export_service
+    if workspace_export_service is None:
+        workspace_export_service = WorkspaceExportService()
+    return workspace_export_service
 
 
 class SkillSubmitRequest(BaseModel):
@@ -27,13 +41,14 @@ async def _prepare_and_export_skill_folder(
     *,
     folder_path: str,
 ) -> tuple[str, str]:
+    exporter = get_workspace_export_service()
     staged_folder_path = await asyncio.to_thread(
-        workspace_export_service.stage_skill_submission_folder,
+        exporter.stage_skill_submission_folder,
         session_id,
         folder_path=folder_path,
     )
     result = await asyncio.to_thread(
-        workspace_export_service.export_workspace_folder,
+        exporter.export_workspace_folder,
         session_id,
         folder_path=staged_folder_path,
     )
@@ -60,7 +75,8 @@ async def submit_skill(
         folder_path=request.folder_path,
     )
     try:
-        response = await backend_client._request(
+        backend = get_backend_client()
+        response = await backend._request(
             "POST",
             "/api/v1/internal/skills/submit-from-workspace",
             params={"session_id": request.session_id},

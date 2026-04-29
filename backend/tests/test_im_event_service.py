@@ -105,6 +105,20 @@ def test_user_input_request_created_event_uses_injected_id_generator():
     assert create.call_args.kwargs["payload"]["id"] == "event-fixed"
 
 
+def test_command_service_uses_injected_backend_factory_without_constructing_default_backend():
+    from app.services.im import CommandService
+
+    backend = MagicMock()
+
+    with patch(
+        "app.services.im.BackendClient",
+        side_effect=AssertionError("backend client should be provided by factory"),
+    ):
+        service = CommandService(backend_client_factory=lambda: backend)
+
+    assert service.backend is backend
+
+
 def test_dispatcher_mark_delivered_passes_clock_to_repository():
     from app.services.im import ImEventDispatcher
 

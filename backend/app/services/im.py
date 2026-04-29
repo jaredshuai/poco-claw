@@ -5,7 +5,7 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -62,6 +62,35 @@ CommandHandler = Callable[[Session, Channel, str], Awaitable[list[str]]]
 
 class BackendClientError(RuntimeError):
     pass
+
+
+class ImBackendClient(Protocol):
+    async def enqueue_task(
+        self,
+        *,
+        prompt: str,
+        session_id: str | None = None,
+        project_id: str | None = None,
+        config: dict[str, Any] | None = None,
+        permission_mode: str = "default",
+    ) -> dict[str, Any]: ...
+
+    async def list_sessions(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        kind: str = "chat",
+    ) -> list[dict[str, Any]]: ...
+
+    async def get_session_state(self, *, session_id: str) -> dict[str, Any]: ...
+
+    async def answer_user_input_request(
+        self,
+        *,
+        request_id: str,
+        answers: dict[str, str],
+    ) -> dict[str, Any]: ...
 
 
 class BackendClient:
@@ -217,6 +246,10 @@ class BackendClient:
         task.add_done_callback(_log_background_task_exception)
 
 
+def build_im_backend_client() -> ImBackendClient:
+    return BackendClient()
+
+
 class MessageFormatter:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -359,8 +392,14 @@ class ParsedCommand:
 
 
 class CommandService:
-    def __init__(self) -> None:
-        self.backend = BackendClient()
+    def __init__(
+        self,
+        *,
+        backend_client: ImBackendClient | None = None,
+        backend_client_factory: Callable[[], ImBackendClient] | None = None,
+    ) -> None:
+        factory = backend_client_factory or build_im_backend_client
+        self.backend = backend_client if backend_client is not None else factory()
         self.formatter = MessageFormatter()
         self._handlers: dict[str, CommandHandler] = {
             "help": self._cmd_help,

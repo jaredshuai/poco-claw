@@ -54,8 +54,8 @@ import time
 import urllib.request
 
 url = {cdp_endpoint!r} + "/json/version"
-deadline = time.time() + 15
-while time.time() < deadline:
+deadline = time.monotonic() + 15
+while time.monotonic() < deadline:
     try:
         with urllib.request.urlopen(url, timeout=3.0) as resp:
             resp.read()

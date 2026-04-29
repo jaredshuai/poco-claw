@@ -31,6 +31,14 @@ class TestBuildPlaywrightMcpConfig(unittest.TestCase):
         self.assertIn("stdout", command)
         self.assertIn("allow", command)
 
+    def test_cdp_probe_uses_monotonic_timeout(self) -> None:
+        config = build_playwright_mcp_config()
+
+        command = config["args"][-1]
+        self.assertIn("time.monotonic() + 15", command)
+        self.assertIn("while time.monotonic() < deadline:", command)
+        self.assertNotIn("time.time()", command)
+
     def test_rejects_invalid_cdp_scheme(self) -> None:
         with patch.dict(
             os.environ,

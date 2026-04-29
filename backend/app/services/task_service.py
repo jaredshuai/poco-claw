@@ -25,6 +25,11 @@ from app.services.model_config_service import (
 class TaskService:
     """Service layer for task enqueue operations."""
 
+    def __init__(
+        self, session_queue_service: SessionQueueService | None = None
+    ) -> None:
+        self._session_queue_service = session_queue_service or SessionQueueService()
+
     @staticmethod
     def _validate_and_normalize_model(config: dict) -> None:
         """Validate `model` override and normalize config in-place.
@@ -246,7 +251,7 @@ class TaskService:
         self, db: Session, user_id: str, request: TaskEnqueueRequest
     ) -> TaskEnqueueResponse:
         """Enqueue a new run for a session (create session if needed)."""
-        session_queue_service = SessionQueueService()
+        session_queue_service = self._session_queue_service
         schedule_mode, scheduled_at = self._resolve_schedule(request)
 
         prompt = request.prompt.strip()

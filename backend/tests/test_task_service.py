@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.services.session_queue_service import SessionQueueService
+from app.schemas.task import TaskEnqueueRequest
 from app.services.task_service import TaskService
 
 
@@ -979,6 +980,85 @@ class TestTaskServiceEnqueueTask(unittest.TestCase):
         self.db = MagicMock()
         self.service = TaskService()
         self.user_id = "user-123"
+
+    @patch("app.services.task_service.SessionRepository")
+    def test_enqueue_task_new_session_uses_injected_queue_service(
+        self,
+        mock_session_repo: MagicMock,
+    ) -> None:
+        session_id = uuid.uuid4()
+        run_id = uuid.uuid4()
+        queue_service = MagicMock()
+        service = TaskService(session_queue_service=queue_service)
+
+        db_session = MagicMock()
+        db_session.id = session_id
+        db_session.config_snapshot = {}
+        mock_session_repo.create.return_value = db_session
+
+        db_run = MagicMock()
+        db_run.id = run_id
+        db_run.status = "queued"
+        queue_service.materialize_run.return_value = (MagicMock(), db_run)
+        queue_service.count_active_items.return_value = 0
+
+        request = TaskEnqueueRequest(prompt="test prompt")
+
+        result = service.enqueue_task(self.db, self.user_id, request)
+
+        queue_service.materialize_run.assert_called_once()
+        queue_service.count_active_items.assert_called_once_with(self.db, session_id)
+        self.assertEqual(result.run_id, run_id)
+        self.assertEqual(result.accepted_type, "run")
+
+    @patch("app.services.task_service.RunRepository")
+    @patch("app.services.task_service.SessionRepository")
+    def test_enqueue_task_blocking_run_uses_injected_queue_service(
+        self,
+        mock_session_repo: MagicMock,
+        mock_run_repo: MagicMock,
+    ) -> None:
+        session_id = uuid.uuid4()
+        queue_item_id = uuid.uuid4()
+        queue_service = MagicMock()
+        service = TaskService(session_queue_service=queue_service)
+
+        db_session = MagicMock()
+        db_session.id = session_id
+        db_session.user_id = self.user_id
+        db_session.project_id = None
+        db_session.kind = "chat"
+        db_session.config_snapshot = {"model": "claude-sonnet-4-6"}
+        mock_session_repo.get_by_id_for_update.return_value = db_session
+        mock_run_repo.get_blocking_by_session.return_value = MagicMock()
+        queue_service.get_existing_enqueue_response.return_value = None
+        queue_service.get_effective_base_config.return_value = {
+            "model": "claude-sonnet-4-6"
+        }
+
+        queue_item = MagicMock()
+        queue_item.id = queue_item_id
+        queue_item.status = "queued"
+        queue_service.enqueue.return_value = queue_item
+        queue_service.count_active_items.return_value = 1
+
+        request = TaskEnqueueRequest(
+            prompt="follow-up prompt",
+            session_id=session_id,
+            client_request_id="request-1",
+        )
+
+        result = service.enqueue_task(self.db, self.user_id, request)
+
+        queue_service.get_existing_enqueue_response.assert_called_once_with(
+            self.db,
+            session_id=session_id,
+            client_request_id="request-1",
+        )
+        queue_service.enqueue.assert_called_once()
+        queue_service.count_active_items.assert_called_once_with(self.db, session_id)
+        self.assertEqual(result.queue_item_id, queue_item_id)
+        self.assertEqual(result.accepted_type, "queued_query")
 
     @patch("app.services.task_service.SessionRepository")
     @patch("app.services.task_service.ProjectRepository")

@@ -13,8 +13,22 @@ from app.services.workspace_export_service import (
 logger = logging.getLogger(__name__)
 
 
-backend_client = BackendClient()
-workspace_export_service = WorkspaceExportService()
+backend_client: BackendClient | None = None
+workspace_export_service: WorkspaceExportService | None = None
+
+
+def get_backend_client() -> BackendClient:
+    global backend_client
+    if backend_client is None:
+        backend_client = BackendClient()
+    return backend_client
+
+
+def get_workspace_export_service() -> WorkspaceExportService:
+    global workspace_export_service
+    if workspace_export_service is None:
+        workspace_export_service = WorkspaceExportService()
+    return workspace_export_service
 
 
 class CallbackService:
@@ -208,7 +222,8 @@ class CallbackService:
             payload = payload_model.model_dump(mode="json")
 
             # Forward callback to backend
-            backend_response = await backend_client.forward_callback(payload)
+            backend = get_backend_client()
+            backend_response = await backend.forward_callback(payload)
 
             if callback.status in ["completed", "failed"]:
                 from app.scheduler.task_dispatcher import TaskDispatcher
@@ -260,7 +275,8 @@ class CallbackService:
         if not isinstance(new_message, dict):
             return
         try:
-            await backend_client.record_mcp_transition(
+            backend = get_backend_client()
+            await backend.record_mcp_transition(
                 run_id=callback.run_id or "",
                 session_id=callback.session_id,
                 server_name=str(new_message.get("server_name") or ""),
@@ -284,7 +300,8 @@ class CallbackService:
         if not isinstance(new_message, dict):
             return
         try:
-            await backend_client.record_permission_audit(
+            backend = get_backend_client()
+            await backend.record_permission_audit(
                 run_id=callback.run_id or "",
                 session_id=callback.session_id,
                 tool_name=str(new_message.get("tool_name") or ""),
@@ -306,8 +323,9 @@ class CallbackService:
 
     async def _export_and_forward(self, callback: AgentCallbackRequest) -> None:
         try:
+            exporter = get_workspace_export_service()
             result = await asyncio.to_thread(
-                workspace_export_service.export_workspace, callback.session_id
+                exporter.export_workspace, callback.session_id
             )
         except Exception:
             logger.exception(
@@ -334,7 +352,8 @@ class CallbackService:
         payload = payload_model.model_dump(mode="json")
 
         try:
-            await backend_client.forward_callback(payload)
+            backend = get_backend_client()
+            await backend.forward_callback(payload)
         except Exception:
             logger.exception(
                 "workspace_export_callback_forward_failed",

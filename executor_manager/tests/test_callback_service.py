@@ -1,5 +1,8 @@
+import importlib.util
+import sys
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.schemas.callback import (
@@ -10,6 +13,39 @@ from app.schemas.callback import (
     WorkspaceState,
 )
 from app.services.callback_service import CallbackService
+
+
+def _load_callback_service_module_from_source():
+    module_name = "_callback_service_import_probe"
+    module_path = (
+        Path(__file__).resolve().parents[1] / "app" / "services" / "callback_service.py"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_callback_service_module_import_does_not_initialize_concrete_adapters() -> None:
+    with (
+        patch(
+            "app.services.backend_client.BackendClient",
+            side_effect=AssertionError("backend client should be lazy"),
+        ),
+        patch(
+            "app.services.workspace_export_service.WorkspaceExportService",
+            side_effect=AssertionError("workspace export should be lazy"),
+        ),
+    ):
+        module = _load_callback_service_module_from_source()
+
+    assert module.CallbackService is not None
 
 
 class TestIsInternalMcpServer(unittest.TestCase):

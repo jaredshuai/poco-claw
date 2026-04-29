@@ -1,12 +1,15 @@
 import hashlib
 import hmac
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.core.deps import require_executor_task_lease
 from app.main import app
 
 
@@ -105,6 +108,43 @@ def test_execute_rejects_expired_task_lease(monkeypatch) -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_task_lease_validation_uses_injected_clock(monkeypatch) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "executor-secret")
+    clock = MagicMock()
+    clock.now_utc.return_value = datetime.fromtimestamp(1000, tz=timezone.utc)
+    headers = _task_lease_headers(expires_at=1300)
+
+    require_executor_task_lease(
+        session_id="session-123",
+        run_id="run-456",
+        expires_at_header=headers["X-Poco-Task-Lease-Expires-At"],
+        signature_header=headers["X-Poco-Task-Lease-Signature"],
+        clock=clock,
+    )
+
+    clock.now_utc.assert_called_once_with()
+
+
+def test_task_lease_validation_rejects_expired_with_injected_clock(monkeypatch) -> None:
+    monkeypatch.setenv("CALLBACK_TOKEN", "executor-secret")
+    clock = MagicMock()
+    clock.now_utc.return_value = datetime.fromtimestamp(1000, tz=timezone.utc)
+    headers = _task_lease_headers(expires_at=999)
+
+    with pytest.raises(HTTPException) as exc:
+        require_executor_task_lease(
+            session_id="session-123",
+            run_id="run-456",
+            expires_at_header=headers["X-Poco-Task-Lease-Expires-At"],
+            signature_header=headers["X-Poco-Task-Lease-Signature"],
+            clock=clock,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Executor task lease expired"
+    clock.now_utc.assert_called_once_with()
 
 
 def test_execute_rejects_callback_token_signature_when_task_lease_secret_is_set(

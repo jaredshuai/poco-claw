@@ -1,9 +1,10 @@
 import hashlib
 import hmac
 import os
-import time
 
 from fastapi import Header, HTTPException
+
+from app.core.clock import Clock, SystemClock
 
 TASK_LEASE_EXPIRES_AT_HEADER = "X-Poco-Task-Lease-Expires-At"
 TASK_LEASE_SIGNATURE_HEADER = "X-Poco-Task-Lease-Signature"
@@ -56,6 +57,7 @@ def require_executor_task_lease(
     run_id: str | None,
     expires_at_header: str | None,
     signature_header: str | None,
+    clock: Clock | None = None,
 ) -> None:
     """Validate the short-lived task lease bound to this execution request."""
     expected_secret = _expected_executor_task_lease_secret()
@@ -70,7 +72,8 @@ def require_executor_task_lease(
             detail="Invalid executor task lease",
         ) from exc
 
-    if expires_at <= int(time.time()):
+    now_epoch_seconds = int((clock or SystemClock()).now_utc().timestamp())
+    if expires_at <= now_epoch_seconds:
         raise HTTPException(status_code=403, detail="Executor task lease expired")
 
     expected_signature = _task_lease_signature(

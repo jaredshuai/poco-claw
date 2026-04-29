@@ -72,3 +72,26 @@ def test_dispatcher_mark_delivered_passes_clock_to_repository():
 
     mark.assert_called_once_with(db, event_id="event-1", now_utc=now)
     db.commit.assert_called_once_with()
+
+
+def test_dispatcher_mark_retry_passes_clock_to_repository():
+    from app.services.im import ImEventDispatcher
+
+    now = datetime(2025, 2, 15, 10, 30, tzinfo=UTC)
+    dispatcher = ImEventDispatcher(clock=FixedClock(now))
+    db = MagicMock()
+
+    with (
+        patch("app.services.im.SessionLocal", return_value=db),
+        patch("app.services.im.ImEventOutboxRepository.mark_retry") as mark,
+    ):
+        dispatcher._mark_retry("event-1", "boom", 3.5)
+
+    mark.assert_called_once_with(
+        db,
+        event_id="event-1",
+        error_message="boom",
+        delay_seconds=3.5,
+        now_utc=now,
+    )
+    db.commit.assert_called_once_with()

@@ -1297,8 +1297,12 @@ class ImEventDispatcher:
         finally:
             db.close()
 
-    @staticmethod
-    def _mark_retry(event_id: str, error_message: str, delay_seconds: float) -> None:
+    def _mark_retry(
+        self,
+        event_id: str,
+        error_message: str,
+        delay_seconds: float,
+    ) -> None:
         db = SessionLocal()
         try:
             ImEventOutboxRepository.mark_retry(
@@ -1306,6 +1310,7 @@ class ImEventDispatcher:
                 event_id=event_id,
                 error_message=error_message,
                 delay_seconds=delay_seconds,
+                now_utc=self._clock.now_utc(),
             )
             db.commit()
         except Exception:

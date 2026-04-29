@@ -262,6 +262,7 @@ class ImEventOutboxRepository:
         event_id: uuid.UUID | str,
         error_message: str,
         delay_seconds: float,
+        now_utc: datetime,
     ) -> None:
         row = db.get(ImEventOutbox, ImEventOutboxRepository._normalize_id(event_id))
         if row is None:
@@ -269,6 +270,4 @@ class ImEventOutboxRepository:
         row.status = "pending"
         row.lease_expires_at = None
         row.last_error = error_message[:4000]
-        row.next_attempt_at = datetime.now(timezone.utc) + timedelta(
-            seconds=max(0.5, delay_seconds)
-        )
+        row.next_attempt_at = now_utc + timedelta(seconds=max(0.5, delay_seconds))

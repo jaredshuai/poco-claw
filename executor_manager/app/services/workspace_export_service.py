@@ -44,6 +44,21 @@ class WorkspaceExportStorage(Protocol):
     ) -> None: ...
 
 
+class WorkspaceExportWorkspaceManager(Protocol):
+    _ignore_names: set[str]
+    ignore_dot_files: bool
+    temp_dir: Path
+
+    def resolve_user_id(self, session_id: str) -> str | None: ...
+
+    def get_session_workspace_dir(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+    ) -> Path | None: ...
+
+
 storage_service: WorkspaceExportStorage | None = None
 
 
@@ -58,6 +73,10 @@ def get_storage_service() -> WorkspaceExportStorage:
     return storage_service
 
 
+def get_workspace_manager() -> WorkspaceExportWorkspaceManager:
+    return workspace_manager
+
+
 class WorkspaceExportService:
     def __init__(
         self,
@@ -65,15 +84,27 @@ class WorkspaceExportService:
         clock: Clock | None = None,
         storage_service: WorkspaceExportStorage | None = None,
         storage_service_factory: Callable[[], WorkspaceExportStorage] | None = None,
+        workspace_manager: WorkspaceExportWorkspaceManager | None = None,
+        workspace_manager_factory: Callable[[], WorkspaceExportWorkspaceManager]
+        | None = None,
     ) -> None:
         self.clock = clock or SystemClock()
         self._storage_service = storage_service
         self._storage_service_factory = storage_service_factory or get_storage_service
+        self._workspace_manager = workspace_manager
+        self._workspace_manager_factory = (
+            workspace_manager_factory or get_workspace_manager
+        )
 
     def _get_storage_service(self) -> WorkspaceExportStorage:
         if self._storage_service is not None:
             return self._storage_service
         return self._storage_service_factory()
+
+    def _get_workspace_manager(self) -> WorkspaceExportWorkspaceManager:
+        if self._workspace_manager is not None:
+            return self._workspace_manager
+        return self._workspace_manager_factory()
 
     def _now_utc(self) -> datetime:
         now = self.clock.now_utc()
@@ -82,14 +113,15 @@ class WorkspaceExportService:
         return now.astimezone(timezone.utc)
 
     def export_workspace(self, session_id: str) -> WorkspaceExportResult:
-        user_id = workspace_manager.resolve_user_id(session_id)
+        workspace = self._get_workspace_manager()
+        user_id = workspace.resolve_user_id(session_id)
         if not user_id:
             return WorkspaceExportResult(
                 error="Unable to resolve user_id for session",
                 workspace_export_status="failed",
             )
 
-        workspace_dir = workspace_manager.get_session_workspace_dir(
+        workspace_dir = workspace.get_session_workspace_dir(
             user_id=user_id, session_id=session_id
         )
         if not workspace_dir:
@@ -181,14 +213,15 @@ class WorkspaceExportService:
         *,
         folder_path: str,
     ) -> str:
-        user_id = workspace_manager.resolve_user_id(session_id)
+        workspace = self._get_workspace_manager()
+        user_id = workspace.resolve_user_id(session_id)
         if not user_id:
             raise AppException(
                 error_code=ErrorCode.WORKSPACE_NOT_FOUND,
                 message="Unable to resolve user_id for session",
             )
 
-        workspace_dir = workspace_manager.get_session_workspace_dir(
+        workspace_dir = workspace.get_session_workspace_dir(
             user_id=user_id, session_id=session_id
         )
         if not workspace_dir:
@@ -244,14 +277,15 @@ class WorkspaceExportService:
         *,
         folder_path: str,
     ) -> WorkspaceExportResult:
-        user_id = workspace_manager.resolve_user_id(session_id)
+        workspace = self._get_workspace_manager()
+        user_id = workspace.resolve_user_id(session_id)
         if not user_id:
             return WorkspaceExportResult(
                 error="Unable to resolve user_id for session",
                 workspace_export_status="failed",
             )
 
-        workspace_dir = workspace_manager.get_session_workspace_dir(
+        workspace_dir = workspace.get_session_workspace_dir(
             user_id=user_id, session_id=session_id
         )
         if not workspace_dir:
@@ -338,8 +372,9 @@ class WorkspaceExportService:
 
     def _collect_files(self, workspace_dir: Path) -> list[Path]:
         files: list[Path] = []
-        ignore_names = workspace_manager._ignore_names
-        ignore_dot = workspace_manager.ignore_dot_files
+        workspace = self._get_workspace_manager()
+        ignore_names = workspace._ignore_names
+        ignore_dot = workspace.ignore_dot_files
 
         for root, dirnames, filenames in os.walk(workspace_dir):
             root_path = Path(root)
@@ -390,7 +425,8 @@ class WorkspaceExportService:
         session_id: str,
         files: list[Path],
     ) -> Path:
-        temp_dir = workspace_manager.temp_dir
+        workspace = self._get_workspace_manager()
+        temp_dir = workspace.temp_dir
         temp_dir.mkdir(parents=True, exist_ok=True)
         archive_path = temp_dir / f"{session_id}.zip"
 

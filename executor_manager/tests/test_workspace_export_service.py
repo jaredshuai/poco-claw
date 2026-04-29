@@ -66,6 +66,47 @@ def test_workspace_export_uses_injected_storage_factory_without_constructing_s3(
         assert service._get_storage_service() is storage_service
 
 
+def test_workspace_export_uses_injected_workspace_manager_boundary() -> None:
+    class ExplodingWorkspaceManager:
+        def __getattr__(self, name: str) -> object:
+            raise AssertionError("workspace manager should be injected")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace_dir = Path(tmpdir) / "workspace"
+        workspace_dir.mkdir()
+        (workspace_dir / "file.txt").write_text("content")
+        temp_dir = Path(tmpdir) / "temp"
+
+        injected_workspace = MagicMock()
+        injected_workspace.resolve_user_id.return_value = "user-123"
+        injected_workspace.get_session_workspace_dir.return_value = workspace_dir
+        injected_workspace._ignore_names = set()
+        injected_workspace.ignore_dot_files = False
+        injected_workspace.temp_dir = temp_dir
+
+        storage_service = MagicMock()
+
+        with patch(
+            "app.services.workspace_export_service.workspace_manager",
+            ExplodingWorkspaceManager(),
+        ):
+            service = WorkspaceExportService(
+                storage_service=storage_service,
+                workspace_manager=injected_workspace,
+            )
+
+            result = service.export_workspace("session-456")
+
+    assert result.workspace_export_status == "ready"
+    injected_workspace.resolve_user_id.assert_called_once_with("session-456")
+    injected_workspace.get_session_workspace_dir.assert_called_once_with(
+        user_id="user-123",
+        session_id="session-456",
+    )
+    assert storage_service.upload_file.call_count == 2
+    storage_service.put_object.assert_called_once()
+
+
 class TestConstants(unittest.TestCase):
     """Test module-level constants."""
 

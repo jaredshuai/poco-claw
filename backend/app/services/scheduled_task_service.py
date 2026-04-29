@@ -23,6 +23,7 @@ from app.schemas.scheduled_task import (
     ScheduledTaskTriggerResponse,
     ScheduledTaskUpdateRequest,
 )
+from app.services.clock import Clock, SystemClock
 from app.services.task_service import TaskService
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ task_service = TaskService()
 
 class ScheduledTaskService:
     """Service layer for scheduled task management and dispatch."""
+
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
 
     @staticmethod
     def _validate_cron(expr: str) -> str:
@@ -154,7 +158,7 @@ class ScheduledTaskService:
             db.flush()
             session_id = db_session.id
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = self._clock.now_utc()
         next_run_at = self._compute_next_run_at(
             cron_expr=cron_expr, timezone_name=tz_name, now_utc=now_utc
         )
@@ -246,7 +250,7 @@ class ScheduledTaskService:
             recompute = True
 
         if recompute:
-            now_utc = datetime.now(timezone.utc)
+            now_utc = self._clock.now_utc()
             db_task.next_run_at = self._compute_next_run_at(
                 cron_expr=db_task.cron,
                 timezone_name=db_task.timezone,
@@ -289,7 +293,7 @@ class ScheduledTaskService:
         run = self._enqueue_run_for_task(
             db,
             task=db_task,
-            scheduled_at=datetime.now(timezone.utc),
+            scheduled_at=self._clock.now_utc(),
             force=True,
         )
         if not run:
@@ -311,7 +315,7 @@ class ScheduledTaskService:
         *,
         limit: int = 50,
     ) -> ScheduledTaskDispatchResponse:
-        now_utc = datetime.now(timezone.utc)
+        now_utc = self._clock.now_utc()
         tasks = ScheduledTaskRepository.claim_due_for_update(
             db, limit=limit, now_utc=now_utc
         )

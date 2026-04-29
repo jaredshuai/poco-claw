@@ -17,8 +17,22 @@ from app.services.skill_import_job_service import SkillImportJobService
 
 router = APIRouter(prefix="/skills/import", tags=["skills"])
 
-import_service = SkillImportService()
-job_service = SkillImportJobService(import_service=import_service)
+import_service: SkillImportService | None = None
+job_service: SkillImportJobService | None = None
+
+
+def get_import_service() -> SkillImportService:
+    global import_service
+    if import_service is None:
+        import_service = SkillImportService()
+    return import_service
+
+
+def get_job_service() -> SkillImportJobService:
+    global job_service
+    if job_service is None:
+        job_service = SkillImportJobService(import_service=get_import_service())
+    return job_service
 
 
 @router.post(
@@ -31,7 +45,8 @@ def discover_skill_import(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = import_service.discover(
+    service = get_import_service()
+    result = service.discover(
         db,
         user_id=user_id,
         file=file,
@@ -50,8 +65,9 @@ def commit_skill_import(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = job_service.enqueue_commit(db, user_id=user_id, request=request)
-    background_tasks.add_task(job_service.process_commit_job, result.job_id)
+    service = get_job_service()
+    result = service.enqueue_commit(db, user_id=user_id, request=request)
+    background_tasks.add_task(service.process_commit_job, result.job_id)
     return Response.success(data=result, message="Skill import queued")
 
 
@@ -64,5 +80,6 @@ def get_skill_import_job(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = job_service.get_job(db, user_id=user_id, job_id=job_id)
+    service = get_job_service()
+    result = service.get_job(db, user_id=user_id, job_id=job_id)
     return Response.success(data=result, message="Skill import job retrieved")

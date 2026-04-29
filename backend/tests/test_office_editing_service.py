@@ -239,6 +239,27 @@ def test_mark_saved_uses_store_clock_for_completion_time():
     assert updated.completed_at == completed_at
 
 
+def test_complete_save_request_uses_store_clock_for_completion_time():
+    from app.services.office_editing_service import OfficeEditingStore
+
+    created_at = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
+    completed_at = datetime(2026, 4, 29, 12, 5, tzinfo=UTC)
+    clock = FixedClock(created_at)
+    store = OfficeEditingStore(clock=clock)
+    session = _create_session(store)
+    save_request = store.create_save_request(session)
+
+    clock._now = completed_at
+    store.complete_save_request(
+        save_request.save_request_id,
+        edit_session_id=session.edit_session_id,
+    )
+
+    updated = store.get_save_request(save_request.save_request_id)
+    assert updated.updated_at == completed_at
+    assert updated.completed_at == completed_at
+
+
 def test_file_backed_store_persists_discarded_callback_token_revocation(tmp_path):
     from app.services.office_editing_service import OfficeEditingStore
 

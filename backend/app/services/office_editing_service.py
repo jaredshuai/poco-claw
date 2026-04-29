@@ -171,7 +171,7 @@ class OfficeEditingStore:
             save_request.error_message,
         )
 
-        now = datetime.now(UTC)
+        now = self._now()
         try:
             if object_key and session and not session.discarded:
                 session.object_key = object_key

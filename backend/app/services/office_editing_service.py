@@ -200,7 +200,7 @@ class OfficeEditingStore:
         return self.get_edit_session(edit_session_id)
 
     def create_save_request(self, session: OfficeEditSession) -> OfficeSaveRequest:
-        now = datetime.now(UTC)
+        now = self._now()
         settings = get_settings()
         save_request = OfficeSaveRequest(
             save_request_id=str(uuid.uuid4()),

@@ -80,6 +80,23 @@ def test_cleanup_expired_revokes_callback_token_and_fails_active_save_request():
     )
 
 
+def test_save_request_ttl_uses_store_clock():
+    from app.core.settings import get_settings
+    from app.services.office_editing_service import OfficeEditingStore
+
+    now = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
+    with patch.dict(os.environ, {"OFFICE_SAVE_REQUEST_TTL_SECONDS": "7"}, clear=False):
+        get_settings.cache_clear()
+        store = OfficeEditingStore(clock=FixedClock(now))
+        session = _create_session(store)
+        save_request = store.create_save_request(session)
+        get_settings.cache_clear()
+
+    assert save_request.created_at == now
+    assert save_request.updated_at == now
+    assert save_request.expires_at == now + timedelta(seconds=7)
+
+
 def test_recreating_edit_session_revokes_previous_callback_token():
     from app.services.office_editing_service import OfficeEditingStore
 

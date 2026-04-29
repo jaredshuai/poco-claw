@@ -618,34 +618,36 @@ class TestWorkspaceManagerWorktreeImpl(unittest.TestCase):
         assert manager.run_id is None
 
     def test_prepare_worktree_uses_injected_id_generator_without_run_id(self) -> None:
-        manager = WorkspaceManager(
-            mount_path="/workspace",
-            id_generator=FixedIdGenerator("worktree-fixed"),
-        )
-        config = MagicMock(spec=TaskConfig)
-        config.repo_url = "https://github.com/user/repo.git"
-        config.git_branch = "main"
-        config.git_token = None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manager = WorkspaceManager(
+                mount_path=tmpdir,
+                id_generator=FixedIdGenerator("worktree-fixed"),
+            )
+            config = MagicMock(spec=TaskConfig)
+            config.repo_url = "https://github.com/user/repo.git"
+            config.git_branch = "main"
+            config.git_token = None
 
-        with (
-            patch.object(
-                manager,
-                "_ensure_main_repo",
-                return_value=Path("/workspace/.cache/repos/repo"),
-            ),
-            patch.object(manager, "_build_git_env", return_value={}),
-            patch("app.core.workspace.fetch"),
-            patch("app.core.workspace.worktree_add") as mock_worktree_add,
-        ):
-            result = manager._prepare_worktree(config)
+            with (
+                patch.object(
+                    manager,
+                    "_ensure_main_repo",
+                    return_value=Path(tmpdir) / ".cache/repos/repo",
+                ),
+                patch.object(manager, "_build_git_env", return_value={}),
+                patch("app.core.workspace.fetch"),
+                patch("app.core.workspace.worktree_add") as mock_worktree_add,
+            ):
+                result = manager._prepare_worktree(config)
 
-        assert (
-            result
-            == Path("/workspace/worktrees")
-            / manager._get_repo_hash(config.repo_url)
-            / "worktree-fixed"
-        )
-        mock_worktree_add.assert_called_once()
+            assert (
+                result
+                == Path(tmpdir)
+                / "worktrees"
+                / manager._get_repo_hash(config.repo_url)
+                / "worktree-fixed"
+            )
+            mock_worktree_add.assert_called_once()
 
     def test_prepare_worktree_without_repo_url_falls_back(self) -> None:
         manager = WorkspaceManager(mount_path="/workspace")

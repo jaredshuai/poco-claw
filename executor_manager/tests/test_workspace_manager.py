@@ -1,6 +1,8 @@
+import json
 import shutil
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -65,7 +67,10 @@ class TestWorkspaceManagerGetWorkspacePath(unittest.TestCase):
                 "app.services.workspace_manager.get_settings",
                 return_value=mock_settings,
             ):
-                manager = WorkspaceManager()
+                fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+                clock = MagicMock()
+                clock.now_utc.return_value = fixed_now
+                manager = WorkspaceManager(clock=clock)
 
                 result = manager.get_workspace_path(
                     user_id="user-123", session_id="session-456"
@@ -76,6 +81,9 @@ class TestWorkspaceManagerGetWorkspacePath(unittest.TestCase):
                 assert (result / "workspace").exists()
                 assert (result / "logs").exists()
                 assert (result / "meta.json").exists()
+                meta_data = json.loads((result / "meta.json").read_text())
+                assert meta_data["created_at"] == fixed_now.isoformat()
+                clock.now_utc.assert_called_once_with()
 
     def test_get_workspace_path_no_create(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -481,7 +489,10 @@ class TestWorkspaceManagerArchiveWorkspace(unittest.TestCase):
                 "app.services.workspace_manager.get_settings",
                 return_value=mock_settings,
             ):
-                manager = WorkspaceManager()
+                fixed_now = datetime(2024, 2, 3, 12, 0, 0, tzinfo=timezone.utc)
+                clock = MagicMock()
+                clock.now_utc.return_value = fixed_now
+                manager = WorkspaceManager(clock=clock)
 
                 # Create workspace
                 workspace_path = manager.get_workspace_path(
@@ -496,6 +507,7 @@ class TestWorkspaceManagerArchiveWorkspace(unittest.TestCase):
 
                 assert result is not None
                 assert result.endswith(".tar.gz")
+                assert Path(result).parent.name == "2024-02-03"
                 # Original directory should be removed
                 assert not workspace_path.exists()
 
@@ -950,7 +962,10 @@ class TestWorkspaceManagerCleanupExpiredWorkspaces(unittest.TestCase):
                 "app.services.workspace_manager.get_settings",
                 return_value=mock_settings,
             ):
-                manager = WorkspaceManager()
+                fixed_now = datetime(2024, 1, 3, 12, 0, 0, tzinfo=timezone.utc)
+                clock = MagicMock()
+                clock.now_utc.return_value = fixed_now
+                manager = WorkspaceManager(clock=clock)
 
                 # Create an old workspace
                 workspace_path = manager.get_workspace_path(
@@ -958,12 +973,9 @@ class TestWorkspaceManagerCleanupExpiredWorkspaces(unittest.TestCase):
                 )
 
                 # Modify the meta to have old timestamp
-                import json
-                from datetime import datetime, timedelta
-
                 meta_path = workspace_path / "meta.json"
                 meta_data = json.loads(meta_path.read_text())
-                old_time = (datetime.now() - timedelta(hours=48)).isoformat()
+                old_time = (fixed_now - timedelta(hours=48)).isoformat()
                 meta_data["created_at"] = old_time
                 meta_data["container_mode"] = "ephemeral"
                 meta_path.write_text(json.dumps(meta_data))

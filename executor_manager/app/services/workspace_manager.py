@@ -4,11 +4,12 @@ import mimetypes
 import shutil
 import tarfile
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
 from app.core.settings import Settings, get_settings
+from app.services.clock import Clock, SystemClock
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,9 @@ class WorkspaceManager:
     archive_dir: Path
     temp_dir: Path
 
-    def __init__(self):
+    def __init__(self, *, clock: Clock | None = None):
         self.settings = get_settings()
+        self.clock = clock or SystemClock()
         self.base_dir = Path(self.settings.workspace_root)
         self.active_dir = self.base_dir / "active"
         self.archive_dir = self.base_dir / "archive"
@@ -61,6 +63,12 @@ class WorkspaceManager:
             "dist",
             "build",
         }
+
+    def _now_utc(self) -> datetime:
+        now = self.clock.now_utc()
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now.astimezone(timezone.utc)
 
     def _init_directories(self) -> None:
         """Initialize directory structure."""
@@ -233,7 +241,7 @@ class WorkspaceManager:
             session_id=session_id,
             user_id=user_id,
             task_id=task_id,
-            created_at=datetime.now().isoformat(),
+            created_at=self._now_utc().isoformat(),
             status="active",
             container_mode=container_mode,
             workspace_path=str(session_dir / "workspace"),
@@ -294,7 +302,7 @@ class WorkspaceManager:
             return None
 
         try:
-            date_str = datetime.now().strftime("%Y-%m-%d")
+            date_str = self._now_utc().strftime("%Y-%m-%d")
             archive_user_dir = self.archive_dir / user_id / date_str
             archive_user_dir.mkdir(parents=True, exist_ok=True)
 
@@ -345,7 +353,7 @@ class WorkspaceManager:
 
     def cleanup_expired_workspaces(self, max_age_hours: int = 24) -> dict[str, int]:
         """Clean up expired workspaces."""
-        now = datetime.now()
+        now = self._now_utc()
         cleaned = 0
         archived = 0
         errors = 0
@@ -368,6 +376,10 @@ class WorkspaceManager:
                     continue
 
                 created_at = datetime.fromisoformat(meta.created_at)
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+                else:
+                    created_at = created_at.astimezone(timezone.utc)
                 age = now - created_at
 
                 if meta.status == "active":

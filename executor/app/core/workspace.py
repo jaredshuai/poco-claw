@@ -5,10 +5,10 @@ import os
 import shutil
 import stat
 import tempfile
-import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
+from app.core.id_generator import IdGenerator, UuidIdGenerator
 from app.schemas.request import TaskConfig
 from app.utils.git.operations import (
     GitCommandError,
@@ -53,10 +53,17 @@ DEFAULT_GIT_EXCLUDES = [
 
 
 class WorkspaceManager:
-    def __init__(self, mount_path: str = "/workspace", run_id: str | None = None):
+    def __init__(
+        self,
+        mount_path: str = "/workspace",
+        run_id: str | None = None,
+        *,
+        id_generator: IdGenerator | None = None,
+    ):
         self.root_path = Path(mount_path)
         self.work_path = self.root_path
         self.run_id = run_id
+        self.id_generator = id_generator or UuidIdGenerator()
         self.claude_config_path = self.root_path / ".claude"
         self.inputs_root = self.root_path / "inputs"
 
@@ -189,7 +196,7 @@ class WorkspaceManager:
 
         # 3. Create unique worktree path
         repo_hash = self._get_repo_hash(repo_url)
-        unique_id = self.run_id or str(uuid.uuid4())
+        unique_id = self.run_id or self.id_generator.new_id()
         worktree_path = self.root_path / "worktrees" / repo_hash / unique_id
         worktree_path.parent.mkdir(parents=True, exist_ok=True)
 

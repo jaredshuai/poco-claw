@@ -18,6 +18,14 @@ class FixedClock:
         return self._now
 
 
+class FixedIdGenerator:
+    def __init__(self, *ids: str) -> None:
+        self._ids = list(ids)
+
+    def new_id(self) -> str:
+        return self._ids.pop(0)
+
+
 def test_user_input_request_created_event_uses_service_clock_when_created_at_missing():
     from app.services.im import ImEventService
 
@@ -55,6 +63,46 @@ def test_user_input_request_created_event_uses_service_clock_when_created_at_mis
     payload = create.call_args.kwargs["payload"]
     occurred_at = datetime.fromisoformat(payload["occurred_at"].replace("Z", "+00:00"))
     assert occurred_at == now
+
+
+def test_user_input_request_created_event_uses_injected_id_generator():
+    from app.services.im import ImEventService
+
+    now = datetime(2025, 2, 15, 10, 30, tzinfo=UTC)
+    db_session = cast(
+        AgentSession,
+        SimpleNamespace(
+            id="session-1",
+            user_id="user-1",
+            title="Session title",
+            status="waiting",
+        ),
+    )
+    request = cast(
+        UserInputRequest,
+        SimpleNamespace(
+            id=uuid4(),
+            tool_name="ask_user",
+            tool_input={"question": "Proceed?"},
+            status="pending",
+            expires_at=now + timedelta(minutes=5),
+            answered_at=None,
+            created_at=now,
+        ),
+    )
+    service = ImEventService(
+        clock=FixedClock(now),
+        id_generator=FixedIdGenerator("event-fixed"),
+    )
+
+    with patch("app.services.im.ImEventOutboxRepository.create_if_absent") as create:
+        service.enqueue_user_input_request_created(
+            cast(Session, MagicMock()),
+            db_session=db_session,
+            request=request,
+        )
+
+    assert create.call_args.kwargs["payload"]["id"] == "event-fixed"
 
 
 def test_dispatcher_mark_delivered_passes_clock_to_repository():

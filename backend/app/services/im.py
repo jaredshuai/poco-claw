@@ -42,6 +42,7 @@ from app.schemas.session import SessionResponse, SessionStateResponse, TaskConfi
 from app.schemas.task import TaskEnqueueRequest, TaskEnqueueResponse
 from app.schemas.user_input_request import UserInputAnswerRequest
 from app.services.clock import Clock, SystemClock
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.im_providers import NotificationGateway
 from app.services.session_service import SessionService
 from app.services.session_title_service import SessionTitleService
@@ -1043,8 +1044,17 @@ class BackendEventService:
 class ImEventService:
     EVENT_VERSION = 1
 
-    def __init__(self, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        clock: Clock | None = None,
+        *,
+        id_generator: IdGenerator | None = None,
+    ) -> None:
         self._clock = clock or SystemClock()
+        self._id_generator = id_generator or UuidIdGenerator()
+
+    def _new_event_id(self) -> str:
+        return self._id_generator.new_id()
 
     def enqueue_assistant_message_created(
         self,
@@ -1061,7 +1071,7 @@ class ImEventService:
             return
 
         event = ImBackendEvent(
-            id=str(uuid.uuid4()),
+            id=self._new_event_id(),
             type="assistant_message.created",
             version=self.EVENT_VERSION,
             occurred_at=callback.time,
@@ -1118,7 +1128,7 @@ class ImEventService:
             else f"run-terminal:session:{db_session.id}:{run_status}"
         )
         event = ImBackendEvent(
-            id=str(uuid.uuid4()),
+            id=self._new_event_id(),
             type="run.terminal",
             version=self.EVENT_VERSION,
             occurred_at=callback.time,
@@ -1152,7 +1162,7 @@ class ImEventService:
         request: UserInputRequest,
     ) -> None:
         event = ImBackendEvent(
-            id=str(uuid.uuid4()),
+            id=self._new_event_id(),
             type="user_input_request.created",
             version=self.EVENT_VERSION,
             occurred_at=request.created_at or self._clock.now_utc(),

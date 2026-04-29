@@ -25,15 +25,19 @@ from app.services.run_transition_policy import (
 from app.services.run_worker_lease_policy import RunWorkerLeasePolicy
 from app.services.usage_service import UsageService
 
-usage_service = UsageService()
-run_lifecycle_service = RunLifecycleService()
-
 
 class RunService:
     """Service layer for run queue operations."""
 
-    def __init__(self, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        clock: Clock | None = None,
+        usage_service: UsageService | None = None,
+        run_lifecycle_service: RunLifecycleService | None = None,
+    ) -> None:
         self._clock = clock or SystemClock()
+        self._usage_service = usage_service or UsageService()
+        self._run_lifecycle_service = run_lifecycle_service or RunLifecycleService()
 
     def get_run(self, db: Session, run_id: uuid.UUID) -> RunResponse:
         db_run = RunRepository.get_by_id(db, run_id)
@@ -43,7 +47,7 @@ class RunService:
                 message=f"Run not found: {run_id}",
             )
         run = RunResponse.model_validate(db_run)
-        run.usage = usage_service.get_usage_summary_by_run(db, run_id)
+        run.usage = self._usage_service.get_usage_summary_by_run(db, run_id)
         return run
 
     def list_runs(
@@ -55,7 +59,7 @@ class RunService:
     ) -> list[RunResponse]:
         runs = RunRepository.list_by_session(db, session_id, limit=limit, offset=offset)
         responses = [RunResponse.model_validate(r) for r in runs]
-        usage_by_run_id = usage_service.get_usage_summaries_by_run_ids(
+        usage_by_run_id = self._usage_service.get_usage_summaries_by_run_ids(
             db, [r.id for r in runs]
         )
         for item in responses:
@@ -142,7 +146,7 @@ class RunService:
             return RunResponse.model_validate(db_run)
 
         db_run.attempts += 1
-        run_lifecycle_service.mark_running(db, db_run)
+        self._run_lifecycle_service.mark_running(db, db_run)
         db.commit()
         db.refresh(db_run)
         return RunResponse.model_validate(db_run)
@@ -171,7 +175,7 @@ class RunService:
 
         if db_run.started_at is None:
             db_run.started_at = now
-        run_lifecycle_service.finalize_terminal(
+        self._run_lifecycle_service.finalize_terminal(
             db,
             db_run,
             status="failed",

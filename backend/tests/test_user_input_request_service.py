@@ -11,8 +11,17 @@ from app.schemas.user_input_request import (
     UserInputRequestResponse,
 )
 from app.services.user_input_request_service import (
+    DEFAULT_EXPIRES_SECONDS,
     UserInputRequestService,
 )
+
+
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now_utc(self) -> datetime:
+        return self._now
 
 
 class TestUserInputRequestServiceCreateRequest(unittest.TestCase):
@@ -42,6 +51,8 @@ class TestUserInputRequestServiceCreateRequest(unittest.TestCase):
     def test_create_with_default_expiry(
         self, mock_session_repo: MagicMock, mock_request_repo: MagicMock
     ) -> None:
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = UserInputRequestService(clock=FixedClock(now))
         mock_session = MagicMock()
         mock_session.id = uuid.uuid4()
         mock_session_repo.get_by_id.return_value = mock_session
@@ -53,11 +64,11 @@ class TestUserInputRequestServiceCreateRequest(unittest.TestCase):
         mock_entry.tool_name = "ask"
         mock_entry.tool_input = {"question": "Continue?"}
         mock_entry.status = "pending"
-        mock_entry.expires_at = datetime.now(timezone.utc) + timedelta(seconds=60)
+        mock_entry.expires_at = now + timedelta(seconds=DEFAULT_EXPIRES_SECONDS)
         mock_entry.answers = None
         mock_entry.answered_at = None
-        mock_entry.created_at = datetime.now(timezone.utc)
-        mock_entry.updated_at = datetime.now(timezone.utc)
+        mock_entry.created_at = now
+        mock_entry.updated_at = now
 
         # Make db.refresh update the entry
         def refresh_side_effect(entry):
@@ -77,10 +88,15 @@ class TestUserInputRequestServiceCreateRequest(unittest.TestCase):
             tool_input={"question": "Continue?"},
         )
 
-        with patch.object(self.service, "_enqueue_created_event"):
-            result = self.service.create_request(self.db, request)
+        with patch.object(service, "_enqueue_created_event"):
+            result = service.create_request(self.db, request)
 
         mock_request_repo.create.assert_called_once()
+        created_entry = mock_request_repo.create.call_args.args[1]
+        self.assertEqual(
+            created_entry.expires_at,
+            now + timedelta(seconds=DEFAULT_EXPIRES_SECONDS),
+        )
         self.assertIsInstance(result, UserInputRequestResponse)
 
 
@@ -126,12 +142,14 @@ class TestUserInputRequestServiceGetRequest(unittest.TestCase):
 
     @patch("app.services.user_input_request_service.UserInputRequestRepository")
     def test_expire_pending_request(self, mock_repo: MagicMock) -> None:
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = UserInputRequestService(clock=FixedClock(now))
         mock_entry = self._make_entry(
-            expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
+            expires_at=now - timedelta(seconds=1),
         )
         mock_repo.get_by_id.return_value = mock_entry
 
-        self.service.get_request(self.db, str(mock_entry.id), allow_expire=True)
+        service.get_request(self.db, str(mock_entry.id), allow_expire=True)
 
         self.assertEqual(mock_entry.status, "expired")
 
@@ -204,6 +222,42 @@ class TestUserInputRequestServiceAnswerRequest(unittest.TestCase):
             )
 
         self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+
+    @patch("app.services.user_input_request_service.SessionRepository")
+    @patch("app.services.user_input_request_service.UserInputRequestRepository")
+    def test_answer_request_sets_answered_at_from_clock(
+        self, mock_request_repo: MagicMock, mock_session_repo: MagicMock
+    ) -> None:
+        now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+        service = UserInputRequestService(clock=FixedClock(now))
+
+        mock_entry = MagicMock()
+        mock_entry.id = uuid.uuid4()
+        mock_entry.session_id = uuid.uuid4()
+        mock_entry.tool_name = "ask"
+        mock_entry.tool_input = {"question": "Continue?"}
+        mock_entry.status = "pending"
+        mock_entry.expires_at = now + timedelta(seconds=60)
+        mock_entry.answers = None
+        mock_entry.answered_at = None
+        mock_entry.created_at = now
+        mock_entry.updated_at = now
+        mock_request_repo.get_by_id.return_value = mock_entry
+
+        mock_session = MagicMock()
+        mock_session.user_id = self.user_id
+        mock_session_repo.get_by_id.return_value = mock_session
+
+        result = service.answer_request(
+            self.db,
+            self.user_id,
+            str(mock_entry.id),
+            UserInputAnswerRequest(answers={"response": "yes"}),
+        )
+
+        self.assertEqual(mock_entry.answered_at, now)
+        self.assertEqual(mock_entry.status, "answered")
+        self.assertIsInstance(result, UserInputRequestResponse)
 
 
 class TestUserInputRequestServiceListPending(unittest.TestCase):

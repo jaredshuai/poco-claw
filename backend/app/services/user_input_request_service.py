@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.models.agent_session import AgentSession
 from app.models.user_input_request import UserInputRequest
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_input_request_repository import UserInputRequestRepository
+from app.services.clock import Clock, SystemClock
 from app.schemas.user_input_request import (
     UserInputAnswerRequest,
     UserInputRequestCreateRequest,
@@ -19,6 +20,9 @@ DEFAULT_EXPIRES_SECONDS = 60
 
 
 class UserInputRequestService:
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock = clock or SystemClock()
+
     @staticmethod
     def _enqueue_created_event(
         db: Session,
@@ -46,7 +50,7 @@ class UserInputRequestService:
             )
 
         expires_at = request.expires_at or (
-            datetime.now(timezone.utc) + timedelta(seconds=DEFAULT_EXPIRES_SECONDS)
+            self._clock.now_utc() + timedelta(seconds=DEFAULT_EXPIRES_SECONDS)
         )
 
         entry = UserInputRequest(
@@ -74,7 +78,7 @@ class UserInputRequestService:
             )
 
         if allow_expire and entry.status == "pending":
-            now = datetime.now(timezone.utc)
+            now = self._clock.now_utc()
             if entry.expires_at and entry.expires_at <= now:
                 entry.status = "expired"
                 db.commit()
@@ -117,7 +121,7 @@ class UserInputRequestService:
                 message=f"Request is not pending: {entry.status}",
             )
 
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
         if entry.expires_at and entry.expires_at <= now:
             entry.status = "expired"
             db.commit()

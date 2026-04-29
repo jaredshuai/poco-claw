@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -92,17 +92,16 @@ class ScheduledTaskRepository:
         session_db: Session,
         *,
         limit: int = 50,
-        now_utc: datetime | None = None,
+        now_utc: datetime,
     ) -> list[AgentScheduledTask]:
         """Claim due scheduled tasks for dispatch (row-lock)."""
         if limit <= 0:
             limit = 50
-        now = now_utc or datetime.now(timezone.utc)
         stmt = (
             select(AgentScheduledTask)
             .where(AgentScheduledTask.is_deleted.is_(False))
             .where(AgentScheduledTask.enabled.is_(True))
-            .where(AgentScheduledTask.next_run_at <= now)
+            .where(AgentScheduledTask.next_run_at <= now_utc)
             .order_by(AgentScheduledTask.next_run_at.asc())
             .with_for_update(skip_locked=True)
             .limit(limit)

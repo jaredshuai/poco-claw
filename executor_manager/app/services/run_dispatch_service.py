@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
@@ -15,6 +16,42 @@ from app.services.slash_command_stager import SlashCommandStager
 from app.services.sub_agent_stager import SubAgentStager
 
 logger = logging.getLogger(__name__)
+
+
+def build_run_dispatch_backend_client() -> BackendClient:
+    return BackendClient()
+
+
+def build_run_dispatch_executor_client() -> ExecutorClient:
+    return ExecutorClient()
+
+
+def build_run_dispatch_config_resolver(backend_client: Any) -> ConfigResolver:
+    return ConfigResolver(backend_client)
+
+
+def build_run_dispatch_skill_stager() -> SkillStager:
+    return SkillStager()
+
+
+def build_run_dispatch_plugin_stager() -> PluginStager:
+    return PluginStager()
+
+
+def build_run_dispatch_attachment_stager() -> AttachmentStager:
+    return AttachmentStager()
+
+
+def build_run_dispatch_claude_md_stager() -> ClaudeMdStager:
+    return ClaudeMdStager()
+
+
+def build_run_dispatch_slash_command_stager() -> SlashCommandStager:
+    return SlashCommandStager()
+
+
+def build_run_dispatch_subagent_stager() -> SubAgentStager:
+    return SubAgentStager()
 
 
 def _extract_enabled_skill_names(skills: object) -> list[str]:
@@ -79,21 +116,45 @@ class RunDispatchService:
         claude_md_stager: Any | None = None,
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
+        backend_client_factory: Callable[[], Any] | None = None,
+        executor_client_factory: Callable[[], Any] | None = None,
+        config_resolver_factory: Callable[[Any], Any] | None = None,
+        skill_stager_factory: Callable[[], Any] | None = None,
+        plugin_stager_factory: Callable[[], Any] | None = None,
+        attachment_stager_factory: Callable[[], Any] | None = None,
+        claude_md_stager_factory: Callable[[], Any] | None = None,
+        slash_command_stager_factory: Callable[[], Any] | None = None,
+        subagent_stager_factory: Callable[[], Any] | None = None,
     ) -> "RunDispatchService":
         settings = settings or get_settings()
-        backend_client = backend_client or BackendClient()
+        backend_factory = backend_client_factory or build_run_dispatch_backend_client
+        executor_factory = executor_client_factory or build_run_dispatch_executor_client
+        config_factory = config_resolver_factory or build_run_dispatch_config_resolver
+        skill_factory = skill_stager_factory or build_run_dispatch_skill_stager
+        plugin_factory = plugin_stager_factory or build_run_dispatch_plugin_stager
+        attachment_factory = (
+            attachment_stager_factory or build_run_dispatch_attachment_stager
+        )
+        claude_md_factory = (
+            claude_md_stager_factory or build_run_dispatch_claude_md_stager
+        )
+        slash_command_factory = (
+            slash_command_stager_factory or build_run_dispatch_slash_command_stager
+        )
+        subagent_factory = subagent_stager_factory or build_run_dispatch_subagent_stager
+        backend_client = backend_client or backend_factory()
         return cls(
             settings=settings,
             backend_client=backend_client,
-            executor_client=executor_client or ExecutorClient(),
+            executor_client=executor_client or executor_factory(),
             container_pool=container_pool,
-            config_resolver=config_resolver or ConfigResolver(backend_client),
-            skill_stager=skill_stager or SkillStager(),
-            plugin_stager=plugin_stager or PluginStager(),
-            attachment_stager=attachment_stager or AttachmentStager(),
-            claude_md_stager=claude_md_stager or ClaudeMdStager(),
-            slash_command_stager=slash_command_stager or SlashCommandStager(),
-            subagent_stager=subagent_stager or SubAgentStager(),
+            config_resolver=config_resolver or config_factory(backend_client),
+            skill_stager=skill_stager or skill_factory(),
+            plugin_stager=plugin_stager or plugin_factory(),
+            attachment_stager=attachment_stager or attachment_factory(),
+            claude_md_stager=claude_md_stager or claude_md_factory(),
+            slash_command_stager=slash_command_stager or slash_command_factory(),
+            subagent_stager=subagent_stager or subagent_factory(),
         )
 
     async def dispatch_claim(self, claim: dict[str, Any], *, worker_id: str) -> None:

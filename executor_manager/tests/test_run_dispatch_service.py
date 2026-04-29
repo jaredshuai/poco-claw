@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -63,6 +64,85 @@ def _make_dispatch_service() -> RunDispatchService:
         subagent_stager=subagent_stager,
         container_pool=container_pool,
     )
+
+
+def test_create_default_accepts_adapter_factories() -> None:
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    backend_client = MagicMock()
+    executor_client = MagicMock()
+    config_resolver = MagicMock()
+    skill_stager = MagicMock()
+    plugin_stager = MagicMock()
+    attachment_stager = MagicMock()
+    claude_md_stager = MagicMock()
+    slash_command_stager = MagicMock()
+    subagent_stager = MagicMock()
+
+    with (
+        patch(
+            "app.services.run_dispatch_service.BackendClient",
+            side_effect=AssertionError("default backend constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.ExecutorClient",
+            side_effect=AssertionError("default executor constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.ConfigResolver",
+            side_effect=AssertionError("default config resolver constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.SkillStager",
+            side_effect=AssertionError("default skill stager constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.PluginStager",
+            side_effect=AssertionError("default plugin stager constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.AttachmentStager",
+            side_effect=AssertionError("default attachment stager constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.ClaudeMdStager",
+            side_effect=AssertionError("default claude md stager constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.SlashCommandStager",
+            side_effect=AssertionError("default slash command stager constructor used"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.SubAgentStager",
+            side_effect=AssertionError("default subagent stager constructor used"),
+        ),
+    ):
+        service = RunDispatchService.create_default(
+            settings=settings,
+            backend_client_factory=lambda: backend_client,
+            executor_client_factory=lambda: executor_client,
+            config_resolver_factory=lambda backend: config_resolver,
+            skill_stager_factory=lambda: skill_stager,
+            plugin_stager_factory=lambda: plugin_stager,
+            attachment_stager_factory=lambda: attachment_stager,
+            claude_md_stager_factory=lambda: claude_md_stager,
+            slash_command_stager_factory=lambda: slash_command_stager,
+            subagent_stager_factory=lambda: subagent_stager,
+        )
+
+    assert service.settings is settings
+    assert service.backend_client is backend_client
+    assert service.executor_client is executor_client
+    assert service.config_resolver is config_resolver
+    assert service.skill_stager is skill_stager
+    assert service.plugin_stager is plugin_stager
+    assert service.attachment_stager is attachment_stager
+    assert service.claude_md_stager is claude_md_stager
+    assert service.slash_command_stager is slash_command_stager
+    assert service.subagent_stager is subagent_stager
 
 
 @pytest.mark.asyncio

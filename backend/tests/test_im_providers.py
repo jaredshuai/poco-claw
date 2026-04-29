@@ -1616,6 +1616,42 @@ class TestFeishuClientRefreshToken(unittest.TestCase):
         asyncio.run(run_test())
 
     @patch("app.services.im_providers.get_settings")
+    def test_refresh_success_uses_injected_clock(
+        self, mock_get_settings: MagicMock
+    ) -> None:
+        """Test tenant token expiry uses injected time source."""
+        settings = MagicMock()
+        settings.feishu_enabled = True
+        settings.feishu_base_url = "https://open.feishu.cn"
+        settings.feishu_app_id = "app-id"
+        settings.feishu_app_secret = "app-secret"
+        mock_get_settings.return_value = settings
+
+        client = FeishuClient(now_seconds=lambda: 1000.0)
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "code": 0,
+            "tenant_access_token": "test-token",
+            "expire": 7200,
+        }
+
+        async def run_test() -> None:
+            with patch("httpx.AsyncClient") as mock_client_class:
+                mock_client = AsyncMock()
+                mock_client.post = AsyncMock(return_value=mock_response)
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=None)
+                mock_client_class.return_value = mock_client
+
+                await client._refresh_tenant_access_token()
+
+        asyncio.run(run_test())
+
+        self.assertEqual(client._token_expire_ts, 8140.0)
+
+    @patch("app.services.im_providers.get_settings")
     def test_refresh_http_failure(self, mock_get_settings: MagicMock) -> None:
         """Test refresh with HTTP failure."""
         settings = MagicMock()

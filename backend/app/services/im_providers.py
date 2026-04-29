@@ -233,8 +233,9 @@ class FeishuClient:
     provider = "feishu"
     max_text_length = 3000
 
-    def __init__(self) -> None:
+    def __init__(self, now_seconds: Callable[[], float] | None = None) -> None:
         settings = get_settings()
+        self._now_seconds = now_seconds or time.time
         self._enabled = bool(settings.feishu_enabled)
         self._base_url = (settings.feishu_base_url or "").rstrip("/")
         self._app_id = (settings.feishu_app_id or "").strip()
@@ -281,13 +282,13 @@ class FeishuClient:
 
         ttl = _parse_positive_int(expire, default=7200)
         self._tenant_access_token = token.strip()
-        self._token_expire_ts = time.time() + max(120, ttl - 60)
+        self._token_expire_ts = self._now_seconds() + max(120, ttl - 60)
 
     async def _get_tenant_access_token(self) -> str:
         if (
             self._tenant_access_token
             and self._token_expire_ts > 0
-            and self._token_expire_ts > time.time()
+            and self._token_expire_ts > self._now_seconds()
         ):
             return self._tenant_access_token
 
@@ -295,7 +296,7 @@ class FeishuClient:
             if (
                 self._tenant_access_token
                 and self._token_expire_ts > 0
-                and self._token_expire_ts > time.time()
+                and self._token_expire_ts > self._now_seconds()
             ):
                 return self._tenant_access_token
             await self._refresh_tenant_access_token()

@@ -6,7 +6,6 @@ import re
 import tempfile
 import urllib.parse
 import urllib.request
-import uuid
 import zipfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
@@ -29,6 +28,7 @@ from app.schemas.plugin_import import (
     PluginImportDiscoverResponse,
     PluginImportResultItem,
 )
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.storage_service import S3StorageService
 
 
@@ -113,8 +113,14 @@ def _extract_manifest_fields(
 
 
 class PluginImportService:
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: S3StorageService | None = None,
+        *,
+        id_generator: IdGenerator | None = None,
+    ) -> None:
         self.storage_service = storage_service or S3StorageService()
+        self._id_generator = id_generator or UuidIdGenerator()
 
     def discover(
         self,
@@ -331,7 +337,7 @@ class PluginImportService:
         source_path: Path | None,
         source_bytes: IO[bytes] | None,
     ) -> str:
-        archive_id = str(uuid.uuid4())
+        archive_id = self._id_generator.new_id()
         safe_name = _sanitize_filename(filename)
         key = f"plugin-imports/{user_id}/{archive_id}/{safe_name}"
 
@@ -666,7 +672,7 @@ class PluginImportService:
             ):
                 nested_candidate_dirs.append(cdir)
 
-        version_id = str(uuid.uuid4())
+        version_id = self._id_generator.new_id()
         prefix = f"plugins/{user_id}/{plugin_name}/{version_id}/"
 
         manifest_json = self._upload_plugin_from_zip(

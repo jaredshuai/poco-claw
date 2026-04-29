@@ -40,6 +40,22 @@ class TestAttachmentStagerInit(unittest.TestCase):
         assert stager.storage_service is mock_storage
         assert stager.workspace_manager is mock_workspace
 
+    def test_init_uses_injected_storage_factory_without_constructing_s3(self) -> None:
+        mock_storage = MagicMock()
+        mock_workspace = MagicMock()
+
+        with patch(
+            "app.services.attachment_stager.S3StorageService",
+            side_effect=AssertionError("storage should be provided by factory"),
+        ):
+            stager = AttachmentStager(
+                storage_service_factory=lambda: mock_storage,
+                workspace_manager=mock_workspace,
+            )
+
+        assert stager.storage_service is mock_storage
+        assert stager.workspace_manager is mock_workspace
+
 
 class TestAttachmentStagerNormalizeRelativePath(unittest.TestCase):
     """Test AttachmentStager._normalize_relative_path."""

@@ -3,8 +3,9 @@ import os
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import urlparse
 
 from app.core.errors.error_codes import ErrorCode
@@ -17,13 +18,25 @@ logger = logging.getLogger(__name__)
 _GITHUB_HOSTS = {"github.com", "www.github.com"}
 
 
+class AttachmentStorage(Protocol):
+    def download_file(self, *, key: str, destination: Path) -> None: ...
+
+
+def build_attachment_storage() -> AttachmentStorage:
+    return S3StorageService()
+
+
 class AttachmentStager:
     def __init__(
         self,
-        storage_service: S3StorageService | None = None,
+        storage_service: AttachmentStorage | None = None,
+        storage_service_factory: Callable[[], AttachmentStorage] | None = None,
         workspace_manager: WorkspaceManager | None = None,
     ) -> None:
-        self.storage_service = storage_service or S3StorageService()
+        factory = storage_service_factory or build_attachment_storage
+        self.storage_service = (
+            storage_service if storage_service is not None else factory()
+        )
         self.workspace_manager = workspace_manager or WorkspaceManager()
 
     def stage_inputs(

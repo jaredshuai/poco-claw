@@ -4,9 +4,11 @@ import mimetypes
 import os
 import shutil
 import zipfile
+from collections.abc import Callable
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+from typing import Protocol
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -19,22 +21,59 @@ logger = logging.getLogger(__name__)
 
 
 workspace_manager = WorkspaceManager()
-storage_service: S3StorageService | None = None
 _ALLOWED_HIDDEN_SKILL_ROOTS = frozenset({".config", ".config_data"})
 _SKILL_VISIBLE_ROOT = PurePosixPath("/.config/skills")
 _VISIBLE_DRAFT_ROOT = PurePosixPath("/skills")
 
 
-def get_storage_service() -> S3StorageService:
+class WorkspaceExportStorage(Protocol):
+    def upload_file(
+        self,
+        *,
+        file_path: str,
+        key: str,
+        content_type: str | None = None,
+    ) -> None: ...
+
+    def put_object(
+        self,
+        *,
+        key: str,
+        body: bytes,
+        content_type: str | None = None,
+    ) -> None: ...
+
+
+storage_service: WorkspaceExportStorage | None = None
+
+
+def build_workspace_export_storage() -> WorkspaceExportStorage:
+    return S3StorageService()
+
+
+def get_storage_service() -> WorkspaceExportStorage:
     global storage_service
     if storage_service is None:
-        storage_service = S3StorageService()
+        storage_service = build_workspace_export_storage()
     return storage_service
 
 
 class WorkspaceExportService:
-    def __init__(self, *, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Clock | None = None,
+        storage_service: WorkspaceExportStorage | None = None,
+        storage_service_factory: Callable[[], WorkspaceExportStorage] | None = None,
+    ) -> None:
         self.clock = clock or SystemClock()
+        self._storage_service = storage_service
+        self._storage_service_factory = storage_service_factory or get_storage_service
+
+    def _get_storage_service(self) -> WorkspaceExportStorage:
+        if self._storage_service is not None:
+            return self._storage_service
+        return self._storage_service_factory()
 
     def _now_utc(self) -> datetime:
         now = self.clock.now_utc()
@@ -65,7 +104,7 @@ class WorkspaceExportService:
         archive_key = f"{prefix}/archive.zip"
 
         try:
-            storage = get_storage_service()
+            storage = self._get_storage_service()
             files = self._collect_files(workspace_dir)
             manifest = {
                 "version": 1,
@@ -222,7 +261,7 @@ class WorkspaceExportService:
             )
 
         try:
-            storage = get_storage_service()
+            storage = self._get_storage_service()
             normalized_folder_path = self._normalize_workspace_path(folder_path)
             folder_dir = self._resolve_workspace_dir(
                 workspace_dir=workspace_dir,

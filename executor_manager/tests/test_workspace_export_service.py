@@ -50,6 +50,20 @@ def test_workspace_export_module_import_does_not_initialize_storage_service() ->
     assert module.WorkspaceExportService is not None
 
 
+def test_workspace_export_uses_injected_storage_factory_without_constructing_s3() -> None:
+    storage_service = MagicMock()
+
+    with patch(
+        "app.services.workspace_export_service.S3StorageService",
+        side_effect=AssertionError("storage should be provided by factory"),
+    ):
+        service = WorkspaceExportService(
+            storage_service_factory=lambda: storage_service,
+        )
+
+        assert service._get_storage_service() is storage_service
+
+
 class TestConstants(unittest.TestCase):
     """Test module-level constants."""
 

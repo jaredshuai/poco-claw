@@ -299,7 +299,7 @@ class OfficeEditingStore:
             save_request.error_code,
             save_request.error_message,
         )
-        now = datetime.now(UTC)
+        now = self._now()
         try:
             save_request.status = SAVE_STATUS_COMMITTING
             save_request.updated_at = now

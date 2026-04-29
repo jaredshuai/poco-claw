@@ -80,6 +80,17 @@ class BackendClient:
         data = response.json()
         return data["data"]
 
+    async def get_session(self, session_id: str) -> dict[str, Any]:
+        """Get session details from the Backend service."""
+        response = await self._request(
+            "GET",
+            f"/api/v1/sessions/{session_id}",
+            headers=self._trace_headers(),
+        )
+        data = response.json()
+        result = data.get("data", data)
+        return result if isinstance(result, dict) else {}
+
     async def update_session_status(self, session_id: str, status: str) -> None:
         """Update session status."""
         await self._request(

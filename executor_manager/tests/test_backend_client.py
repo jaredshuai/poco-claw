@@ -205,6 +205,37 @@ class TestBackendClientCreateSession:
 
 
 @pytest.mark.asyncio
+class TestBackendClientGetSession:
+    """Test BackendClient.get_session."""
+
+    async def test_get_session_success(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {
+                "data": {
+                    "session_id": "sess-123",
+                    "user_id": "user-123",
+                    "status": "running",
+                }
+            }
+            mock_response.raise_for_status = MagicMock()
+
+            request = AsyncMock(return_value=mock_response)
+            with patch.object(client._client, "request", request):
+                result = await client.get_session("sess-123")
+
+            assert result["session_id"] == "sess-123"
+            request.assert_awaited_once()
+            args, kwargs = request.call_args
+            assert args[:2] == ("GET", "/api/v1/sessions/sess-123")
+            assert "headers" in kwargs
+
+
+@pytest.mark.asyncio
 class TestBackendClientUpdateSessionStatus:
     """Test BackendClient.update_session_status."""
 

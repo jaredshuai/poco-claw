@@ -487,6 +487,40 @@ class TestProcessCallback(unittest.TestCase):
             mock_task_dispatcher.on_task_complete.assert_not_called()
             mock_create_task.assert_called_once()
 
+    def test_process_callback_uses_injected_runtime_cleanup(self) -> None:
+        """Test terminal callback cleanup uses the injected runtime boundary."""
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "completed"}
+        )
+        runtime_cleanup = MagicMock()
+        runtime_cleanup.on_task_complete = AsyncMock()
+
+        with (
+            patch("app.scheduler.task_dispatcher.TaskDispatcher") as task_dispatcher,
+            patch(
+                "app.services.callback_service.asyncio.create_task"
+            ) as mock_create_task,
+        ):
+            task_dispatcher.on_task_complete.side_effect = AssertionError(
+                "runtime cleanup should be injected"
+            )
+            service = CallbackService(
+                backend_client_factory=lambda: mock_backend_client,
+                runtime_cleanup=runtime_cleanup,
+            )
+            callback = self._create_callback(status="completed", progress=100)
+            mock_create_task.side_effect = lambda coro: coro.close()
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+        assert result.callback_status == "completed"
+        runtime_cleanup.on_task_complete.assert_awaited_once_with("test-session")
+        task_dispatcher.on_task_complete.assert_not_called()
+        mock_create_task.assert_called_once()
+
     def test_process_callback_with_state_patch(self) -> None:
         """Test callback processing with state_patch data."""
         mock_backend_client = MagicMock()

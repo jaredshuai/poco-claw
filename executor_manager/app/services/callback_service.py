@@ -51,6 +51,10 @@ class CallbackWorkspaceExportService(Protocol):
     def export_workspace(self, session_id: str) -> Any: ...
 
 
+class CallbackRuntimeCleanup(Protocol):
+    async def on_task_complete(self, session_id: str) -> None: ...
+
+
 backend_client: BackendClient | None = None
 workspace_export_service: WorkspaceExportService | None = None
 
@@ -69,6 +73,13 @@ def get_workspace_export_service() -> WorkspaceExportService:
     return workspace_export_service
 
 
+class TaskDispatcherRuntimeCleanup:
+    async def on_task_complete(self, session_id: str) -> None:
+        from app.scheduler.task_dispatcher import TaskDispatcher
+
+        await TaskDispatcher.on_task_complete(session_id)
+
+
 class CallbackService:
     """Service layer for callback processing."""
 
@@ -79,12 +90,14 @@ class CallbackService:
         backend_client_factory: Callable[[], CallbackBackendClient] | None = None,
         workspace_export_service_factory: Callable[[], CallbackWorkspaceExportService]
         | None = None,
+        runtime_cleanup: CallbackRuntimeCleanup | None = None,
     ) -> None:
         self.clock = clock or SystemClock()
         self._backend_client_factory = backend_client_factory or get_backend_client
         self._workspace_export_service_factory = (
             workspace_export_service_factory or get_workspace_export_service
         )
+        self._runtime_cleanup = runtime_cleanup or TaskDispatcherRuntimeCleanup()
 
     def _get_backend_client(self) -> CallbackBackendClient:
         return self._backend_client_factory()
@@ -281,8 +294,6 @@ class CallbackService:
             backend_response = await backend.forward_callback(payload)
 
             if callback.status in ["completed", "failed"]:
-                from app.scheduler.task_dispatcher import TaskDispatcher
-
                 logger.info(
                     "task_terminal_callback_received",
                     extra={
@@ -295,7 +306,7 @@ class CallbackService:
                 asyncio.create_task(self._export_and_forward(callback))
                 session_status = str(backend_response.get("status") or "").strip()
                 if session_status not in {"pending", "running"}:
-                    await TaskDispatcher.on_task_complete(callback.session_id)
+                    await self._runtime_cleanup.on_task_complete(callback.session_id)
                 else:
                     logger.info(
                         "task_cleanup_deferred",

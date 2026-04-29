@@ -646,6 +646,49 @@ class TestExportAndForward(unittest.TestCase):
             payload = call_args[0][0]  # First positional argument
             assert payload["progress"] == 80
 
+    def test_export_and_forward_uses_injected_clock(self) -> None:
+        """Test exported callback time comes from injected clock."""
+        from app.schemas.workspace import WorkspaceExportResult
+
+        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        clock = MagicMock()
+        clock.now_utc.return_value = fixed_now
+        mock_export_result = WorkspaceExportResult(
+            workspace_files_prefix="workspaces/user/session/files",
+            workspace_manifest_key="workspaces/user/session/manifest.json",
+            workspace_archive_key="workspaces/user/session/archive.zip",
+            workspace_export_status="ready",
+        )
+        mock_workspace_export = MagicMock()
+        mock_workspace_export.export_workspace = MagicMock(
+            return_value=mock_export_result
+        )
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(return_value={"status": "ok"})
+
+        with (
+            patch(
+                "app.services.callback_service.workspace_export_service",
+                mock_workspace_export,
+            ),
+            patch("app.services.callback_service.backend_client", mock_backend_client),
+        ):
+            service = CallbackService(clock=clock)
+            callback = AgentCallbackRequest(
+                session_id="test-session",
+                run_id="test-run",
+                status="completed",  # type: ignore
+                progress=100,
+            )
+
+            import asyncio
+
+            asyncio.run(service._export_and_forward(callback))
+
+            payload = mock_backend_client.forward_callback.call_args[0][0]
+            assert payload["time"].startswith("2024-01-01T12:00:00")
+            clock.now_utc.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

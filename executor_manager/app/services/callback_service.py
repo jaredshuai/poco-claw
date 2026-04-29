@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
 from app.services.backend_client import BackendClient
+from app.services.clock import Clock, SystemClock
 from app.services.workspace_export_service import (
     WorkspaceExportService,
     workspace_manager,
@@ -18,6 +19,15 @@ workspace_export_service = WorkspaceExportService()
 
 class CallbackService:
     """Service layer for callback processing."""
+
+    def __init__(self, *, clock: Clock | None = None) -> None:
+        self.clock = clock or SystemClock()
+
+    def _now_utc(self) -> datetime:
+        now = self.clock.now_utc()
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now.astimezone(timezone.utc)
 
     @staticmethod
     def _is_internal_mcp_server(name: str) -> bool:
@@ -309,7 +319,7 @@ class CallbackService:
         payload_model = AgentCallbackRequest(
             session_id=callback.session_id,
             run_id=callback.run_id,
-            time=datetime.now(timezone.utc),
+            time=self._now_utc(),
             status=callback.status,
             progress=100 if callback.status == "completed" else callback.progress,
             error_message=callback.error_message,

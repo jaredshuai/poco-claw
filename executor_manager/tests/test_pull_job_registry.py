@@ -1,6 +1,7 @@
 """Tests for app/scheduler/pull_job_registry.py."""
 
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -130,6 +131,36 @@ class TestRegisterPullJobs(unittest.TestCase):
         assert len(result) == 1
         call_kwargs = mock_scheduler.add_job.call_args[1]
         assert call_kwargs["next_run_time"] is None
+
+    def test_register_interval_rule_uses_injected_clock(self) -> None:
+        from app.scheduler.pull_job_registry import register_pull_jobs
+        from app.scheduler.pull_schedule_config import (
+            IntervalPullRule,
+            PullScheduleConfig,
+        )
+
+        mock_scheduler = self._create_mock_scheduler()
+        mock_service = self._create_mock_pull_service()
+        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        clock = MagicMock()
+        clock.now_utc.return_value = fixed_now
+        config = PullScheduleConfig(
+            enabled=True,
+            rules=[
+                IntervalPullRule(
+                    id="test-interval",
+                    enabled=True,
+                    seconds=10,
+                    start_immediately=True,
+                )
+            ],
+        )
+
+        register_pull_jobs(mock_scheduler, mock_service, config, clock=clock)
+
+        call_kwargs = mock_scheduler.add_job.call_args[1]
+        assert call_kwargs["next_run_time"] == fixed_now
+        clock.now_utc.assert_called_once_with()
 
     def test_register_skips_disabled_rule(self) -> None:
         """Test that disabled rules are skipped."""

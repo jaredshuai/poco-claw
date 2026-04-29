@@ -9,6 +9,7 @@ from app.scheduler.pull_schedule_config import (
     WindowPullRule,
 )
 from app.scheduler.pull_schedule_state import set_current_pull_schedule_config
+from app.services.clock import Clock, SystemClock
 from app.services.run_pull_service import RunPullService
 
 
@@ -16,6 +17,8 @@ def register_pull_jobs(
     scheduler: AsyncIOScheduler,
     pull_service: RunPullService,
     config: PullScheduleConfig,
+    *,
+    clock: Clock | None = None,
 ) -> list[str]:
     """Register queue pulling jobs based on PullScheduleConfig.
 
@@ -29,7 +32,7 @@ def register_pull_jobs(
     if not config.enabled:
         return job_ids
 
-    now_utc = datetime.now(timezone.utc)
+    now_utc = _now_utc(clock or SystemClock())
 
     for rule in config.rules:
         if not rule.enabled:
@@ -86,6 +89,13 @@ def register_pull_jobs(
             job_ids.append(poll_job_id)
 
     return job_ids
+
+
+def _now_utc(clock: Clock) -> datetime:
+    now = clock.now_utc()
+    if now.tzinfo is None:
+        return now.replace(tzinfo=timezone.utc)
+    return now.astimezone(timezone.utc)
 
 
 def unregister_pull_jobs(scheduler: AsyncIOScheduler, job_ids: list[str]) -> None:

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -22,10 +22,14 @@ from app.services.env_var_service import EnvVarService
 _DEFAULT_RECOMMENDATION_QUERY = "agent"
 
 
+class EnvVarReader(Protocol):
+    def get_env_map(self, db: Session, *, user_id: str) -> dict[str, str]: ...
+
+
 class SkillsMpService:
-    def __init__(self) -> None:
+    def __init__(self, *, env_var_service: EnvVarReader | None = None) -> None:
         self.settings = get_settings()
-        self.env_var_service = EnvVarService()
+        self.env_var_service = env_var_service or EnvVarService()
 
     def _resolve_base_url(self) -> str:
         base_url = self.settings.skillsmp_base_url.strip().rstrip("/")

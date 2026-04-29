@@ -1,6 +1,5 @@
 import os
 import re
-import uuid
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
@@ -9,11 +8,13 @@ from app.core.deps import get_current_user_id
 from app.core.settings import get_settings
 from app.schemas.input_file import InputFile
 from app.schemas.response import Response, ResponseSchema
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.storage_service import S3StorageService
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
 storage_service = S3StorageService()
+id_generator = UuidIdGenerator()
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]+")
 
@@ -44,17 +45,22 @@ def _get_file_size(file: UploadFile) -> int | None:
         return None
 
 
+def get_attachment_id_generator() -> IdGenerator:
+    return id_generator
+
+
 @router.post("/upload", response_model=ResponseSchema[InputFile])
 async def upload_attachment(
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
+    id_generator: IdGenerator = Depends(get_attachment_id_generator),
 ) -> JSONResponse:
     """Upload a user attachment to storage."""
     settings = get_settings()
     max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
 
     original_name = _normalize_upload_filename(file.filename or "")
-    attachment_id = str(uuid.uuid4())
+    attachment_id = id_generator.new_id()
     # Use a stable object name to avoid any encoding/sanitization issues with filenames.
     key = f"attachments/{user_id}/{attachment_id}/file"
 

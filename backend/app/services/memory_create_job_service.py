@@ -1,6 +1,5 @@
 import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
@@ -16,14 +15,20 @@ from app.schemas.memory import (
     MemoryCreateJobResponse,
     MemoryCreateRequest,
 )
+from app.services.clock import Clock, SystemClock
 from app.services.memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
 
 class MemoryCreateJobService:
-    def __init__(self, memory_service: MemoryService | None = None) -> None:
+    def __init__(
+        self,
+        memory_service: MemoryService | None = None,
+        clock: Clock | None = None,
+    ) -> None:
         self.memory_service = memory_service or MemoryService()
+        self._clock = clock or SystemClock()
 
     def enqueue_create(
         self,
@@ -95,7 +100,7 @@ class MemoryCreateJobService:
 
             job.status = "running"
             job.progress = 0
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = self._clock.now_utc()
             job.error = None
             db.commit()
 
@@ -116,8 +121,8 @@ class MemoryCreateJobService:
         finally:
             db.close()
 
-    @staticmethod
     def _mark_success(
+        self,
         db: Session,
         job: MemoryCreateJob,
         result: Any,
@@ -126,14 +131,13 @@ class MemoryCreateJobService:
         job.progress = 100
         job.result = jsonable_encoder(result)
         job.error = None
-        job.finished_at = datetime.now(timezone.utc)
+        job.finished_at = self._clock.now_utc()
         db.commit()
 
-    @staticmethod
-    def _mark_failed(db: Session, job: MemoryCreateJob, error: str) -> None:
+    def _mark_failed(self, db: Session, job: MemoryCreateJob, error: str) -> None:
         job.status = "failed"
         job.error = error
-        job.finished_at = datetime.now(timezone.utc)
+        job.finished_at = self._clock.now_utc()
         db.commit()
 
     @staticmethod

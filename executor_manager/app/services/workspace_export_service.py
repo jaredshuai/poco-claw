@@ -20,7 +20,6 @@ from app.services.workspace_manager import WorkspaceManager
 logger = logging.getLogger(__name__)
 
 
-workspace_manager = WorkspaceManager()
 _ALLOWED_HIDDEN_SKILL_ROOTS = frozenset({".config", ".config_data"})
 _SKILL_VISIBLE_ROOT = PurePosixPath("/.config/skills")
 _VISIBLE_DRAFT_ROOT = PurePosixPath("/skills")
@@ -45,9 +44,14 @@ class WorkspaceExportStorage(Protocol):
 
 
 class WorkspaceExportWorkspaceManager(Protocol):
-    _ignore_names: set[str]
-    ignore_dot_files: bool
-    temp_dir: Path
+    @property
+    def _ignore_names(self) -> set[str]: ...
+
+    @property
+    def ignore_dot_files(self) -> bool: ...
+
+    @property
+    def temp_dir(self) -> Path: ...
 
     def resolve_user_id(self, session_id: str) -> str | None: ...
 
@@ -59,6 +63,47 @@ class WorkspaceExportWorkspaceManager(Protocol):
     ) -> Path | None: ...
 
 
+class LazyWorkspaceManager:
+    def __init__(
+        self,
+        factory: Callable[[], WorkspaceExportWorkspaceManager] | None = None,
+    ) -> None:
+        self._factory = factory or WorkspaceManager
+        self._instance: WorkspaceExportWorkspaceManager | None = None
+
+    def _get_instance(self) -> WorkspaceExportWorkspaceManager:
+        if self._instance is None:
+            self._instance = self._factory()
+        return self._instance
+
+    @property
+    def _ignore_names(self) -> set[str]:
+        return self._get_instance()._ignore_names
+
+    @property
+    def ignore_dot_files(self) -> bool:
+        return self._get_instance().ignore_dot_files
+
+    @property
+    def temp_dir(self) -> Path:
+        return self._get_instance().temp_dir
+
+    def resolve_user_id(self, session_id: str) -> str | None:
+        return self._get_instance().resolve_user_id(session_id)
+
+    def get_session_workspace_dir(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+    ) -> Path | None:
+        return self._get_instance().get_session_workspace_dir(
+            user_id=user_id,
+            session_id=session_id,
+        )
+
+
+workspace_manager: WorkspaceExportWorkspaceManager = LazyWorkspaceManager()
 storage_service: WorkspaceExportStorage | None = None
 
 

@@ -50,6 +50,16 @@ def test_workspace_export_module_import_does_not_initialize_storage_service() ->
     assert module.WorkspaceExportService is not None
 
 
+def test_workspace_export_module_import_does_not_initialize_workspace_manager() -> None:
+    with patch(
+        "app.services.workspace_manager.WorkspaceManager",
+        side_effect=AssertionError("workspace manager should be lazy"),
+    ):
+        module = _load_workspace_export_module_from_source()
+
+    assert module.WorkspaceExportService is not None
+
+
 def test_workspace_export_uses_injected_storage_factory_without_constructing_s3() -> (
     None
 ):

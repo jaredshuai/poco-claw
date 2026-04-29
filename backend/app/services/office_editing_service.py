@@ -235,7 +235,7 @@ class OfficeEditingStore:
 
     def cleanup_expired(self, *, now: datetime | None = None) -> dict[str, int]:
         """Remove expired edit sessions and stale save request records."""
-        now = now or datetime.now(UTC)
+        now = now or self._now()
         expired_session_ids = [
             edit_session_id
             for edit_session_id, session in self._edit_sessions.items()

@@ -11,6 +11,7 @@ from app.models.skill import Skill
 from app.models.user_skill_install import UserSkillInstall
 from app.repositories.skill_repository import SkillRepository
 from app.repositories.user_skill_install_repository import UserSkillInstallRepository
+from app.services.id_generator import IdGenerator, UuidIdGenerator
 from app.services.storage_service import S3StorageService
 from app.utils.markdown_front_matter import (
     parse_yaml_front_matter,
@@ -40,8 +41,14 @@ class WorkspaceSkillCreateResult(BaseModel):
 class SkillWorkspaceService:
     """Shared service for creating skills from exported workspace files."""
 
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: S3StorageService | None = None,
+        *,
+        id_generator: IdGenerator | None = None,
+    ) -> None:
         self.storage_service = storage_service
+        self._id_generator = id_generator or UuidIdGenerator()
 
     def inspect_workspace_skill(
         self,
@@ -105,7 +112,7 @@ class SkillWorkspaceService:
             workspace_files_prefix=workspace_files_prefix,
         )
         source_prefix = f"{workspace_prefix}/{info.folder_path.lstrip('/')}"
-        version_id = str(uuid.uuid4())
+        version_id = self._id_generator.new_id()
         destination_prefix = f"skills/{user_id}/{info.detected_name}/{version_id}"
         copied = self._storage_service().copy_prefix(
             source_prefix=source_prefix,

@@ -1,6 +1,8 @@
 """Tests for workspace_export_service.py."""
 
+import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -16,6 +18,36 @@ from app.services.workspace_export_service import (
     _VISIBLE_DRAFT_ROOT,
     WorkspaceExportService,
 )
+
+
+def _load_workspace_export_module_from_source():
+    module_name = "_workspace_export_service_import_probe"
+    module_path = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "services"
+        / "workspace_export_service.py"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_workspace_export_module_import_does_not_initialize_storage_service() -> None:
+    with patch(
+        "app.services.storage_service.S3StorageService",
+        side_effect=AssertionError("storage should be lazy"),
+    ):
+        module = _load_workspace_export_module_from_source()
+
+    assert module.WorkspaceExportService is not None
 
 
 class TestConstants(unittest.TestCase):

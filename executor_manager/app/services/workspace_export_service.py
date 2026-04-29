@@ -19,10 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 workspace_manager = WorkspaceManager()
-storage_service = S3StorageService()
+storage_service: S3StorageService | None = None
 _ALLOWED_HIDDEN_SKILL_ROOTS = frozenset({".config", ".config_data"})
 _SKILL_VISIBLE_ROOT = PurePosixPath("/.config/skills")
 _VISIBLE_DRAFT_ROOT = PurePosixPath("/skills")
+
+
+def get_storage_service() -> S3StorageService:
+    global storage_service
+    if storage_service is None:
+        storage_service = S3StorageService()
+    return storage_service
 
 
 class WorkspaceExportService:
@@ -58,6 +65,7 @@ class WorkspaceExportService:
         archive_key = f"{prefix}/archive.zip"
 
         try:
+            storage = get_storage_service()
             files = self._collect_files(workspace_dir)
             manifest = {
                 "version": 1,
@@ -70,7 +78,7 @@ class WorkspaceExportService:
                 object_key = f"{files_prefix}/{rel_path}"
                 mime_type, _ = mimetypes.guess_type(file_path.name)
 
-                storage_service.upload_file(
+                storage.upload_file(
                     file_path=str(file_path),
                     key=object_key,
                     content_type=mime_type,
@@ -89,7 +97,7 @@ class WorkspaceExportService:
                     }
                 )
 
-            storage_service.put_object(
+            storage.put_object(
                 key=manifest_key,
                 body=json.dumps(manifest, ensure_ascii=False).encode("utf-8"),
                 content_type="application/json",
@@ -100,7 +108,7 @@ class WorkspaceExportService:
                 session_id=session_id,
                 files=files,
             )
-            storage_service.upload_file(
+            storage.upload_file(
                 file_path=str(archive_path),
                 key=archive_key,
                 content_type="application/zip",
@@ -214,6 +222,7 @@ class WorkspaceExportService:
             )
 
         try:
+            storage = get_storage_service()
             normalized_folder_path = self._normalize_workspace_path(folder_path)
             folder_dir = self._resolve_workspace_dir(
                 workspace_dir=workspace_dir,
@@ -249,7 +258,7 @@ class WorkspaceExportService:
                 rel_path = file_path.relative_to(workspace_dir).as_posix()
                 object_key = f"{files_prefix}/{rel_path}"
                 mime_type, _ = mimetypes.guess_type(file_path.name)
-                storage_service.upload_file(
+                storage.upload_file(
                     file_path=str(file_path),
                     key=object_key,
                     content_type=mime_type,
@@ -267,7 +276,7 @@ class WorkspaceExportService:
                     }
                 )
 
-            storage_service.put_object(
+            storage.put_object(
                 key=manifest_key,
                 body=json.dumps(manifest, ensure_ascii=False).encode("utf-8"),
                 content_type="application/json",

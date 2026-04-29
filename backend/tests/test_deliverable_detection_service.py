@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from sqlalchemy import create_engine
@@ -24,6 +25,20 @@ class DeliverableDetectionNormalizationTests(unittest.TestCase):
 
 
 class DeliverableDetectionSelectionTests(unittest.TestCase):
+    def test_storage_uses_injected_factory_without_constructing_s3(self) -> None:
+        storage_service = MagicMock()
+
+        with patch(
+            "app.services.deliverable_detection_service.S3StorageService",
+            side_effect=AssertionError("storage should be provided by factory"),
+        ):
+            service = DeliverableDetectionService(
+                storage_service_factory=lambda: storage_service,
+            )
+
+            self.assertEqual(service._storage(), storage_service)
+            self.assertEqual(service._storage(), storage_service)
+
     def test_non_deliverable_script_is_filtered_out(self) -> None:
         self.assertFalse(
             DeliverableDetectionService.is_deliverable_candidate(

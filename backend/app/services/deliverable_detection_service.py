@@ -1,8 +1,9 @@
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -32,6 +33,14 @@ _TRAILING_SUFFIX_PATTERNS = (
     re.compile(r"([_\-\s]?\d{8})$"),
     re.compile(r"([_\-\s]?\d{14})$"),
 )
+
+
+class DeliverableStorage(Protocol):
+    def get_manifest(self, key: str) -> object: ...
+
+
+def build_deliverable_storage() -> DeliverableStorage:
+    return S3StorageService()
 
 
 def normalize_logical_name(file_name: str) -> str:
@@ -75,11 +84,19 @@ class DeliverableCandidate:
 class DeliverableDetectionService:
     """Rule-based deliverable detection and persistence helpers."""
 
-    def __init__(self, storage_service: S3StorageService | None = None) -> None:
+    def __init__(
+        self,
+        storage_service: DeliverableStorage | None = None,
+        *,
+        storage_service_factory: Callable[[], DeliverableStorage] | None = None,
+    ) -> None:
         self._storage_service = storage_service
+        self._storage_service_factory = (
+            storage_service_factory or build_deliverable_storage
+        )
 
-    def _storage(self) -> S3StorageService:
-        return self._storage_service or S3StorageService()
+    def _storage(self) -> DeliverableStorage:
+        return self._storage_service or self._storage_service_factory()
 
     @staticmethod
     def is_deliverable_candidate(

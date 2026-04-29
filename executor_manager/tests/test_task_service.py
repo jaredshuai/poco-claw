@@ -478,29 +478,54 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         ):
             return TaskService()
 
+    def test_get_session_status_uses_backend_client_boundary(self) -> None:
+        """Test session status lookup delegates HTTP details to the backend client."""
+        mock_settings = MagicMock()
+        mock_settings.anthropic_api_key = "test-key"
+        mock_backend_client = MagicMock()
+        mock_backend_client.get_session = AsyncMock(
+            return_value={
+                "session_id": "session-123",
+                "user_id": "user-123",
+                "sdk_session_id": "sdk-123",
+                "status": "running",
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T01:00:00Z",
+            }
+        )
+        with patch(
+            "app.services.task_service.get_settings", return_value=mock_settings
+        ):
+            service = TaskService(
+                backend_client_factory=lambda: mock_backend_client,
+            )
+
+        with patch(
+            "app.services.task_service.httpx.AsyncClient",
+            side_effect=AssertionError("http client should stay inside adapter"),
+        ):
+            import asyncio
+
+            result = asyncio.run(service.get_session_status("session-123"))
+
+        assert result.session_id == "session-123"
+        mock_backend_client.get_session.assert_awaited_once_with("session-123")
+
     def test_get_session_status_success(self) -> None:
         """Test getting session status successfully."""
         service = self._create_service()
 
-        mock_response = MagicMock()
-        mock_response.json = MagicMock(
+        mock_backend_client = MagicMock()
+        mock_backend_client.get_session = AsyncMock(
             return_value={
-                "data": {
-                    "session_id": "session-123",
-                    "user_id": "user-123",
-                    "sdk_session_id": "sdk-123",
-                    "status": "running",
-                    "created_at": "2026-01-01T00:00:00Z",
-                    "updated_at": "2026-01-01T01:00:00Z",
-                }
+                "session_id": "session-123",
+                "user_id": "user-123",
+                "sdk_session_id": "sdk-123",
+                "status": "running",
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T01:00:00Z",
             }
         )
-        mock_response.raise_for_status = MagicMock()
-
-        mock_backend_client = MagicMock()
-        mock_backend_client.settings = MagicMock()
-        mock_backend_client.settings.backend_url = "http://localhost:8000"
-        mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
             "app.services.backend_client.BackendClient",
@@ -508,26 +533,12 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         ):
             import asyncio
 
-            # Create a mock async context manager
-            async def mock_async_client():
-                mock_client = MagicMock()
-                mock_client.get = AsyncMock(return_value=mock_response)
-                return mock_client
+            result = asyncio.run(service.get_session_status("session-123"))
 
-            with patch(
-                "app.services.task_service.httpx.AsyncClient"
-            ) as mock_client_cls:
-                mock_client = MagicMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(return_value=mock_response)
-                mock_client_cls.return_value = mock_client
-
-                result = asyncio.run(service.get_session_status("session-123"))
-
-                assert isinstance(result, SessionStatusResponse)
-                assert result.session_id == "session-123"
-                assert result.user_id == "user-123"
+            assert isinstance(result, SessionStatusResponse)
+            assert result.session_id == "session-123"
+            assert result.user_id == "user-123"
+            mock_backend_client.get_session.assert_awaited_once_with("session-123")
 
     def test_get_session_status_not_found(self) -> None:
         """Test getting non-existent session status."""
@@ -535,16 +546,13 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.status_code = 404
-        mock_response.raise_for_status = MagicMock(
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.get_session = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "Not found", request=MagicMock(), response=mock_response
             )
         )
-
-        mock_backend_client = MagicMock()
-        mock_backend_client.settings = MagicMock()
-        mock_backend_client.settings.backend_url = "http://localhost:8000"
-        mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
             "app.services.backend_client.BackendClient",
@@ -552,19 +560,10 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         ):
             import asyncio
 
-            with patch(
-                "app.services.task_service.httpx.AsyncClient"
-            ) as mock_client_cls:
-                mock_client = MagicMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(return_value=mock_response)
-                mock_client_cls.return_value = mock_client
+            with self.assertRaises(AppException) as ctx:
+                asyncio.run(service.get_session_status("nonexistent-session"))
 
-                with self.assertRaises(AppException) as ctx:
-                    asyncio.run(service.get_session_status("nonexistent-session"))
-
-                assert ctx.exception.error_code == ErrorCode.SESSION_NOT_FOUND
+            assert ctx.exception.error_code == ErrorCode.SESSION_NOT_FOUND
 
     def test_get_session_status_backend_unavailable(self) -> None:
         """Test handling backend unavailable error."""
@@ -573,16 +572,13 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 500
         mock_response.text = "Internal server error"
-        mock_response.raise_for_status = MagicMock(
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.get_session = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "Server error", request=MagicMock(), response=mock_response
             )
         )
-
-        mock_backend_client = MagicMock()
-        mock_backend_client.settings = MagicMock()
-        mock_backend_client.settings.backend_url = "http://localhost:8000"
-        mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
             "app.services.backend_client.BackendClient",
@@ -590,28 +586,19 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         ):
             import asyncio
 
-            with patch(
-                "app.services.task_service.httpx.AsyncClient"
-            ) as mock_client_cls:
-                mock_client = MagicMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(return_value=mock_response)
-                mock_client_cls.return_value = mock_client
+            with self.assertRaises(AppException) as ctx:
+                asyncio.run(service.get_session_status("session-123"))
 
-                with self.assertRaises(AppException) as ctx:
-                    asyncio.run(service.get_session_status("session-123"))
-
-                assert ctx.exception.error_code == ErrorCode.BACKEND_UNAVAILABLE
+            assert ctx.exception.error_code == ErrorCode.BACKEND_UNAVAILABLE
 
     def test_get_session_status_generic_error(self) -> None:
         """Test handling generic errors."""
         service = self._create_service()
 
         mock_backend_client = MagicMock()
-        mock_backend_client.settings = MagicMock()
-        mock_backend_client.settings.backend_url = "http://localhost:8000"
-        mock_backend_client._trace_headers = MagicMock(return_value={})
+        mock_backend_client.get_session = AsyncMock(
+            side_effect=Exception("Network error")
+        )
 
         with patch(
             "app.services.backend_client.BackendClient",
@@ -619,26 +606,17 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         ):
             import asyncio
 
-            with patch(
-                "app.services.task_service.httpx.AsyncClient"
-            ) as mock_client_cls:
-                mock_client = MagicMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(side_effect=Exception("Network error"))
-                mock_client_cls.return_value = mock_client
+            with self.assertRaises(AppException) as ctx:
+                asyncio.run(service.get_session_status("session-123"))
 
-                with self.assertRaises(AppException) as ctx:
-                    asyncio.run(service.get_session_status("session-123"))
-
-                assert ctx.exception.error_code == ErrorCode.BACKEND_UNAVAILABLE
+            assert ctx.exception.error_code == ErrorCode.BACKEND_UNAVAILABLE
 
     def test_get_session_status_unwrapped_response(self) -> None:
-        """Test handling response without 'data' wrapper."""
+        """Test handling already-unwrapped session data from the backend client."""
         service = self._create_service()
 
-        mock_response = MagicMock()
-        mock_response.json = MagicMock(
+        mock_backend_client = MagicMock()
+        mock_backend_client.get_session = AsyncMock(
             return_value={
                 "session_id": "session-123",
                 "user_id": "user-123",
@@ -647,12 +625,6 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
                 "updated_at": "2026-01-01T01:00:00Z",
             }
         )
-        mock_response.raise_for_status = MagicMock()
-
-        mock_backend_client = MagicMock()
-        mock_backend_client.settings = MagicMock()
-        mock_backend_client.settings.backend_url = "http://localhost:8000"
-        mock_backend_client._trace_headers = MagicMock(return_value={})
 
         with patch(
             "app.services.backend_client.BackendClient",
@@ -660,18 +632,9 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         ):
             import asyncio
 
-            with patch(
-                "app.services.task_service.httpx.AsyncClient"
-            ) as mock_client_cls:
-                mock_client = MagicMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(return_value=mock_response)
-                mock_client_cls.return_value = mock_client
+            result = asyncio.run(service.get_session_status("session-123"))
 
-                result = asyncio.run(service.get_session_status("session-123"))
-
-                assert result.session_id == "session-123"
+            assert result.session_id == "session-123"
 
 
 if __name__ == "__main__":

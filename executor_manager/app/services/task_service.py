@@ -34,6 +34,8 @@ class TaskBackendClient(Protocol):
 
     async def create_session(self, user_id: str, config: dict) -> dict[str, Any]: ...
 
+    async def get_session(self, session_id: str) -> dict[str, Any]: ...
+
 
 def build_backend_client() -> TaskBackendClient:
     from app.services.backend_client import BackendClient
@@ -249,16 +251,7 @@ class TaskService:
         backend_client = self.backend_client_factory()
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{backend_client.settings.backend_url}/api/v1/sessions/{session_id}",
-                    headers=backend_client._trace_headers(),
-                )
-                response.raise_for_status()
-                data = response.json()
-
-            # Parse backend response (backend returns wrapped ResponseSchema)
-            session_data = data.get("data", data)
+            session_data = await backend_client.get_session(session_id)
             return SessionStatusResponse(**session_data)
 
         except httpx.HTTPStatusError as e:

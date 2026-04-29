@@ -1,7 +1,7 @@
 import logging
 import uuid
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import TypeVar
 
 from sqlalchemy.orm import Session
@@ -676,7 +676,7 @@ class SessionService:
         pending_requests = UserInputRequestRepository.list_pending_by_session(
             db, db_session.id
         )
-        now = datetime.now(timezone.utc)
+        now = self._clock.now_utc()
         for entry in pending_requests:
             entry.status = "expired"
             entry.expires_at = now

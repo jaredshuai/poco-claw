@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.schemas.workspace import WorkspaceExportResult
+from app.services.clock import Clock, SystemClock
 from app.services.storage_service import S3StorageService
 from app.services.workspace_manager import WorkspaceManager
 
@@ -25,6 +26,15 @@ _VISIBLE_DRAFT_ROOT = PurePosixPath("/skills")
 
 
 class WorkspaceExportService:
+    def __init__(self, *, clock: Clock | None = None) -> None:
+        self.clock = clock or SystemClock()
+
+    def _now_utc(self) -> datetime:
+        now = self.clock.now_utc()
+        if now.tzinfo is None:
+            return now.replace(tzinfo=timezone.utc)
+        return now.astimezone(timezone.utc)
+
     def export_workspace(self, session_id: str) -> WorkspaceExportResult:
         user_id = workspace_manager.resolve_user_id(session_id)
         if not user_id:
@@ -51,7 +61,7 @@ class WorkspaceExportService:
             files = self._collect_files(workspace_dir)
             manifest = {
                 "version": 1,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": self._now_utc().isoformat(),
                 "files": [],
             }
 
@@ -231,7 +241,7 @@ class WorkspaceExportService:
             manifest_key = f"{prefix}/manifest.json"
             manifest = {
                 "version": 1,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": self._now_utc().isoformat(),
                 "files": [],
             }
 

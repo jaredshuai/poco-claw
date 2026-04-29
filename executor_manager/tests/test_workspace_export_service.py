@@ -1,8 +1,10 @@
 """Tests for workspace_export_service.py."""
 
+import json
 import tempfile
 import unittest
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
@@ -721,6 +723,9 @@ class TestExportWorkspace(unittest.TestCase):
             mock_wm.ignore_dot_files = False
 
             mock_storage = MagicMock()
+            fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            clock = MagicMock()
+            clock.now_utc.return_value = fixed_now
 
             with (
                 patch(
@@ -732,7 +737,7 @@ class TestExportWorkspace(unittest.TestCase):
                     mock_storage,
                 ),
             ):
-                service = WorkspaceExportService()
+                service = WorkspaceExportService(clock=clock)
                 result = service.export_workspace("session-456")
 
             assert result.workspace_export_status == "ready"
@@ -744,6 +749,11 @@ class TestExportWorkspace(unittest.TestCase):
             # Verify storage calls
             assert mock_storage.upload_file.called
             assert mock_storage.put_object.called
+            manifest = json.loads(
+                mock_storage.put_object.call_args.kwargs["body"].decode("utf-8")
+            )
+            assert manifest["generated_at"] == fixed_now.isoformat()
+            clock.now_utc.assert_called_once_with()
 
     def test_export_workspace_user_not_found(self) -> None:
         """Test export when user_id cannot be resolved."""
@@ -1080,6 +1090,9 @@ class TestExportWorkspaceFolder(unittest.TestCase):
             mock_wm.ignore_dot_files = False
 
             mock_storage = MagicMock()
+            fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            clock = MagicMock()
+            clock.now_utc.return_value = fixed_now
 
             with (
                 patch(
@@ -1091,7 +1104,7 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                     mock_storage,
                 ),
             ):
-                service = WorkspaceExportService()
+                service = WorkspaceExportService(clock=clock)
                 result = service.export_workspace_folder(
                     "session-456", folder_path="skills/my-skill"
                 )
@@ -1099,6 +1112,11 @@ class TestExportWorkspaceFolder(unittest.TestCase):
             assert result.workspace_export_status == "ready"
             assert result.workspace_files_prefix is not None
             assert result.workspace_manifest_key is not None
+            manifest = json.loads(
+                mock_storage.put_object.call_args.kwargs["body"].decode("utf-8")
+            )
+            assert manifest["generated_at"] == fixed_now.isoformat()
+            clock.now_utc.assert_called_once_with()
 
     def test_export_folder_user_not_found(self) -> None:
         """Test export when user_id cannot be resolved."""

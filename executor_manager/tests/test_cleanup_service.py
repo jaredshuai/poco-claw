@@ -26,8 +26,8 @@ class TestCleanupServiceInit(unittest.TestCase):
             assert call_kwargs["id"] == "cleanup-workspaces"
             assert call_kwargs["replace_existing"] is True
 
-    def test_init_creates_workspace_manager(self) -> None:
-        """Test that init creates a WorkspaceManager instance."""
+    def test_init_defers_workspace_manager_construction(self) -> None:
+        """Test that init does not construct the workspace adapter eagerly."""
         mock_scheduler = MagicMock()
 
         with patch(
@@ -38,8 +38,9 @@ class TestCleanupServiceInit(unittest.TestCase):
 
             service = CleanupService(scheduler=mock_scheduler)
 
-            mock_workspace_cls.assert_called_once()
+            mock_workspace_cls.assert_not_called()
             assert service.workspace_manager is mock_workspace
+            mock_workspace_cls.assert_called_once()
 
     def test_init_accepts_injected_workspace_manager(self) -> None:
         """Test that init can use an injected workspace manager boundary."""

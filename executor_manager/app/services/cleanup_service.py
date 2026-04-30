@@ -35,12 +35,22 @@ class CleanupService:
             scheduler: APScheduler instance
         """
         self.scheduler = scheduler
-        factory = workspace_manager_factory or build_cleanup_workspace_manager
-        self.workspace_manager = (
-            workspace_manager if workspace_manager is not None else factory()
+        self._workspace_manager = workspace_manager
+        self._workspace_manager_factory = (
+            workspace_manager_factory or build_cleanup_workspace_manager
         )
 
         self._schedule_cleanup_job()
+
+    @property
+    def workspace_manager(self) -> CleanupWorkspaceManager:
+        if self._workspace_manager is None:
+            self._workspace_manager = self._workspace_manager_factory()
+        return self._workspace_manager
+
+    @workspace_manager.setter
+    def workspace_manager(self, value: CleanupWorkspaceManager) -> None:
+        self._workspace_manager = value
 
     def _schedule_cleanup_job(self) -> None:
         """Schedule periodic cleanup job."""

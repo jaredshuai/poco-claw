@@ -115,6 +115,10 @@ def build_task_dispatch_runtime() -> TaskDispatchRuntime:
     return TaskDispatcherRuntime()
 
 
+def build_task_dispatch_container_pool() -> ContainerPool:
+    return ContainerPool()
+
+
 def build_task_dispatch_dependencies(
     *,
     executor_client_factory: Callable[[], Any] | None = None,
@@ -175,12 +179,15 @@ class TaskDispatcher:
     """Task dispatcher with container pool integration."""
 
     container_pool: ContainerPool | None = None
+    container_pool_factory: Callable[[], ContainerPool] = (
+        build_task_dispatch_container_pool
+    )
 
     @classmethod
     def get_container_pool(cls) -> ContainerPool:
         """Get container pool instance (lazy load)."""
         if cls.container_pool is None:
-            cls.container_pool = ContainerPool()
+            cls.container_pool = cls.container_pool_factory()
         return cls.container_pool
 
     @classmethod

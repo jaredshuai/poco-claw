@@ -173,6 +173,24 @@ class TestTaskDispatcherGetContainerPool(unittest.TestCase):
         # Clean up
         TaskDispatcher.container_pool = None
 
+    def test_get_container_pool_uses_injected_factory(self) -> None:
+        TaskDispatcher.container_pool = None
+        original_factory = TaskDispatcher.container_pool_factory
+        mock_pool = MagicMock()
+        TaskDispatcher.container_pool_factory = lambda: mock_pool
+
+        try:
+            with patch(
+                "app.scheduler.task_dispatcher.ContainerPool",
+                side_effect=AssertionError("container pool should be injected"),
+            ):
+                result = TaskDispatcher.get_container_pool()
+
+            assert result is mock_pool
+        finally:
+            TaskDispatcher.container_pool = None
+            TaskDispatcher.container_pool_factory = original_factory
+
 
 @pytest.mark.asyncio
 class TestTaskDispatcherResolveExecutorTarget:

@@ -36,6 +36,34 @@ def test_workspace_api_module_import_does_not_initialize_workspace_manager() -> 
     assert module.router is not None
 
 
+def test_workspace_routes_use_manager_dependency_override() -> None:
+    from app.api.v1 import workspace
+    from app.main import app
+
+    workspace.workspace_manager = None
+
+    mock_manager = MagicMock()
+    mock_manager.get_disk_usage.return_value = {
+        "total_size_bytes": 42,
+        "workspaces_count": 1,
+    }
+
+    app.dependency_overrides[workspace.get_workspace_manager] = lambda: mock_manager
+    try:
+        with patch(
+            "app.api.v1.workspace.WorkspaceManager",
+            side_effect=AssertionError("route should use manager override"),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/v1/workspace/stats")
+    finally:
+        app.dependency_overrides.pop(workspace.get_workspace_manager, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["total_size_bytes"] == 42
+    mock_manager.get_disk_usage.assert_called_once_with()
+
+
 class TestWorkspaceEndpoints(unittest.TestCase):
     """Test /api/v1/workspace endpoints."""
 

@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from typing import Protocol
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -11,7 +12,11 @@ logger = logging.getLogger(__name__)
 class CleanupWorkspaceManager(Protocol):
     def cleanup_expired_workspaces(self) -> dict[str, int]: ...
 
-    def get_disk_usage(self) -> dict[str, int | float]: ...
+    def get_disk_usage(self) -> dict[str, int | float | str]: ...
+
+
+def build_cleanup_workspace_manager() -> CleanupWorkspaceManager:
+    return WorkspaceManager()
 
 
 class CleanupService:
@@ -22,6 +27,7 @@ class CleanupService:
         scheduler: AsyncIOScheduler,
         *,
         workspace_manager: CleanupWorkspaceManager | None = None,
+        workspace_manager_factory: Callable[[], CleanupWorkspaceManager] | None = None,
     ):
         """Initialize cleanup service.
 
@@ -29,8 +35,9 @@ class CleanupService:
             scheduler: APScheduler instance
         """
         self.scheduler = scheduler
+        factory = workspace_manager_factory or build_cleanup_workspace_manager
         self.workspace_manager = (
-            workspace_manager if workspace_manager is not None else WorkspaceManager()
+            workspace_manager if workspace_manager is not None else factory()
         )
 
         self._schedule_cleanup_job()

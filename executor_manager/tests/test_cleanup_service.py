@@ -58,6 +58,24 @@ class TestCleanupServiceInit(unittest.TestCase):
         assert service.workspace_manager is mock_workspace
         mock_scheduler.add_job.assert_called_once()
 
+    def test_init_uses_injected_workspace_manager_factory_without_default_constructor(
+        self,
+    ) -> None:
+        mock_scheduler = MagicMock()
+        mock_workspace = MagicMock()
+
+        with patch(
+            "app.services.cleanup_service.WorkspaceManager",
+            side_effect=AssertionError("workspace manager should be injected"),
+        ):
+            service = CleanupService(
+                scheduler=mock_scheduler,
+                workspace_manager_factory=lambda: mock_workspace,
+            )
+
+        assert service.workspace_manager is mock_workspace
+        mock_scheduler.add_job.assert_called_once()
+
 
 class TestCleanupServiceCleanupExpiredWorkspaces(unittest.TestCase):
     """Test CleanupService.cleanup_expired_workspaces."""

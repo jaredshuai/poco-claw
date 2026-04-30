@@ -18,10 +18,20 @@ class ClaudeMdStager:
         *,
         workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
     ) -> None:
-        factory = workspace_manager_factory or build_claude_md_workspace_manager
-        self.workspace_manager = (
-            workspace_manager if workspace_manager is not None else factory()
+        self._workspace_manager = workspace_manager
+        self._workspace_manager_factory = (
+            workspace_manager_factory or build_claude_md_workspace_manager
         )
+
+    @property
+    def workspace_manager(self) -> WorkspaceManager:
+        if self._workspace_manager is None:
+            self._workspace_manager = self._workspace_manager_factory()
+        return self._workspace_manager
+
+    @workspace_manager.setter
+    def workspace_manager(self, value: WorkspaceManager) -> None:
+        self._workspace_manager = value
 
     def stage(
         self,

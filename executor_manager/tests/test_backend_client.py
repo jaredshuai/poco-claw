@@ -34,6 +34,24 @@ class TestBackendClientTraceHeaders(unittest.TestCase):
         assert client.base_url == "http://backend"
         assert client._client is http_client
 
+    def test_init_defers_default_http_client_construction(self) -> None:
+        settings = SimpleNamespace(
+            backend_url="http://backend/",
+            internal_api_token="token-123",
+        )
+        http_client = MagicMock()
+
+        with patch(
+            "app.services.backend_client.httpx.AsyncClient",
+            return_value=http_client,
+        ) as http_client_cls:
+            client = BackendClient(settings=settings)
+
+            http_client_cls.assert_not_called()
+            assert client._client is http_client
+
+        http_client_cls.assert_called_once()
+
     def test_trace_headers_with_existing_ids(self) -> None:
         with patch("app.services.backend_client.get_request_id") as mock_get_req:
             with patch("app.services.backend_client.get_trace_id") as mock_get_trace:

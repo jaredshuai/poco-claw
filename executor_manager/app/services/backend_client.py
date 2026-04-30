@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 from typing import Any, Protocol
 
 import httpx
@@ -38,14 +39,22 @@ class BackendClient:
         *,
         settings: BackendClientSettings | None = None,
         http_client: httpx.AsyncClient | None = None,
+        http_client_factory: Callable[[str], httpx.AsyncClient] | None = None,
     ) -> None:
         self.settings = settings if settings is not None else get_settings()
         self.base_url = (self.settings.backend_url or "").rstrip("/")
-        self._client = (
-            http_client
-            if http_client is not None
-            else build_backend_http_client(self.base_url)
-        )
+        self._http_client = http_client
+        self._http_client_factory = http_client_factory or build_backend_http_client
+
+    @property
+    def _client(self) -> httpx.AsyncClient:
+        if self._http_client is None:
+            self._http_client = self._http_client_factory(self.base_url)
+        return self._http_client
+
+    @_client.setter
+    def _client(self, value: httpx.AsyncClient) -> None:
+        self._http_client = value
 
     @staticmethod
     def _trace_headers() -> dict[str, str]:

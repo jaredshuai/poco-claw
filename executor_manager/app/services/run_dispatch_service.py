@@ -1,6 +1,6 @@
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
@@ -11,6 +11,7 @@ from app.services.claude_md_stager import ClaudeMdStager
 from app.services.config_resolver import ConfigResolver
 from app.services.executor_client import ExecutorClient
 from app.services.plugin_stager import PluginStager
+from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_config_preparer import (
     RunDispatchConfigPreparer,
     StagingRunDispatchConfigPreparer,
@@ -414,25 +415,32 @@ class RunDispatchService:
             subagent_stager_factory=subagent_factory,
         )
 
-    async def dispatch_claim(self, claim: dict[str, Any], *, worker_id: str) -> None:
+    async def dispatch_claim(
+        self,
+        claim: RunDispatchClaim | Mapping[str, Any],
+        *,
+        worker_id: str,
+    ) -> None:
         dispatch_started = time.perf_counter()
-        run = claim.get("run") or {}
-        run_id = run.get("run_id")
-        session_id = run.get("session_id")
-        scheduled_task_id = run.get("scheduled_task_id")
-        user_id = claim.get("user_id") or ""
-        prompt = claim.get("prompt") or ""
-        config_snapshot = claim.get("config_snapshot") or {}
-        sdk_session_id = None if scheduled_task_id else claim.get("sdk_session_id")
-        permission_mode = str(run.get("permission_mode") or "default").strip()
-
-        if not run_id or not session_id or not user_id or not prompt:
+        dispatch_claim = (
+            claim
+            if isinstance(claim, RunDispatchClaim)
+            else RunDispatchClaim.from_payload(claim)
+        )
+        if dispatch_claim is None:
             logger.error(f"Invalid claim payload: {claim}")
             return
 
-        run_id_str = str(run_id)
-        container_mode = config_snapshot.get("container_mode", "ephemeral")
-        container_id = config_snapshot.get("container_id")
+        run_id = dispatch_claim.run_id
+        run_id_str = dispatch_claim.run_id_str
+        session_id = dispatch_claim.session_id
+        user_id = dispatch_claim.user_id
+        prompt = dispatch_claim.prompt
+        config_snapshot = dispatch_claim.config_snapshot
+        sdk_session_id = dispatch_claim.sdk_session_id
+        permission_mode = dispatch_claim.permission_mode
+        container_mode = dispatch_claim.container_mode
+        container_id = dispatch_claim.container_id
 
         callback_base_url = (self.settings.callback_base_url or "").strip().rstrip("/")
         if not callback_base_url:
@@ -505,7 +513,7 @@ class RunDispatchService:
             await self.executor_gateway.execute_run(
                 executor_url=executor_url,
                 session_id=session_id,
-                run_id=str(run_id),
+                run_id=run_id_str,
                 prompt=prompt,
                 callback_url=callback_url,
                 callback_token=self.settings.callback_token,

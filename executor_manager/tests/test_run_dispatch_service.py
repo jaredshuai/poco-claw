@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_service import RunDispatchService
 
 
@@ -312,6 +313,28 @@ async def test_dispatch_claim_delegates_executor_call_to_injected_gateway() -> N
         sdk_session_id="sdk-123",
         permission_mode="acceptEdits",
     )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_accepts_parsed_claim_command() -> None:
+    service = _make_dispatch_service()
+    claim = RunDispatchClaim(
+        run_id="run-123",
+        session_id="sess-123",
+        user_id="user-123",
+        prompt="do work",
+        config_snapshot={},
+        sdk_session_id="sdk-123",
+        permission_mode="acceptEdits",
+    )
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    service.executor_client.execute_task.assert_awaited_once()
+    call_kwargs = service.executor_client.execute_task.call_args.kwargs
+    assert call_kwargs["run_id"] == "run-123"
+    assert call_kwargs["sdk_session_id"] == "sdk-123"
+    assert call_kwargs["permission_mode"] == "acceptEdits"
 
 
 def test_create_default_accepts_adapter_factories() -> None:

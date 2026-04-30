@@ -1,5 +1,7 @@
 from typing import Any, Protocol
 
+from app.services.run_dispatch_claim import RunDispatchClaim
+
 
 class RunPullQueueGateway(Protocol):
     async def claim_run(
@@ -8,7 +10,7 @@ class RunPullQueueGateway(Protocol):
         worker_id: str,
         lease_seconds: int,
         schedule_modes: list[str] | None,
-    ) -> dict[str, Any] | None: ...
+    ) -> RunDispatchClaim | None: ...
 
 
 class BackendRunPullQueueGateway:
@@ -21,9 +23,12 @@ class BackendRunPullQueueGateway:
         worker_id: str,
         lease_seconds: int,
         schedule_modes: list[str] | None,
-    ) -> dict[str, Any] | None:
-        return await self.backend_client.claim_run(
+    ) -> RunDispatchClaim | None:
+        payload = await self.backend_client.claim_run(
             worker_id=worker_id,
             lease_seconds=lease_seconds,
             schedule_modes=schedule_modes,
         )
+        if not payload:
+            return None
+        return RunDispatchClaim.from_payload(payload)

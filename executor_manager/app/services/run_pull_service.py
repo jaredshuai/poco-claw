@@ -4,6 +4,7 @@ import os
 import socket
 import time
 from collections.abc import Callable
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -344,8 +345,12 @@ class RunPullService:
         await asyncio.gather(*tasks, return_exceptions=True)
         self._tasks.clear()
 
-    async def _handle_claim(self, claim: dict[str, Any]) -> None:
-        dispatch_claim = RunDispatchClaim.from_payload(claim)
+    async def _handle_claim(self, claim: RunDispatchClaim | Mapping[str, Any]) -> None:
+        dispatch_claim = (
+            claim
+            if isinstance(claim, RunDispatchClaim)
+            else RunDispatchClaim.from_payload(claim)
+        )
         if dispatch_claim is None:
             logger.error(f"Invalid claim payload: {claim}")
             return

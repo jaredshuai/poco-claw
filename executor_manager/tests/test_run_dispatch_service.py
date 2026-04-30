@@ -124,7 +124,7 @@ def test_create_default_accepts_adapter_factories() -> None:
             settings=settings,
             backend_client_factory=lambda: backend_client,
             executor_client_factory=lambda: executor_client,
-            config_resolver_factory=lambda backend: config_resolver,
+            config_resolver_factory=lambda backend, settings: config_resolver,
             skill_stager_factory=lambda: skill_stager,
             plugin_stager_factory=lambda: plugin_stager,
             attachment_stager_factory=lambda: attachment_stager,
@@ -143,6 +143,42 @@ def test_create_default_accepts_adapter_factories() -> None:
     assert service.claude_md_stager is claude_md_stager
     assert service.slash_command_stager is slash_command_stager
     assert service.subagent_stager is subagent_stager
+
+
+def test_create_default_passes_settings_to_default_config_resolver() -> None:
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    backend_client = MagicMock()
+    executor_client = MagicMock()
+    config_resolver = MagicMock()
+    skill_stager = MagicMock()
+    plugin_stager = MagicMock()
+    attachment_stager = MagicMock()
+    claude_md_stager = MagicMock()
+    slash_command_stager = MagicMock()
+    subagent_stager = MagicMock()
+
+    with patch(
+        "app.services.run_dispatch_service.ConfigResolver",
+        return_value=config_resolver,
+    ) as config_resolver_cls:
+        service = RunDispatchService.create_default(
+            settings=settings,
+            backend_client=backend_client,
+            executor_client=executor_client,
+            skill_stager=skill_stager,
+            plugin_stager=plugin_stager,
+            attachment_stager=attachment_stager,
+            claude_md_stager=claude_md_stager,
+            slash_command_stager=slash_command_stager,
+            subagent_stager=subagent_stager,
+        )
+
+    config_resolver_cls.assert_called_once_with(backend_client, settings=settings)
+    assert service.config_resolver is config_resolver
 
 
 @pytest.mark.asyncio

@@ -26,8 +26,10 @@ def build_run_dispatch_executor_client() -> ExecutorClient:
     return ExecutorClient()
 
 
-def build_run_dispatch_config_resolver(backend_client: Any) -> ConfigResolver:
-    return ConfigResolver(backend_client)
+def build_run_dispatch_config_resolver(
+    backend_client: Any, settings: Any
+) -> ConfigResolver:
+    return ConfigResolver(backend_client, settings=settings)
 
 
 def build_run_dispatch_skill_stager() -> SkillStager:
@@ -118,7 +120,7 @@ class RunDispatchService:
         subagent_stager: Any | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
-        config_resolver_factory: Callable[[Any], Any] | None = None,
+        config_resolver_factory: Callable[[Any, Any], Any] | None = None,
         skill_stager_factory: Callable[[], Any] | None = None,
         plugin_stager_factory: Callable[[], Any] | None = None,
         attachment_stager_factory: Callable[[], Any] | None = None,
@@ -148,7 +150,7 @@ class RunDispatchService:
             backend_client=backend_client,
             executor_client=executor_client or executor_factory(),
             container_pool=container_pool,
-            config_resolver=config_resolver or config_factory(backend_client),
+            config_resolver=config_resolver or config_factory(backend_client, settings),
             skill_stager=skill_stager or skill_factory(),
             plugin_stager=plugin_stager or plugin_factory(),
             attachment_stager=attachment_stager or attachment_factory(),

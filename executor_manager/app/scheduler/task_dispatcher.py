@@ -1,7 +1,6 @@
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
@@ -64,17 +63,158 @@ class TaskDispatcherRuntime:
         await TaskDispatcher.get_container_pool().cancel_task(session_id)
 
 
-@dataclass(frozen=True)
 class TaskDispatchDependencies:
-    executor_client: ExecutorClient
-    backend_client: BackendClient
-    config_resolver: ConfigResolver
-    skill_stager: SkillStager
-    plugin_stager: PluginStager
-    attachment_stager: AttachmentStager
-    slash_command_stager: SlashCommandStager
-    subagent_stager: SubAgentStager
-    runtime: TaskDispatchRuntime | None = None
+    def __init__(
+        self,
+        *,
+        settings: Any | None = None,
+        executor_client: Any | None = None,
+        backend_client: Any | None = None,
+        config_resolver: Any | None = None,
+        skill_stager: Any | None = None,
+        plugin_stager: Any | None = None,
+        attachment_stager: Any | None = None,
+        slash_command_stager: Any | None = None,
+        subagent_stager: Any | None = None,
+        runtime: TaskDispatchRuntime | None = None,
+        executor_client_factory: Callable[[], Any] | None = None,
+        backend_client_factory: Callable[[], Any] | None = None,
+        config_resolver_factory: Callable[[Any, Any | None], Any] | None = None,
+        skill_stager_factory: Callable[[], Any] | None = None,
+        plugin_stager_factory: Callable[[], Any] | None = None,
+        attachment_stager_factory: Callable[[], Any] | None = None,
+        slash_command_stager_factory: Callable[[], Any] | None = None,
+        subagent_stager_factory: Callable[[], Any] | None = None,
+        runtime_factory: Callable[[], Any] | None = None,
+    ) -> None:
+        self._settings = settings
+        self._executor_client = executor_client
+        self._executor_client_factory = (
+            executor_client_factory or build_task_dispatch_executor_client
+        )
+        self._backend_client = backend_client
+        self._backend_client_factory = (
+            backend_client_factory or build_task_dispatch_backend_client
+        )
+        self._config_resolver = config_resolver
+        self._config_resolver_factory = (
+            config_resolver_factory or build_task_dispatch_config_resolver
+        )
+        self._skill_stager = skill_stager
+        self._skill_stager_factory = (
+            skill_stager_factory or build_task_dispatch_skill_stager
+        )
+        self._plugin_stager = plugin_stager
+        self._plugin_stager_factory = (
+            plugin_stager_factory or build_task_dispatch_plugin_stager
+        )
+        self._attachment_stager = attachment_stager
+        self._attachment_stager_factory = (
+            attachment_stager_factory or build_task_dispatch_attachment_stager
+        )
+        self._slash_command_stager = slash_command_stager
+        self._slash_command_stager_factory = (
+            slash_command_stager_factory or build_task_dispatch_slash_command_stager
+        )
+        self._subagent_stager = subagent_stager
+        self._subagent_stager_factory = (
+            subagent_stager_factory or build_task_dispatch_subagent_stager
+        )
+        self._runtime = runtime
+        self._runtime_factory = runtime_factory or build_task_dispatch_runtime
+
+    @property
+    def executor_client(self) -> Any:
+        if self._executor_client is None:
+            self._executor_client = self._executor_client_factory()
+        return self._executor_client
+
+    @executor_client.setter
+    def executor_client(self, value: Any) -> None:
+        self._executor_client = value
+
+    @property
+    def backend_client(self) -> Any:
+        if self._backend_client is None:
+            self._backend_client = self._backend_client_factory()
+        return self._backend_client
+
+    @backend_client.setter
+    def backend_client(self, value: Any) -> None:
+        self._backend_client = value
+
+    @property
+    def config_resolver(self) -> Any:
+        if self._config_resolver is None:
+            self._config_resolver = self._config_resolver_factory(
+                self.backend_client,
+                self._settings,
+            )
+        return self._config_resolver
+
+    @config_resolver.setter
+    def config_resolver(self, value: Any) -> None:
+        self._config_resolver = value
+
+    @property
+    def skill_stager(self) -> Any:
+        if self._skill_stager is None:
+            self._skill_stager = self._skill_stager_factory()
+        return self._skill_stager
+
+    @skill_stager.setter
+    def skill_stager(self, value: Any) -> None:
+        self._skill_stager = value
+
+    @property
+    def plugin_stager(self) -> Any:
+        if self._plugin_stager is None:
+            self._plugin_stager = self._plugin_stager_factory()
+        return self._plugin_stager
+
+    @plugin_stager.setter
+    def plugin_stager(self, value: Any) -> None:
+        self._plugin_stager = value
+
+    @property
+    def attachment_stager(self) -> Any:
+        if self._attachment_stager is None:
+            self._attachment_stager = self._attachment_stager_factory()
+        return self._attachment_stager
+
+    @attachment_stager.setter
+    def attachment_stager(self, value: Any) -> None:
+        self._attachment_stager = value
+
+    @property
+    def slash_command_stager(self) -> Any:
+        if self._slash_command_stager is None:
+            self._slash_command_stager = self._slash_command_stager_factory()
+        return self._slash_command_stager
+
+    @slash_command_stager.setter
+    def slash_command_stager(self, value: Any) -> None:
+        self._slash_command_stager = value
+
+    @property
+    def subagent_stager(self) -> Any:
+        if self._subagent_stager is None:
+            self._subagent_stager = self._subagent_stager_factory()
+        return self._subagent_stager
+
+    @subagent_stager.setter
+    def subagent_stager(self, value: Any) -> None:
+        self._subagent_stager = value
+
+    @property
+    def runtime(self) -> TaskDispatchRuntime:
+        if self._runtime is None:
+            self._runtime = self._runtime_factory()
+        return self._runtime
+
+    @runtime.setter
+    def runtime(self, value: TaskDispatchRuntime) -> None:
+        self._runtime = value
 
 
 def build_task_dispatch_backend_client() -> BackendClient:
@@ -146,17 +286,17 @@ def build_task_dispatch_dependencies(
     )
     subagent_factory = subagent_stager_factory or build_task_dispatch_subagent_stager
     runtime_factory = runtime_factory or build_task_dispatch_runtime
-    backend_client = backend_factory()
     return TaskDispatchDependencies(
-        executor_client=executor_factory(),
-        backend_client=backend_client,
-        config_resolver=config_factory(backend_client, settings),
-        skill_stager=skill_factory(),
-        plugin_stager=plugin_factory(),
-        attachment_stager=attachment_factory(),
-        slash_command_stager=slash_command_factory(),
-        subagent_stager=subagent_factory(),
-        runtime=runtime_factory(),
+        settings=settings,
+        executor_client_factory=executor_factory,
+        backend_client_factory=backend_factory,
+        config_resolver_factory=config_factory,
+        skill_stager_factory=skill_factory,
+        plugin_stager_factory=plugin_factory,
+        attachment_stager_factory=attachment_factory,
+        slash_command_stager_factory=slash_command_factory,
+        subagent_stager_factory=subagent_factory,
+        runtime_factory=runtime_factory,
     )
 
 
@@ -248,7 +388,7 @@ class TaskDispatcher:
         attachment_stager = dispatch_dependencies.attachment_stager
         slash_command_stager = dispatch_dependencies.slash_command_stager
         subagent_stager = dispatch_dependencies.subagent_stager
-        runtime = dispatch_dependencies.runtime or TaskDispatcherRuntime()
+        runtime = dispatch_dependencies.runtime
 
         user_id = config.get("user_id", "")
         container_mode = config.get("container_mode", "ephemeral")

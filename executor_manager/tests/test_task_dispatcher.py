@@ -143,6 +143,52 @@ def test_build_task_dispatch_dependencies_accepts_adapter_factories() -> None:
     assert dependencies.subagent_stager is subagent_stager
 
 
+def test_build_task_dispatch_dependencies_defers_default_adapter_construction() -> None:
+    settings = MagicMock()
+
+    with (
+        patch(
+            "app.scheduler.task_dispatcher.ExecutorClient",
+            side_effect=AssertionError("executor client should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.BackendClient",
+            side_effect=AssertionError("backend client should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.ConfigResolver",
+            side_effect=AssertionError("config resolver should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.SkillStager",
+            side_effect=AssertionError("skill stager should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.PluginStager",
+            side_effect=AssertionError("plugin stager should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.AttachmentStager",
+            side_effect=AssertionError("attachment stager should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.SlashCommandStager",
+            side_effect=AssertionError("slash command stager should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.SubAgentStager",
+            side_effect=AssertionError("subagent stager should be lazy"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.TaskDispatcherRuntime",
+            side_effect=AssertionError("dispatch runtime should be lazy"),
+        ),
+    ):
+        dependencies = build_task_dispatch_dependencies(settings=settings)
+
+    assert dependencies is not None
+
+
 def test_build_task_dispatch_dependencies_passes_settings_to_default_config_resolver() -> (
     None
 ):
@@ -173,8 +219,11 @@ def test_build_task_dispatch_dependencies_passes_settings_to_default_config_reso
             runtime_factory=lambda: runtime,
         )
 
+        config_resolver_cls.assert_not_called()
+        resolved = dependencies.config_resolver
+
     config_resolver_cls.assert_called_once_with(backend_client, settings=settings)
-    assert dependencies.config_resolver is config_resolver
+    assert resolved is config_resolver
 
 
 class TestTaskDispatcherGetContainerPool(unittest.TestCase):

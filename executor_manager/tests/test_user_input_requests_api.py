@@ -41,6 +41,45 @@ def test_user_input_requests_module_import_does_not_initialize_backend_client() 
     assert module.create_user_input_request is not None
 
 
+def test_user_input_requests_routes_use_backend_dependency_override() -> None:
+    from app.api.v1 import user_input_requests
+    from app.main import app
+
+    if hasattr(user_input_requests, "backend_client"):
+        user_input_requests.backend_client = None
+
+    mock_client = MagicMock()
+    mock_client.get_user_input_request = AsyncMock(
+        return_value={"request_id": "req-123", "status": "completed"}
+    )
+
+    app.dependency_overrides[user_input_requests.get_backend_client] = lambda: (
+        mock_client
+    )
+    try:
+        with (
+            patch(
+                "app.api.v1.user_input_requests.BackendClient",
+                side_effect=AssertionError("route should use dependency override"),
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get(
+                "/api/v1/user-input-requests/req-123",
+                headers={"Authorization": "Bearer callback-token"},
+            )
+    finally:
+        app.dependency_overrides.pop(user_input_requests.get_backend_client, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["request_id"] == "req-123"
+    mock_client.get_user_input_request.assert_awaited_once_with("req-123")
+
+
 class TestUserInputRequestsEndpoints(unittest.TestCase):
     """Test /api/v1/user-input-requests endpoints."""
 

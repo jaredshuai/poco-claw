@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.scheduler.task_dispatcher import TaskDispatcher
@@ -14,6 +14,10 @@ from app.services.plugin_stager import PluginStager
 from app.services.run_dispatch_config_preparer import (
     RunDispatchConfigPreparer,
     StagingRunDispatchConfigPreparer,
+)
+from app.services.run_dispatch_runtime import (
+    ContainerPoolRunDispatchRuntime,
+    RunDispatchRuntime,
 )
 from app.services.skill_stager import SkillStager
 from app.services.slash_command_stager import SlashCommandStager
@@ -62,45 +66,6 @@ def build_run_dispatch_subagent_stager() -> SubAgentStager:
 
 def build_run_dispatch_container_pool() -> Any:
     return TaskDispatcher.get_container_pool()
-
-
-class RunDispatchRuntime(Protocol):
-    async def allocate_runtime(
-        self,
-        *,
-        session_id: str,
-        user_id: str,
-        browser_enabled: bool,
-        container_mode: str,
-        container_id: str | None,
-    ) -> tuple[str, str | None]: ...
-
-    async def cancel_runtime(self, session_id: str) -> None: ...
-
-
-class ContainerPoolRunDispatchRuntime:
-    def __init__(self, container_pool: Any) -> None:
-        self.container_pool = container_pool
-
-    async def allocate_runtime(
-        self,
-        *,
-        session_id: str,
-        user_id: str,
-        browser_enabled: bool,
-        container_mode: str,
-        container_id: str | None,
-    ) -> tuple[str, str | None]:
-        return await self.container_pool.get_or_create_container(
-            session_id=session_id,
-            user_id=user_id,
-            browser_enabled=browser_enabled,
-            container_mode=container_mode,
-            container_id=container_id,
-        )
-
-    async def cancel_runtime(self, session_id: str) -> None:
-        await self.container_pool.cancel_task(session_id)
 
 
 class RunDispatchService:

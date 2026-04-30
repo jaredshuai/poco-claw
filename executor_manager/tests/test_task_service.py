@@ -49,6 +49,18 @@ class TestTaskServiceInit(unittest.TestCase):
 
         assert service.settings is settings
 
+    def test_init_defers_default_target_resolver_construction(self) -> None:
+        """Test init does not eagerly bind the task dispatcher adapter."""
+        settings = SimpleNamespace()
+
+        with patch(
+            "app.services.task_service.TaskDispatcherTargetResolver",
+            side_effect=AssertionError("target resolver should be lazy"),
+        ):
+            service = TaskService(settings=settings)
+
+        assert service.settings is settings
+
 
 class TestTaskServiceCreateTask(unittest.TestCase):
     """Test TaskService.create_task."""

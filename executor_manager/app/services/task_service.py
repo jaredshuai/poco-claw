@@ -84,6 +84,10 @@ class TaskDispatcherTargetResolver:
         )
 
 
+def build_task_target_resolver() -> TaskTargetResolver:
+    return TaskDispatcherTargetResolver()
+
+
 class TaskService:
     """Service layer for task operations."""
 
@@ -94,13 +98,27 @@ class TaskService:
         backend_client_factory: Callable[[], TaskBackendClient] | None = None,
         task_scheduler_factory: Callable[[], TaskScheduler] | None = None,
         target_resolver: TaskTargetResolver | None = None,
+        target_resolver_factory: Callable[[], TaskTargetResolver] | None = None,
         settings: Settings | None = None,
     ) -> None:
         self.settings = settings if settings is not None else get_settings()
         self.id_generator = id_generator or UuidIdGenerator()
         self.backend_client_factory = backend_client_factory or build_backend_client
         self.task_scheduler_factory = task_scheduler_factory or build_task_scheduler
-        self.target_resolver = target_resolver or TaskDispatcherTargetResolver()
+        self._target_resolver = target_resolver
+        self._target_resolver_factory = (
+            target_resolver_factory or build_task_target_resolver
+        )
+
+    @property
+    def target_resolver(self) -> TaskTargetResolver:
+        if self._target_resolver is None:
+            self._target_resolver = self._target_resolver_factory()
+        return self._target_resolver
+
+    @target_resolver.setter
+    def target_resolver(self, value: TaskTargetResolver) -> None:
+        self._target_resolver = value
 
     async def create_task(
         self,

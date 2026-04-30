@@ -1,3 +1,5 @@
+from typing import Protocol
+
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.core.deps import require_callback_token
@@ -7,10 +9,22 @@ from app.services.computer_service import ComputerService
 
 router = APIRouter(prefix="/computer", tags=["computer"])
 
-computer_service: ComputerService | None = None
+
+class ComputerApiService(Protocol):
+    def upload_browser_screenshot(
+        self,
+        *,
+        session_id: str,
+        tool_use_id: str,
+        content_type: str,
+        data: bytes,
+    ) -> ComputerScreenshotUploadResponse: ...
 
 
-def get_computer_service() -> ComputerService:
+computer_service: ComputerApiService | None = None
+
+
+def get_computer_service() -> ComputerApiService:
     global computer_service
     if computer_service is None:
         computer_service = ComputerService()
@@ -26,10 +40,10 @@ async def upload_browser_screenshot(
     tool_use_id: str = Form(...),
     file: UploadFile = File(...),
     _: None = Depends(require_callback_token),
+    service: ComputerApiService = Depends(get_computer_service),
 ):
     """Upload a browser screenshot produced by the executor."""
     raw = await file.read()
-    service = get_computer_service()
     payload = service.upload_browser_screenshot(
         session_id=session_id,
         tool_use_id=tool_use_id,

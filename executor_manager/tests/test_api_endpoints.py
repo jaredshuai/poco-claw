@@ -112,6 +112,56 @@ def test_computer_module_import_does_not_initialize_service() -> None:
     assert module.upload_browser_screenshot is not None
 
 
+def test_computer_route_uses_service_dependency_override() -> None:
+    from app.api.v1 import computer
+    from app.main import app
+
+    computer.computer_service = None
+
+    mock_result = MagicMock()
+    mock_result.model_dump.return_value = {
+        "session_id": "sess-123",
+        "tool_use_id": "tool-456",
+        "key": "replays/user/sess-123/browser/tool-456.png",
+        "content_type": "image/png",
+        "size_bytes": 100,
+    }
+    mock_service = MagicMock()
+    mock_service.upload_browser_screenshot.return_value = mock_result
+
+    app.dependency_overrides[computer.get_computer_service] = lambda: mock_service
+    try:
+        with (
+            patch(
+                "app.api.v1.computer.ComputerService",
+                side_effect=AssertionError("route should use service override"),
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/computer/screenshots",
+                data={"session_id": "sess-123", "tool_use_id": "tool-456"},
+                files={
+                    "file": (
+                        "screenshot.png",
+                        io.BytesIO(b"\x89PNG\r\n\x1a\n"),
+                        "image/png",
+                    )
+                },
+                headers={"Authorization": "Bearer callback-token"},
+            )
+    finally:
+        app.dependency_overrides.pop(computer.get_computer_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["session_id"] == "sess-123"
+    mock_service.upload_browser_screenshot.assert_called_once()
+
+
 class TestCallbackEndpoint(unittest.TestCase):
     """Test /api/v1/callback endpoint."""
 

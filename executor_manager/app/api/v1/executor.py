@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from typing import Any, Protocol
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.schemas.response import Response, ResponseSchema
@@ -12,8 +14,23 @@ from app.scheduler.task_dispatcher import TaskDispatcher
 router = APIRouter(prefix="/executor", tags=["executor"])
 
 
+class ExecutorContainerPool(Protocol):
+    async def cancel_task(self, session_id: str) -> None: ...
+
+    async def delete_container(self, container_id: str) -> None: ...
+
+    def get_container_stats(self) -> Any: ...
+
+
+def get_container_pool() -> ExecutorContainerPool:
+    return TaskDispatcher.get_container_pool()
+
+
 @router.post("/cancel", response_model=ResponseSchema[dict])
-async def cancel_task(request: TaskCancelRequest) -> JSONResponse:
+async def cancel_task(
+    request: TaskCancelRequest,
+    container_pool: ExecutorContainerPool = Depends(get_container_pool),
+) -> JSONResponse:
     """Cancel running task and delete container.
 
     Args:
@@ -22,7 +39,6 @@ async def cancel_task(request: TaskCancelRequest) -> JSONResponse:
     Returns:
         Success response with session_id and status
     """
-    container_pool = TaskDispatcher.get_container_pool()
     await container_pool.cancel_task(request.session_id)
 
     return Response.success(
@@ -32,7 +48,10 @@ async def cancel_task(request: TaskCancelRequest) -> JSONResponse:
 
 
 @router.post("/delete", response_model=ResponseSchema[dict])
-async def delete_container(request: ContainerDeleteRequest) -> JSONResponse:
+async def delete_container(
+    request: ContainerDeleteRequest,
+    container_pool: ExecutorContainerPool = Depends(get_container_pool),
+) -> JSONResponse:
     """Delete persistent container explicitly.
 
     Args:
@@ -41,7 +60,6 @@ async def delete_container(request: ContainerDeleteRequest) -> JSONResponse:
     Returns:
         Success response with container_id and status
     """
-    container_pool = TaskDispatcher.get_container_pool()
     await container_pool.delete_container(request.container_id)
 
     return Response.success(
@@ -51,13 +69,14 @@ async def delete_container(request: ContainerDeleteRequest) -> JSONResponse:
 
 
 @router.get("/load", response_model=ResponseSchema[ContainerStatsResponse])
-async def get_executor_load() -> JSONResponse:
+async def get_executor_load(
+    container_pool: ExecutorContainerPool = Depends(get_container_pool),
+) -> JSONResponse:
     """Get executor container load statistics.
 
     Returns:
         Container statistics response
     """
-    container_pool = TaskDispatcher.get_container_pool()
     stats = container_pool.get_container_stats()
 
     return Response.success(data=stats)

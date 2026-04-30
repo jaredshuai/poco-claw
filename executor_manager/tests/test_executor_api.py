@@ -6,6 +6,33 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
 
+def test_executor_routes_use_container_pool_dependency_override() -> None:
+    from app.api.v1 import executor
+    from app.main import app
+
+    mock_pool = MagicMock()
+    mock_pool.get_container_stats.return_value = {
+        "total_containers": 1,
+        "active_containers": 1,
+        "idle_containers": 0,
+    }
+
+    app.dependency_overrides[executor.get_container_pool] = lambda: mock_pool
+    try:
+        with patch(
+            "app.api.v1.executor.TaskDispatcher.get_container_pool",
+            side_effect=AssertionError("route should use pool override"),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/v1/executor/load")
+    finally:
+        app.dependency_overrides.pop(executor.get_container_pool, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["total_containers"] == 1
+    mock_pool.get_container_stats.assert_called_once_with()
+
+
 class TestExecutorEndpoints(unittest.TestCase):
     """Test /api/v1/executor endpoints."""
 

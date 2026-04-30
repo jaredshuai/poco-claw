@@ -32,10 +32,16 @@ class ScheduledTaskDispatchService:
         settings: ScheduledTaskSettings | None = None,
     ) -> None:
         self.settings = settings if settings is not None else get_settings()
-        factory = backend_client_factory or build_scheduled_task_backend_client
-        self.backend_client = (
-            backend_client if backend_client is not None else factory()
+        self._backend_client = backend_client
+        self._backend_client_factory = (
+            backend_client_factory or build_scheduled_task_backend_client
         )
+
+    @property
+    def backend_client(self) -> ScheduledTaskBackendClient:
+        if self._backend_client is None:
+            self._backend_client = self._backend_client_factory()
+        return self._backend_client
 
     async def dispatch_due(self) -> None:
         started = time.perf_counter()

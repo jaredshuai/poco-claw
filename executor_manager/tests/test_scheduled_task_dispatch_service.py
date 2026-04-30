@@ -11,10 +11,32 @@ class TestScheduledTaskDispatchServiceInit(unittest.TestCase):
     """Test ScheduledTaskDispatchService.__init__."""
 
     def test_init_with_defaults(self) -> None:
-        """Test init creates BackendClient by default."""
+        """Test init defers BackendClient construction by default."""
         with (
             patch(
-                "app.services.scheduled_task_dispatch_service.BackendClient"
+                "app.services.scheduled_task_dispatch_service.BackendClient",
+                side_effect=AssertionError("backend client should be lazy"),
+            ),
+            patch(
+                "app.services.scheduled_task_dispatch_service.get_settings"
+            ) as mock_get_settings,
+        ):
+            mock_settings = MagicMock()
+            mock_settings.scheduled_tasks_dispatch_batch_size = 50
+            mock_get_settings.return_value = mock_settings
+
+            service = ScheduledTaskDispatchService()
+
+            assert service.settings is mock_settings
+
+    def test_backend_client_property_constructs_default_once(self) -> None:
+        """Test default BackendClient construction is lazy and cached."""
+        mock_backend = MagicMock()
+
+        with (
+            patch(
+                "app.services.scheduled_task_dispatch_service.BackendClient",
+                return_value=mock_backend,
             ) as mock_backend_cls,
             patch(
                 "app.services.scheduled_task_dispatch_service.get_settings"
@@ -23,12 +45,13 @@ class TestScheduledTaskDispatchServiceInit(unittest.TestCase):
             mock_settings = MagicMock()
             mock_settings.scheduled_tasks_dispatch_batch_size = 50
             mock_get_settings.return_value = mock_settings
-            mock_backend_cls.return_value = MagicMock()
 
             service = ScheduledTaskDispatchService()
+            mock_backend_cls.assert_not_called()
 
+            assert service.backend_client is mock_backend
+            assert service.backend_client is mock_backend
             mock_backend_cls.assert_called_once()
-            assert service.settings is mock_settings
 
     def test_init_with_dependencies(self) -> None:
         """Test init with injected dependencies."""

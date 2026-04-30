@@ -26,6 +26,20 @@ class TestClaudeMdStagerInit(unittest.TestCase):
 
         assert stager.workspace_manager is mock_workspace
 
+    def test_init_uses_injected_workspace_manager_factory_without_default_constructor(
+        self,
+    ) -> None:
+        mock_workspace = MagicMock()
+        with patch(
+            "app.services.claude_md_stager.WorkspaceManager",
+            side_effect=AssertionError("workspace manager should be injected"),
+        ):
+            stager = ClaudeMdStager(
+                workspace_manager_factory=lambda: mock_workspace,
+            )
+
+        assert stager.workspace_manager is mock_workspace
+
 
 class TestClaudeMdStagerStage(unittest.TestCase):
     """Test ClaudeMdStager.stage."""

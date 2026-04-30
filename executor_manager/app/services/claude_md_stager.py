@@ -1,14 +1,27 @@
 import logging
 import time
+from collections.abc import Callable
 
 from app.services.workspace_manager import WorkspaceManager
 
 logger = logging.getLogger(__name__)
 
 
+def build_claude_md_workspace_manager() -> WorkspaceManager:
+    return WorkspaceManager()
+
+
 class ClaudeMdStager:
-    def __init__(self, workspace_manager: WorkspaceManager | None = None) -> None:
-        self.workspace_manager = workspace_manager or WorkspaceManager()
+    def __init__(
+        self,
+        workspace_manager: WorkspaceManager | None = None,
+        *,
+        workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
+    ) -> None:
+        factory = workspace_manager_factory or build_claude_md_workspace_manager
+        self.workspace_manager = (
+            workspace_manager if workspace_manager is not None else factory()
+        )
 
     def stage(
         self,

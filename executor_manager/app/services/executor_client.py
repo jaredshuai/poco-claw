@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+from collections.abc import Callable
 
 import httpx
 
@@ -17,12 +18,22 @@ TASK_LEASE_EXPIRES_AT_HEADER = "X-Poco-Task-Lease-Expires-At"
 TASK_LEASE_SIGNATURE_HEADER = "X-Poco-Task-Lease-Signature"
 
 
+def build_executor_task_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient()
+
+
 class ExecutorClient:
     """Client for calling the Executor service."""
 
-    def __init__(self, *, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Clock | None = None,
+        task_client_factory: Callable[[], httpx.AsyncClient] | None = None,
+    ) -> None:
         self.settings = get_settings()
         self.clock = clock or SystemClock()
+        self.task_client_factory = task_client_factory or build_executor_task_client
 
     @staticmethod
     def _trace_headers() -> dict[str, str]:
@@ -98,7 +109,7 @@ class ExecutorClient:
             sdk_session_id: Claude SDK session ID for resuming conversations
         """
         resolved_task_lease_secret = (task_lease_secret or callback_token).strip()
-        async with httpx.AsyncClient() as client:
+        async with self.task_client_factory() as client:
             response = await client.post(
                 f"{executor_url}/v1/tasks/execute",
                 json={

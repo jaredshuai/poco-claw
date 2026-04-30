@@ -90,6 +90,35 @@ class TestExecutorClientExecuteTask:
                 assert "X-Poco-Task-Lease-Expires-At" in headers
                 assert "X-Poco-Task-Lease-Signature" in headers
 
+    async def test_execute_task_uses_injected_http_client_factory(self) -> None:
+        with patch("app.services.executor_client.get_settings"):
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"session_id": "session-123"}
+            mock_response.raise_for_status = MagicMock()
+            task_client = AsyncMock()
+            task_client.__aenter__.return_value = task_client
+            task_client.post = AsyncMock(return_value=mock_response)
+            task_client_factory = MagicMock(return_value=task_client)
+            client = ExecutorClient(task_client_factory=task_client_factory)
+
+            with patch(
+                "app.services.executor_client.httpx.AsyncClient",
+                side_effect=AssertionError("task client should be injected"),
+            ):
+                result = await client.execute_task(
+                    executor_url="http://executor:8080",
+                    session_id="session-123",
+                    run_id="run-456",
+                    prompt="Hello",
+                    callback_url="http://callback",
+                    callback_token="token-abc",
+                    config={"model": "claude"},
+                )
+
+        assert result == "session-123"
+        task_client_factory.assert_called_once_with()
+        task_client.post.assert_awaited_once()
+
     async def test_execute_task_signs_task_lease(self) -> None:
         with patch("app.services.executor_client.get_settings"):
             clock = MagicMock()

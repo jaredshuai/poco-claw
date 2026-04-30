@@ -1,6 +1,9 @@
 import logging
 import time
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any, cast
+from typing import Protocol
 
 import docker
 import docker.errors
@@ -17,6 +20,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class ContainerHealthClient(Protocol):
+    def get(self, url: str) -> httpx.Response: ...
+
+
+def build_container_health_client() -> AbstractContextManager[ContainerHealthClient]:
+    return cast(
+        AbstractContextManager[ContainerHealthClient], httpx.Client(timeout=2.0)
+    )
+
+
 class ContainerPool:
     """Executor container pool with ephemeral and persistent modes."""
 
@@ -26,6 +39,10 @@ class ContainerPool:
         docker_client: Any | None = None,
         settings: Settings | None = None,
         workspace_manager: WorkspaceManager | None = None,
+        health_client_factory: Callable[
+            [], AbstractContextManager[ContainerHealthClient]
+        ]
+        | None = None,
     ):
         self.docker_client = (
             docker_client if docker_client is not None else docker.from_env()
@@ -33,6 +50,11 @@ class ContainerPool:
         self.settings = settings if settings is not None else get_settings()
         self.workspace_manager = (
             workspace_manager if workspace_manager is not None else WorkspaceManager()
+        )
+        self.health_client_factory = (
+            health_client_factory
+            if health_client_factory is not None
+            else build_container_health_client
         )
 
         self.containers: dict[str, "Container"] = {}
@@ -494,7 +516,7 @@ class ContainerPool:
         while time.perf_counter() - started < timeout:
             attempts += 1
             try:
-                with httpx.Client(timeout=2.0) as client:
+                with self.health_client_factory() as client:
                     response = client.get(health_url)
                     if response.status_code == 200:
                         logger.info(

@@ -1,5 +1,6 @@
 """Tests for app/api/v1 endpoints via TestClient."""
 
+from contextlib import contextmanager
 import io
 import importlib.util
 import sys
@@ -45,6 +46,17 @@ def _load_computer_module_from_source():
         sys.modules.pop(module_name, None)
 
 
+@contextmanager
+def _callback_service_override(app, mock_service):
+    from app.api.v1 import callback
+
+    app.dependency_overrides[callback.get_callback_service] = lambda: mock_service
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(callback.get_callback_service, None)
+
+
 def test_callback_module_import_does_not_initialize_service() -> None:
     with patch(
         "app.services.callback_service.CallbackService",
@@ -56,10 +68,7 @@ def test_callback_module_import_does_not_initialize_service() -> None:
 
 
 def test_callback_route_uses_service_dependency_override() -> None:
-    from app.api.v1 import callback
     from app.main import app
-
-    callback.callback_service = None
 
     mock_result = MagicMock()
     mock_result.model_dump.return_value = {
@@ -71,8 +80,7 @@ def test_callback_route_uses_service_dependency_override() -> None:
     mock_service = MagicMock()
     mock_service.process_callback = AsyncMock(return_value=mock_result)
 
-    app.dependency_overrides[callback.get_callback_service] = lambda: mock_service
-    try:
+    with _callback_service_override(app, mock_service):
         with (
             patch(
                 "app.api.v1.callback.CallbackService",
@@ -94,12 +102,16 @@ def test_callback_route_uses_service_dependency_override() -> None:
                 },
                 headers={"Authorization": "Bearer callback-token"},
             )
-    finally:
-        app.dependency_overrides.pop(callback.get_callback_service, None)
 
     assert response.status_code == 200
     assert response.json()["data"]["session_id"] == "sess-123"
     mock_service.process_callback.assert_awaited_once()
+
+
+def test_callback_service_provider_has_no_mutable_global() -> None:
+    from app.api.v1 import callback
+
+    assert not hasattr(callback, "callback_service")
 
 
 def test_computer_module_import_does_not_initialize_service() -> None:
@@ -173,15 +185,9 @@ class TestCallbackEndpoint(unittest.TestCase):
             "app.core.deps.get_settings",
             return_value=SimpleNamespace(callback_token="callback-token"),
         ):
-            with patch("app.api.v1.callback.callback_service") as mock_service:
-                mock_result = MagicMock()
-                mock_result.model_dump.return_value = {
-                    "session_id": "sess-123",
-                    "status": "received",
-                    "callback_status": "completed",
-                    "progress": 100,
-                }
-                mock_service.process_callback = AsyncMock(return_value=mock_result)
+            mock_service = MagicMock()
+            mock_service.process_callback = AsyncMock()
+            with _callback_service_override(app, mock_service):
                 client = TestClient(app)
                 response = client.post(
                     "/api/v1/callback",
@@ -204,7 +210,8 @@ class TestCallbackEndpoint(unittest.TestCase):
             "app.core.deps.get_settings",
             return_value=SimpleNamespace(callback_token="callback-token"),
         ):
-            with patch("app.api.v1.callback.callback_service") as mock_service:
+            mock_service = MagicMock()
+            with _callback_service_override(app, mock_service):
                 mock_result = MagicMock()
                 mock_result.model_dump.return_value = {
                     "session_id": "sess-123",

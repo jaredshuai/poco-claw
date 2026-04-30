@@ -1,3 +1,4 @@
+from functools import lru_cache
 import logging
 from typing import Protocol
 
@@ -20,14 +21,13 @@ class CallbackApiService(Protocol):
     ) -> CallbackReceiveResponse: ...
 
 
-callback_service: CallbackApiService | None = None
+def build_callback_service() -> CallbackApiService:
+    return CallbackService()
 
 
+@lru_cache(maxsize=1)
 def get_callback_service() -> CallbackApiService:
-    global callback_service
-    if callback_service is None:
-        callback_service = CallbackService()
-    return callback_service
+    return build_callback_service()
 
 
 @router.post("", response_model=ResponseSchema[CallbackReceiveResponse])

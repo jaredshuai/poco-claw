@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from app.core.errors.error_codes import ErrorCode
@@ -10,9 +11,21 @@ from app.services.workspace_manager import WorkspaceManager
 logger = logging.getLogger(__name__)
 
 
+def build_sub_agent_workspace_manager() -> WorkspaceManager:
+    return WorkspaceManager()
+
+
 class SubAgentStager:
-    def __init__(self, workspace_manager: WorkspaceManager | None = None) -> None:
-        self.workspace_manager = workspace_manager or WorkspaceManager()
+    def __init__(
+        self,
+        workspace_manager: WorkspaceManager | None = None,
+        *,
+        workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
+    ) -> None:
+        factory = workspace_manager_factory or build_sub_agent_workspace_manager
+        self.workspace_manager = (
+            workspace_manager if workspace_manager is not None else factory()
+        )
 
     @staticmethod
     def _validate_subagent_name(name: str) -> None:

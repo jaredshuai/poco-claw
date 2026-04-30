@@ -28,6 +28,20 @@ class TestSubAgentStagerInit(unittest.TestCase):
 
         assert stager.workspace_manager is mock_workspace
 
+    def test_init_uses_injected_workspace_manager_factory_without_default_constructor(
+        self,
+    ) -> None:
+        mock_workspace = MagicMock()
+        with patch(
+            "app.services.sub_agent_stager.WorkspaceManager",
+            side_effect=AssertionError("workspace manager should be injected"),
+        ):
+            stager = SubAgentStager(
+                workspace_manager_factory=lambda: mock_workspace,
+            )
+
+        assert stager.workspace_manager is mock_workspace
+
 
 class TestSubAgentStagerValidateSubagentName(unittest.TestCase):
     """Test SubAgentStager._validate_subagent_name."""

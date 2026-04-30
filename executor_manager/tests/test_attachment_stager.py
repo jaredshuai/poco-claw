@@ -12,7 +12,7 @@ from app.services.attachment_stager import AttachmentStager
 class TestAttachmentStagerInit(unittest.TestCase):
     """Test AttachmentStager.__init__."""
 
-    def test_init_with_defaults(self) -> None:
+    def test_init_with_defaults_defers_adapter_construction(self) -> None:
         with (
             patch(
                 "app.services.attachment_stager.S3StorageService"
@@ -21,11 +21,17 @@ class TestAttachmentStagerInit(unittest.TestCase):
                 "app.services.attachment_stager.WorkspaceManager"
             ) as mock_workspace_cls,
         ):
-            mock_storage_cls.return_value = MagicMock()
-            mock_workspace_cls.return_value = MagicMock()
+            mock_storage = MagicMock()
+            mock_workspace = MagicMock()
+            mock_storage_cls.return_value = mock_storage
+            mock_workspace_cls.return_value = mock_workspace
 
-            AttachmentStager()
+            stager = AttachmentStager()
 
+            mock_storage_cls.assert_not_called()
+            mock_workspace_cls.assert_not_called()
+            assert stager.storage_service is mock_storage
+            assert stager.workspace_manager is mock_workspace
             mock_storage_cls.assert_called_once()
             mock_workspace_cls.assert_called_once()
 
@@ -318,13 +324,7 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
                 {"type": "file", "source": "s3://bucket/key"},
             ]
 
-            # Only the last item should be processed
-            with patch.object(stager, "storage_service", mock_storage):
-                stager.stage_inputs("user-123", "session-456", inputs)
-
-                # Should only process the dict item
-                # Since it has no valid s3_key (source is not s3_key), it won't be staged
-                # Let's fix the test input
+            stager.stage_inputs("user-123", "session-456", inputs)
 
     def test_skips_items_missing_type_and_kind(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -3,7 +3,7 @@ import time
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from app.core.settings import get_settings, resolve_executor_task_lease_secret
+from app.core.settings import get_settings
 from app.core.observability.request_context import (
     generate_request_id,
     generate_trace_id,
@@ -21,6 +21,10 @@ from app.services.config_resolver import ConfigResolver
 from app.services.skill_stager import SkillStager
 from app.services.plugin_stager import PluginStager
 from app.services.attachment_stager import AttachmentStager
+from app.services.run_dispatch_execution_context import (
+    RunDispatchExecutionContextProvider,
+    SettingsRunDispatchExecutionContextProvider,
+)
 from app.services.slash_command_stager import SlashCommandStager
 from app.services.sub_agent_stager import SubAgentStager
 
@@ -77,6 +81,7 @@ class TaskDispatchDependencies:
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
         runtime: TaskDispatchRuntime | None = None,
+        execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any | None], Any] | None = None,
@@ -86,6 +91,10 @@ class TaskDispatchDependencies:
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], Any] | None = None,
+        execution_context_provider_factory: Callable[
+            [], RunDispatchExecutionContextProvider
+        ]
+        | None = None,
     ) -> None:
         self._settings = settings
         self._executor_client = executor_client
@@ -122,6 +131,8 @@ class TaskDispatchDependencies:
         )
         self._runtime = runtime
         self._runtime_factory = runtime_factory or build_task_dispatch_runtime
+        self._execution_context_provider = execution_context_provider
+        self._execution_context_provider_factory = execution_context_provider_factory
 
     @property
     def executor_client(self) -> Any:
@@ -216,6 +227,32 @@ class TaskDispatchDependencies:
     def runtime(self, value: TaskDispatchRuntime) -> None:
         self._runtime = value
 
+    def bind_settings_if_unset(self, settings: Any) -> None:
+        if self._settings is None:
+            self._settings = settings
+
+    @property
+    def execution_context_provider(self) -> RunDispatchExecutionContextProvider:
+        if (
+            self._execution_context_provider is None
+            and self._execution_context_provider_factory is not None
+        ):
+            self._execution_context_provider = (
+                self._execution_context_provider_factory()
+            )
+        if self._execution_context_provider is None:
+            self._execution_context_provider = (
+                SettingsRunDispatchExecutionContextProvider(self._settings)
+            )
+        return self._execution_context_provider
+
+    @execution_context_provider.setter
+    def execution_context_provider(
+        self,
+        value: RunDispatchExecutionContextProvider,
+    ) -> None:
+        self._execution_context_provider = value
+
 
 def build_task_dispatch_backend_client() -> BackendClient:
     return BackendClient()
@@ -272,6 +309,10 @@ def build_task_dispatch_dependencies(
     slash_command_stager_factory: Callable[[], Any] | None = None,
     subagent_stager_factory: Callable[[], Any] | None = None,
     runtime_factory: Callable[[], Any] | None = None,
+    execution_context_provider_factory: Callable[
+        [], RunDispatchExecutionContextProvider
+    ]
+    | None = None,
 ) -> TaskDispatchDependencies:
     backend_factory = backend_client_factory or build_task_dispatch_backend_client
     executor_factory = executor_client_factory or build_task_dispatch_executor_client
@@ -297,6 +338,7 @@ def build_task_dispatch_dependencies(
         slash_command_stager_factory=slash_command_factory,
         subagent_stager_factory=subagent_factory,
         runtime_factory=runtime_factory,
+        execution_context_provider_factory=execution_context_provider_factory,
     )
 
 
@@ -380,6 +422,7 @@ class TaskDispatcher:
         dispatch_dependencies = dependencies or build_task_dispatch_dependencies(
             settings=settings
         )
+        dispatch_dependencies.bind_settings_if_unset(settings)
         executor_client = dispatch_dependencies.executor_client
         backend_client = dispatch_dependencies.backend_client
         config_resolver = dispatch_dependencies.config_resolver
@@ -389,17 +432,13 @@ class TaskDispatcher:
         slash_command_stager = dispatch_dependencies.slash_command_stager
         subagent_stager = dispatch_dependencies.subagent_stager
         runtime = dispatch_dependencies.runtime
+        execution_context = (
+            dispatch_dependencies.execution_context_provider.get_context()
+        )
 
         user_id = config.get("user_id", "")
         container_mode = config.get("container_mode", "ephemeral")
         container_id = config.get("container_id")
-
-        callback_base_url = (settings.callback_base_url or "").strip().rstrip("/")
-        if not callback_base_url:
-            raise ValueError("callback_base_url cannot be empty")
-        callback_url = f"{callback_base_url}/api/v1/callback"
-        callback_token = settings.callback_token
-        task_lease_secret = resolve_executor_task_lease_secret(settings)
 
         executor_url = None
         request_id_token = set_request_id(
@@ -590,11 +629,11 @@ class TaskDispatcher:
                 session_id=session_id,
                 run_id=None,
                 prompt=prompt,
-                callback_url=callback_url,
-                callback_token=callback_token,
-                task_lease_secret=task_lease_secret,
+                callback_url=execution_context.callback_url,
+                callback_token=execution_context.callback_token,
+                task_lease_secret=execution_context.task_lease_secret,
                 config=resolved_config,
-                callback_base_url=callback_base_url,
+                callback_base_url=execution_context.callback_base_url,
                 sdk_session_id=sdk_session_id,
             )
             logger.info(

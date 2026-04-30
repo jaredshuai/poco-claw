@@ -9,6 +9,7 @@ from app.scheduler.task_dispatcher import (
     _extract_enabled_skill_names,
     build_task_dispatch_dependencies,
 )
+from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
 
 class TestExtractEnabledSkillNames(unittest.TestCase):
@@ -699,6 +700,82 @@ class TestTaskDispatcherDispatch:
         assert call_kwargs["callback_url"] == "http://callback/api/v1/callback"
         assert call_kwargs["callback_token"] == "token-123"
         assert call_kwargs["task_lease_secret"] == "lease-token"
+
+    async def test_dispatch_uses_injected_execution_context_provider(self) -> None:
+        settings = MagicMock()
+        settings.callback_base_url = ""
+        settings.callback_token = "settings-token"
+        settings.executor_task_lease_secret = "settings-lease-token"
+
+        mock_executor_client = MagicMock()
+        mock_executor_client.execute_task = AsyncMock()
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+        mock_backend_client.update_session_status = AsyncMock()
+
+        mock_config_resolver = MagicMock()
+        mock_config_resolver.resolve = AsyncMock(return_value={})
+
+        mock_skill_stager = MagicMock()
+        mock_skill_stager.stage_skills = MagicMock(return_value={})
+
+        mock_plugin_stager = MagicMock()
+        mock_plugin_stager.stage_plugins = MagicMock(return_value={})
+
+        mock_attachment_stager = MagicMock()
+        mock_attachment_stager.stage_inputs = MagicMock(return_value=[])
+
+        mock_slash_command_stager = MagicMock()
+        mock_slash_command_stager.stage_commands = MagicMock(return_value={})
+
+        mock_subagent_stager = MagicMock()
+        mock_subagent_stager.stage_raw_agents = MagicMock(return_value={})
+
+        mock_runtime = MagicMock()
+        mock_runtime.resolve_executor_target = AsyncMock(
+            return_value=("http://executor:8080", "container-123")
+        )
+        mock_runtime.cancel_task = AsyncMock()
+
+        execution_context_provider = MagicMock()
+        execution_context_provider.get_context = MagicMock(
+            return_value=RunDispatchExecutionContext(
+                callback_base_url="http://provider.local",
+                callback_url="http://provider.local/callback",
+                callback_token="provider-token",
+                task_lease_secret="provider-lease-token",
+            )
+        )
+
+        dependencies = TaskDispatchDependencies(
+            executor_client=mock_executor_client,
+            backend_client=mock_backend_client,
+            config_resolver=mock_config_resolver,
+            skill_stager=mock_skill_stager,
+            plugin_stager=mock_plugin_stager,
+            attachment_stager=mock_attachment_stager,
+            slash_command_stager=mock_slash_command_stager,
+            subagent_stager=mock_subagent_stager,
+            runtime=mock_runtime,
+            execution_context_provider=execution_context_provider,
+        )
+
+        await TaskDispatcher.dispatch(
+            task_id="task-123",
+            session_id="session-456",
+            prompt="Hello",
+            config={"user_id": "user-789"},
+            dependencies=dependencies,
+            settings=settings,
+        )
+
+        execution_context_provider.get_context.assert_called_once_with()
+        call_kwargs = mock_executor_client.execute_task.call_args.kwargs
+        assert call_kwargs["callback_url"] == "http://provider.local/callback"
+        assert call_kwargs["callback_token"] == "provider-token"
+        assert call_kwargs["task_lease_secret"] == "provider-lease-token"
+        assert call_kwargs["callback_base_url"] == "http://provider.local"
 
     async def test_dispatch_empty_callback_url(self) -> None:
         """Test dispatch raises ValueError when callback_base_url is empty."""

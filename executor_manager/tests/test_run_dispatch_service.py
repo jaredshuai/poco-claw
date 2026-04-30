@@ -7,7 +7,7 @@ import pytest
 from app.services.run_dispatch_service import RunDispatchService
 
 
-def _make_dispatch_service() -> RunDispatchService:
+def _make_dispatch_service(*, runtime: object | None = None) -> RunDispatchService:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
         callback_token="callback-token",
@@ -63,7 +63,78 @@ def _make_dispatch_service() -> RunDispatchService:
         slash_command_stager=slash_command_stager,
         subagent_stager=subagent_stager,
         container_pool=container_pool,
+        runtime=runtime,
     )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_delegates_runtime_allocation_to_injected_runtime() -> (
+    None
+):
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        return_value=("http://runtime-executor.local", "runtime-container-1")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    service = _make_dispatch_service(runtime=runtime)
+    service.config_resolver.resolve.return_value = {
+        "skill_files": {},
+        "plugin_files": {},
+        "input_files": [],
+        "browser_enabled": True,
+    }
+    service.container_pool.get_or_create_container.side_effect = AssertionError(
+        "container pool should stay behind runtime port"
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {
+            "container_mode": "persistent",
+            "container_id": "existing-container",
+            "browser_enabled": True,
+        },
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    runtime.allocate_runtime.assert_awaited_once_with(
+        session_id="sess-123",
+        user_id="user-123",
+        browser_enabled=True,
+        container_mode="persistent",
+        container_id="existing-container",
+    )
+    service.executor_client.execute_task.assert_awaited_once()
+    assert (
+        service.executor_client.execute_task.call_args.kwargs["executor_url"]
+        == "http://runtime-executor.local"
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_cancels_injected_runtime_when_start_run_fails() -> None:
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        return_value=("http://runtime-executor.local", "runtime-container-1")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    service = _make_dispatch_service(runtime=runtime)
+    service.backend_client.start_run.side_effect = RuntimeError("start failed")
+    service.container_pool.cancel_task.side_effect = AssertionError(
+        "runtime port should own cancellation"
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    runtime.cancel_runtime.assert_awaited_once_with("sess-123")
 
 
 def test_create_default_accepts_adapter_factories() -> None:
@@ -293,6 +364,30 @@ def test_create_default_accepts_lazy_container_pool_factory() -> None:
         assert service.container_pool is container_pool
 
     container_pool_factory.assert_called_once_with()
+
+
+def test_create_default_accepts_lazy_runtime_factory() -> None:
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    runtime = MagicMock()
+    runtime_factory = MagicMock(return_value=runtime)
+
+    with patch(
+        "app.services.run_dispatch_service.TaskDispatcher.get_container_pool",
+        side_effect=AssertionError("default container pool should stay lazy"),
+    ):
+        service = RunDispatchService.create_default(
+            settings=settings,
+            runtime_factory=runtime_factory,
+        )
+
+        runtime_factory.assert_not_called()
+        assert service.runtime is runtime
+
+    runtime_factory.assert_called_once_with()
 
 
 @pytest.mark.asyncio

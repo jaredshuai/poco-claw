@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.scheduler.task_dispatcher import TaskDispatcher
@@ -60,6 +60,45 @@ def build_run_dispatch_container_pool() -> Any:
     return TaskDispatcher.get_container_pool()
 
 
+class RunDispatchRuntime(Protocol):
+    async def allocate_runtime(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]: ...
+
+    async def cancel_runtime(self, session_id: str) -> None: ...
+
+
+class ContainerPoolRunDispatchRuntime:
+    def __init__(self, container_pool: Any) -> None:
+        self.container_pool = container_pool
+
+    async def allocate_runtime(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]:
+        return await self.container_pool.get_or_create_container(
+            session_id=session_id,
+            user_id=user_id,
+            browser_enabled=browser_enabled,
+            container_mode=container_mode,
+            container_id=container_id,
+        )
+
+    async def cancel_runtime(self, session_id: str) -> None:
+        await self.container_pool.cancel_task(session_id)
+
+
 def _extract_enabled_skill_names(skills: object) -> list[str]:
     if not isinstance(skills, dict):
         return []
@@ -94,6 +133,7 @@ class RunDispatchService:
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
         container_pool: Any | None = None,
+        runtime: RunDispatchRuntime | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -104,6 +144,7 @@ class RunDispatchService:
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
         container_pool_factory: Callable[[], Any] | None = None,
+        runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
     ) -> None:
         self.settings = settings
         self._backend_client = backend_client
@@ -118,6 +159,8 @@ class RunDispatchService:
         self._container_pool_factory = (
             container_pool_factory or build_run_dispatch_container_pool
         )
+        self._runtime = runtime
+        self._runtime_factory = runtime_factory
         self._config_resolver = config_resolver
         self._config_resolver_factory = (
             config_resolver_factory or build_run_dispatch_config_resolver
@@ -176,6 +219,20 @@ class RunDispatchService:
     @container_pool.setter
     def container_pool(self, value: Any) -> None:
         self._container_pool = value
+
+    @property
+    def runtime(self) -> RunDispatchRuntime:
+        if self._runtime is None:
+            self._runtime = (
+                self._runtime_factory()
+                if self._runtime_factory is not None
+                else ContainerPoolRunDispatchRuntime(self.container_pool)
+            )
+        return self._runtime
+
+    @runtime.setter
+    def runtime(self, value: RunDispatchRuntime) -> None:
+        self._runtime = value
 
     @property
     def config_resolver(self) -> Any:
@@ -265,6 +322,7 @@ class RunDispatchService:
         claude_md_stager: Any | None = None,
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
+        runtime: RunDispatchRuntime | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -275,6 +333,7 @@ class RunDispatchService:
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
         container_pool_factory: Callable[[], Any] | None = None,
+        runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
     ) -> "RunDispatchService":
         settings = settings if settings is not None else get_settings()
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
@@ -301,6 +360,8 @@ class RunDispatchService:
             executor_client_factory=executor_factory,
             container_pool=container_pool,
             container_pool_factory=container_factory,
+            runtime=runtime,
+            runtime_factory=runtime_factory,
             config_resolver=config_resolver,
             config_resolver_factory=config_factory,
             skill_stager=skill_stager,
@@ -497,7 +558,7 @@ class RunDispatchService:
             (
                 executor_url,
                 container_id,
-            ) = await self.container_pool.get_or_create_container(
+            ) = await self.runtime.allocate_runtime(
                 session_id=session_id,
                 user_id=user_id,
                 browser_enabled=browser_enabled,
@@ -595,8 +656,12 @@ class RunDispatchService:
                 logger.error(f"Failed to mark run {run_id} as failed: {fail_err}")
 
             try:
-                if self._container_pool is not None:
-                    await self._container_pool.cancel_task(session_id)
+                if self._runtime is not None:
+                    await self._runtime.cancel_runtime(session_id)
+                elif self._container_pool is not None:
+                    await ContainerPoolRunDispatchRuntime(
+                        self._container_pool
+                    ).cancel_runtime(session_id)
             except Exception as cancel_err:
                 logger.error(
                     f"Failed to cancel task for session {session_id}: {cancel_err}"

@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any, Iterable, Protocol
 
 import boto3
 from botocore.config import Config
@@ -13,9 +13,59 @@ from app.core.settings import get_settings
 logger = logging.getLogger(__name__)
 
 
+class S3StorageSettings(Protocol):
+    s3_bucket: str | None
+    s3_endpoint: str | None
+    s3_access_key: str | None
+    s3_secret_key: str | None
+    s3_region: str
+    s3_connect_timeout_seconds: int
+    s3_read_timeout_seconds: int
+    s3_max_attempts: int
+    s3_force_path_style: bool
+
+
+class S3ObjectClient(Protocol):
+    def upload_file(self, *args: Any, **kwargs: Any) -> Any: ...
+
+    def put_object(self, **kwargs: Any) -> Any: ...
+
+    def get_paginator(self, operation_name: str) -> Any: ...
+
+    def download_file(self, bucket: str, key: str, filename: str) -> Any: ...
+
+
+def build_s3_client(settings: S3StorageSettings) -> S3ObjectClient:
+    config_kwargs: dict[str, Any] = {
+        "connect_timeout": settings.s3_connect_timeout_seconds,
+        "read_timeout": settings.s3_read_timeout_seconds,
+        "retries": {
+            "max_attempts": settings.s3_max_attempts,
+            "mode": "standard",
+        },
+    }
+    if settings.s3_force_path_style:
+        config_kwargs["s3"] = {"addressing_style": "path"}
+    config = Config(**config_kwargs) if config_kwargs else None
+
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.s3_endpoint,
+        aws_access_key_id=settings.s3_access_key,
+        aws_secret_access_key=settings.s3_secret_key,
+        region_name=settings.s3_region,
+        config=config,
+    )
+
+
 class S3StorageService:
-    def __init__(self) -> None:
-        settings = get_settings()
+    def __init__(
+        self,
+        *,
+        settings: S3StorageSettings | None = None,
+        s3_client: S3ObjectClient | None = None,
+    ) -> None:
+        settings = settings if settings is not None else get_settings()
         if not settings.s3_bucket:
             raise AppException(
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
@@ -33,27 +83,7 @@ class S3StorageService:
             )
 
         self.bucket = settings.s3_bucket
-
-        config_kwargs: dict[str, Any] = {
-            "connect_timeout": settings.s3_connect_timeout_seconds,
-            "read_timeout": settings.s3_read_timeout_seconds,
-            "retries": {
-                "max_attempts": settings.s3_max_attempts,
-                "mode": "standard",
-            },
-        }
-        if settings.s3_force_path_style:
-            config_kwargs["s3"] = {"addressing_style": "path"}
-        config = Config(**config_kwargs) if config_kwargs else None
-
-        self.client = boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint,
-            aws_access_key_id=settings.s3_access_key,
-            aws_secret_access_key=settings.s3_secret_key,
-            region_name=settings.s3_region,
-            config=config,
-        )
+        self.client = s3_client if s3_client is not None else build_s3_client(settings)
 
     def upload_file(
         self, *, file_path: str, key: str, content_type: str | None = None

@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -12,6 +13,39 @@ from app.services.storage_service import S3StorageService
 
 class TestS3StorageServiceInit(unittest.TestCase):
     """Test S3StorageService.__init__."""
+
+    @staticmethod
+    def _make_settings() -> SimpleNamespace:
+        return SimpleNamespace(
+            s3_bucket="test-bucket",
+            s3_endpoint="https://s3.example.com",
+            s3_access_key="access-key",
+            s3_secret_key="secret-key",
+            s3_region="us-east-1",
+            s3_connect_timeout_seconds=10,
+            s3_read_timeout_seconds=30,
+            s3_max_attempts=3,
+            s3_force_path_style=False,
+        )
+
+    def test_init_accepts_injected_settings_and_s3_client(self) -> None:
+        settings = self._make_settings()
+        s3_client = MagicMock()
+
+        with (
+            patch(
+                "app.services.storage_service.get_settings",
+                side_effect=AssertionError("settings should be injected"),
+            ),
+            patch(
+                "app.services.storage_service.boto3.client",
+                side_effect=AssertionError("s3 client should be injected"),
+            ),
+        ):
+            service = S3StorageService(settings=settings, s3_client=s3_client)
+
+        assert service.bucket == "test-bucket"
+        assert service.client is s3_client
 
     def test_init_success(self) -> None:
         mock_settings = MagicMock()

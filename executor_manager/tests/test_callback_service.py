@@ -75,6 +75,32 @@ def test_callback_service_uses_injected_factories_without_constructing_defaults(
         assert service._get_workspace_export_service() is exporter
 
 
+def test_callback_service_defers_default_runtime_adapters() -> None:
+    runtime_cleanup = MagicMock()
+    workspace_path_filter = MagicMock()
+
+    with (
+        patch(
+            "app.services.callback_service.TaskDispatcherRuntimeCleanup",
+            return_value=runtime_cleanup,
+        ) as runtime_cleanup_cls,
+        patch(
+            "app.services.callback_service.WorkspaceManagerPathFilter",
+            return_value=workspace_path_filter,
+        ) as workspace_path_filter_cls,
+    ):
+        service = CallbackService()
+
+        runtime_cleanup_cls.assert_not_called()
+        workspace_path_filter_cls.assert_not_called()
+
+        assert service.runtime_cleanup is runtime_cleanup
+        assert service.workspace_path_filter is workspace_path_filter
+
+    runtime_cleanup_cls.assert_called_once_with()
+    workspace_path_filter_cls.assert_called_once_with()
+
+
 class TestIsInternalMcpServer(unittest.TestCase):
     """Test CallbackService._is_internal_mcp_server."""
 

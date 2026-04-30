@@ -118,6 +118,14 @@ class WorkspaceManagerPathFilter:
         return is_ignored_workspace_path(path)
 
 
+def build_callback_runtime_cleanup() -> CallbackRuntimeCleanup:
+    return TaskDispatcherRuntimeCleanup()
+
+
+def build_callback_workspace_path_filter() -> CallbackWorkspacePathFilter:
+    return WorkspaceManagerPathFilter()
+
+
 class CallbackService:
     """Service layer for callback processing."""
 
@@ -129,16 +137,23 @@ class CallbackService:
         workspace_export_service_factory: Callable[[], CallbackWorkspaceExportService]
         | None = None,
         runtime_cleanup: CallbackRuntimeCleanup | None = None,
+        runtime_cleanup_factory: Callable[[], CallbackRuntimeCleanup] | None = None,
         workspace_path_filter: CallbackWorkspacePathFilter | None = None,
+        workspace_path_filter_factory: Callable[[], CallbackWorkspacePathFilter]
+        | None = None,
     ) -> None:
         self.clock = clock or SystemClock()
         self._backend_client_factory = backend_client_factory or get_backend_client
         self._workspace_export_service_factory = (
             workspace_export_service_factory or get_workspace_export_service
         )
-        self._runtime_cleanup = runtime_cleanup or TaskDispatcherRuntimeCleanup()
-        self._workspace_path_filter = (
-            workspace_path_filter or WorkspaceManagerPathFilter()
+        self._runtime_cleanup = runtime_cleanup
+        self._runtime_cleanup_factory = (
+            runtime_cleanup_factory or build_callback_runtime_cleanup
+        )
+        self._workspace_path_filter = workspace_path_filter
+        self._workspace_path_filter_factory = (
+            workspace_path_filter_factory or build_callback_workspace_path_filter
         )
 
     def _get_backend_client(self) -> CallbackBackendClient:
@@ -146,6 +161,26 @@ class CallbackService:
 
     def _get_workspace_export_service(self) -> CallbackWorkspaceExportService:
         return self._workspace_export_service_factory()
+
+    @property
+    def runtime_cleanup(self) -> CallbackRuntimeCleanup:
+        if self._runtime_cleanup is None:
+            self._runtime_cleanup = self._runtime_cleanup_factory()
+        return self._runtime_cleanup
+
+    @runtime_cleanup.setter
+    def runtime_cleanup(self, value: CallbackRuntimeCleanup) -> None:
+        self._runtime_cleanup = value
+
+    @property
+    def workspace_path_filter(self) -> CallbackWorkspacePathFilter:
+        if self._workspace_path_filter is None:
+            self._workspace_path_filter = self._workspace_path_filter_factory()
+        return self._workspace_path_filter
+
+    @workspace_path_filter.setter
+    def workspace_path_filter(self, value: CallbackWorkspacePathFilter) -> None:
+        self._workspace_path_filter = value
 
     def _now_utc(self) -> datetime:
         now = self.clock.now_utc()
@@ -284,7 +319,7 @@ class CallbackService:
 
         callback = self._filter_state_patch(
             callback,
-            is_ignored_path=self._workspace_path_filter.is_ignored,
+            is_ignored_path=self.workspace_path_filter.is_ignored,
         )
 
         if callback.state_patch:
@@ -329,7 +364,7 @@ class CallbackService:
                 asyncio.create_task(self._export_and_forward(callback))
                 session_status = str(backend_response.get("status") or "").strip()
                 if session_status not in {"pending", "running"}:
-                    await self._runtime_cleanup.on_task_complete(callback.session_id)
+                    await self.runtime_cleanup.on_task_complete(callback.session_id)
                 else:
                     logger.info(
                         "task_cleanup_deferred",

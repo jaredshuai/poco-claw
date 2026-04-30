@@ -36,14 +36,32 @@ class PluginStager:
         workspace_manager: WorkspaceManager | None = None,
         workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
     ) -> None:
-        storage_factory = storage_service_factory or build_plugin_storage
-        workspace_factory = workspace_manager_factory or build_plugin_workspace_manager
-        self.storage_service = (
-            storage_service if storage_service is not None else storage_factory()
+        self._storage_service = storage_service
+        self._storage_service_factory = storage_service_factory or build_plugin_storage
+        self._workspace_manager = workspace_manager
+        self._workspace_manager_factory = (
+            workspace_manager_factory or build_plugin_workspace_manager
         )
-        self.workspace_manager = (
-            workspace_manager if workspace_manager is not None else workspace_factory()
-        )
+
+    @property
+    def storage_service(self) -> PluginStorage:
+        if self._storage_service is None:
+            self._storage_service = self._storage_service_factory()
+        return self._storage_service
+
+    @storage_service.setter
+    def storage_service(self, value: PluginStorage) -> None:
+        self._storage_service = value
+
+    @property
+    def workspace_manager(self) -> WorkspaceManager:
+        if self._workspace_manager is None:
+            self._workspace_manager = self._workspace_manager_factory()
+        return self._workspace_manager
+
+    @workspace_manager.setter
+    def workspace_manager(self, value: WorkspaceManager) -> None:
+        self._workspace_manager = value
 
     @staticmethod
     def _validate_plugin_name(name: str) -> None:

@@ -12,16 +12,22 @@ from app.services.plugin_stager import PluginStager
 class TestPluginStagerInit(unittest.TestCase):
     """Test PluginStager.__init__."""
 
-    def test_init_with_defaults(self) -> None:
+    def test_init_with_defaults_defers_adapter_construction(self) -> None:
         with (
             patch("app.services.plugin_stager.S3StorageService") as mock_storage_cls,
             patch("app.services.plugin_stager.WorkspaceManager") as mock_workspace_cls,
         ):
-            mock_storage_cls.return_value = MagicMock()
-            mock_workspace_cls.return_value = MagicMock()
+            mock_storage = MagicMock()
+            mock_workspace = MagicMock()
+            mock_storage_cls.return_value = mock_storage
+            mock_workspace_cls.return_value = mock_workspace
 
-            PluginStager()
+            stager = PluginStager()
 
+            mock_storage_cls.assert_not_called()
+            mock_workspace_cls.assert_not_called()
+            assert stager.storage_service is mock_storage
+            assert stager.workspace_manager is mock_workspace
             mock_storage_cls.assert_called_once()
             mock_workspace_cls.assert_called_once()
 

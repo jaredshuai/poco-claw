@@ -128,7 +128,7 @@ class RunDispatchService:
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
     ) -> "RunDispatchService":
-        settings = settings or get_settings()
+        settings = settings if settings is not None else get_settings()
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
         executor_factory = executor_client_factory or build_run_dispatch_executor_client
         config_factory = config_resolver_factory or build_run_dispatch_config_resolver

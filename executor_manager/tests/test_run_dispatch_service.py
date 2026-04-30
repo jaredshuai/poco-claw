@@ -181,6 +181,45 @@ def test_create_default_passes_settings_to_default_config_resolver() -> None:
     assert service.config_resolver is config_resolver
 
 
+def test_create_default_uses_injected_settings_without_loading_global_settings() -> (
+    None
+):
+    settings = MagicMock(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    settings.__bool__.return_value = False
+    backend_client = MagicMock()
+    executor_client = MagicMock()
+    config_resolver = MagicMock()
+    skill_stager = MagicMock()
+    plugin_stager = MagicMock()
+    attachment_stager = MagicMock()
+    claude_md_stager = MagicMock()
+    slash_command_stager = MagicMock()
+    subagent_stager = MagicMock()
+
+    with patch(
+        "app.services.run_dispatch_service.get_settings",
+        side_effect=AssertionError("settings should be injected"),
+    ):
+        service = RunDispatchService.create_default(
+            settings=settings,
+            backend_client=backend_client,
+            executor_client=executor_client,
+            config_resolver=config_resolver,
+            skill_stager=skill_stager,
+            plugin_stager=plugin_stager,
+            attachment_stager=attachment_stager,
+            claude_md_stager=claude_md_stager,
+            slash_command_stager=slash_command_stager,
+            subagent_stager=subagent_stager,
+        )
+
+    assert service.settings is settings
+
+
 @pytest.mark.asyncio
 async def test_dispatch_claim_fails_and_cancels_when_start_run_fails() -> None:
     service = _make_dispatch_service()

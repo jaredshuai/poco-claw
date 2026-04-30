@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Any, Protocol
 
 from fastapi import APIRouter, Depends, Query
@@ -40,14 +41,13 @@ class MemoriesBackendClient(Protocol):
     async def delete_all_memories(self, *, session_id: str) -> Any: ...
 
 
-backend_client: BackendClient | None = None
+def build_backend_client() -> MemoriesBackendClient:
+    return BackendClient()
 
 
+@lru_cache(maxsize=1)
 def get_backend_client() -> MemoriesBackendClient:
-    global backend_client
-    if backend_client is None:
-        backend_client = BackendClient()
-    return backend_client
+    return build_backend_client()
 
 
 @router.post("", response_model=ResponseSchema[MemoryCreateJobEnqueueResponse])

@@ -1,5 +1,6 @@
 """Tests for app/api/v1/memories.py."""
 
+from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
@@ -26,6 +27,17 @@ def _load_memories_module_from_source():
         sys.modules.pop(module_name, None)
 
 
+@contextmanager
+def _backend_override(app, mock_client):
+    from app.api.v1 import memories
+
+    app.dependency_overrides[memories.get_backend_client] = lambda: mock_client
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(memories.get_backend_client, None)
+
+
 def test_memories_module_import_does_not_initialize_backend_client() -> None:
     with patch(
         "app.services.backend_client.BackendClient",
@@ -37,31 +49,30 @@ def test_memories_module_import_does_not_initialize_backend_client() -> None:
 
 
 def test_memories_routes_use_backend_dependency_override() -> None:
-    from app.api.v1 import memories
     from app.main import app
-
-    if hasattr(memories, "backend_client"):
-        memories.backend_client = None
 
     mock_client = MagicMock()
     mock_client.list_memories = AsyncMock(
         return_value=[{"id": "mem-123", "content": "remember this"}]
     )
 
-    app.dependency_overrides[memories.get_backend_client] = lambda: mock_client
-    try:
+    with _backend_override(app, mock_client):
         with patch(
             "app.api.v1.memories.BackendClient",
             side_effect=AssertionError("route should use dependency override"),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.get("/api/v1/memories?session_id=session-123")
-    finally:
-        app.dependency_overrides.pop(memories.get_backend_client, None)
 
     assert response.status_code == 200
     assert response.json()["data"][0]["id"] == "mem-123"
     mock_client.list_memories.assert_awaited_once_with(session_id="session-123")
+
+
+def test_memories_backend_provider_has_no_mutable_global() -> None:
+    from app.api.v1 import memories
+
+    assert not hasattr(memories, "backend_client")
 
 
 class TestMemoriesEndpoints(unittest.TestCase):
@@ -76,10 +87,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             return_value={"job_id": "job-123", "status": "queued"}
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/memories",
@@ -104,10 +112,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             return_value={"job_id": "job-123", "status": "completed"}
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.get(
                 "/api/v1/memories/jobs/job-123?session_id=session-123"
@@ -134,10 +139,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             ]
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.get("/api/v1/memories?session_id=session-123")
 
@@ -156,10 +158,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             return_value=[{"id": "mem-1", "content": "matched memory"}]
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/memories/search",
@@ -184,10 +183,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             return_value={"id": "mem-123", "content": "test memory"}
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.get("/api/v1/memories/mem-123?session_id=session-123")
 
@@ -209,10 +205,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             return_value={"id": "mem-123", "content": "updated content"}
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.put(
                 "/api/v1/memories/mem-123",
@@ -239,10 +232,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
             ]
         )
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.get(
                 "/api/v1/memories/mem-123/history?session_id=session-123"
@@ -264,10 +254,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.delete_memory = AsyncMock(return_value={"deleted": True})
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.delete("/api/v1/memories/mem-123?session_id=session-123")
 
@@ -286,10 +273,7 @@ class TestMemoriesEndpoints(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.delete_all_memories = AsyncMock(return_value={"deleted_count": 5})
 
-        with patch(
-            "app.api.v1.memories.backend_client",
-            mock_client,
-        ):
+        with _backend_override(app, mock_client):
             client = TestClient(app)
             response = client.delete("/api/v1/memories?session_id=session-123")
 

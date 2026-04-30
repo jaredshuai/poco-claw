@@ -2,7 +2,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.core.observability.request_context import (
@@ -28,6 +28,42 @@ from app.services.sub_agent_stager import SubAgentStager
 logger = logging.getLogger(__name__)
 
 
+class TaskDispatchRuntime(Protocol):
+    async def resolve_executor_target(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]: ...
+
+    async def cancel_task(self, session_id: str) -> None: ...
+
+
+class TaskDispatcherRuntime:
+    async def resolve_executor_target(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]:
+        return await TaskDispatcher.resolve_executor_target(
+            session_id=session_id,
+            user_id=user_id,
+            browser_enabled=browser_enabled,
+            container_mode=container_mode,
+            container_id=container_id,
+        )
+
+    async def cancel_task(self, session_id: str) -> None:
+        await TaskDispatcher.get_container_pool().cancel_task(session_id)
+
+
 @dataclass(frozen=True)
 class TaskDispatchDependencies:
     executor_client: ExecutorClient
@@ -38,6 +74,7 @@ class TaskDispatchDependencies:
     attachment_stager: AttachmentStager
     slash_command_stager: SlashCommandStager
     subagent_stager: SubAgentStager
+    runtime: TaskDispatchRuntime | None = None
 
 
 def build_task_dispatch_backend_client() -> BackendClient:
@@ -74,6 +111,10 @@ def build_task_dispatch_subagent_stager() -> SubAgentStager:
     return SubAgentStager()
 
 
+def build_task_dispatch_runtime() -> TaskDispatchRuntime:
+    return TaskDispatcherRuntime()
+
+
 def build_task_dispatch_dependencies(
     *,
     executor_client_factory: Callable[[], Any] | None = None,
@@ -84,6 +125,7 @@ def build_task_dispatch_dependencies(
     attachment_stager_factory: Callable[[], Any] | None = None,
     slash_command_stager_factory: Callable[[], Any] | None = None,
     subagent_stager_factory: Callable[[], Any] | None = None,
+    runtime_factory: Callable[[], Any] | None = None,
 ) -> TaskDispatchDependencies:
     backend_factory = backend_client_factory or build_task_dispatch_backend_client
     executor_factory = executor_client_factory or build_task_dispatch_executor_client
@@ -97,6 +139,7 @@ def build_task_dispatch_dependencies(
         slash_command_stager_factory or build_task_dispatch_slash_command_stager
     )
     subagent_factory = subagent_stager_factory or build_task_dispatch_subagent_stager
+    runtime_factory = runtime_factory or build_task_dispatch_runtime
     backend_client = backend_factory()
     return TaskDispatchDependencies(
         executor_client=executor_factory(),
@@ -107,6 +150,7 @@ def build_task_dispatch_dependencies(
         attachment_stager=attachment_factory(),
         slash_command_stager=slash_command_factory(),
         subagent_stager=subagent_factory(),
+        runtime=runtime_factory(),
     )
 
 
@@ -192,6 +236,7 @@ class TaskDispatcher:
         attachment_stager = dispatch_dependencies.attachment_stager
         slash_command_stager = dispatch_dependencies.slash_command_stager
         subagent_stager = dispatch_dependencies.subagent_stager
+        runtime = dispatch_dependencies.runtime or TaskDispatcherRuntime()
 
         user_id = config.get("user_id", "")
         container_mode = config.get("container_mode", "ephemeral")
@@ -353,7 +398,7 @@ class TaskDispatcher:
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))
-            executor_url, container_id = await TaskDispatcher.resolve_executor_target(
+            executor_url, container_id = await runtime.resolve_executor_target(
                 session_id=session_id,
                 user_id=user_id,
                 browser_enabled=browser_enabled,
@@ -429,7 +474,7 @@ class TaskDispatcher:
         except Exception as e:
             logger.error(f"Failed to dispatch task {task_id}: {e}")
             await backend_client.update_session_status(session_id, "failed")
-            await TaskDispatcher.get_container_pool().cancel_task(session_id)
+            await runtime.cancel_task(session_id)
             raise
         finally:
             reset_request_id(request_id_token)

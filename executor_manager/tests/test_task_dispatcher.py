@@ -307,6 +307,88 @@ class TestTaskDispatcherDispatch:
                 "session-456", "running"
             )
 
+    async def test_dispatch_uses_injected_runtime_boundary(self) -> None:
+        """Test dispatch runtime allocation uses caller-supplied boundary."""
+        with patch("app.scheduler.task_dispatcher.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.callback_base_url = "http://callback"
+            mock_settings_obj.callback_token = "token-123"
+            mock_settings_obj.executor_task_lease_secret = "lease-token"
+            mock_settings.return_value = mock_settings_obj
+
+            mock_executor_client = MagicMock()
+            mock_executor_client.execute_task = AsyncMock()
+
+            mock_backend_client = MagicMock()
+            mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+            mock_backend_client.update_session_status = AsyncMock()
+
+            mock_config_resolver = MagicMock()
+            mock_config_resolver.resolve = AsyncMock(return_value={})
+
+            mock_skill_stager = MagicMock()
+            mock_skill_stager.stage_skills = MagicMock(return_value={})
+
+            mock_plugin_stager = MagicMock()
+            mock_plugin_stager.stage_plugins = MagicMock(return_value={})
+
+            mock_attachment_stager = MagicMock()
+            mock_attachment_stager.stage_inputs = MagicMock(return_value=[])
+
+            mock_slash_command_stager = MagicMock()
+            mock_slash_command_stager.stage_commands = MagicMock(return_value={})
+
+            mock_subagent_stager = MagicMock()
+            mock_subagent_stager.stage_raw_agents = MagicMock(return_value={})
+
+            mock_runtime = MagicMock()
+            mock_runtime.resolve_executor_target = AsyncMock(
+                return_value=("http://executor:8080", "container-123")
+            )
+            mock_runtime.cancel_task = AsyncMock()
+
+            dependencies = TaskDispatchDependencies(
+                executor_client=mock_executor_client,
+                backend_client=mock_backend_client,
+                config_resolver=mock_config_resolver,
+                skill_stager=mock_skill_stager,
+                plugin_stager=mock_plugin_stager,
+                attachment_stager=mock_attachment_stager,
+                slash_command_stager=mock_slash_command_stager,
+                subagent_stager=mock_subagent_stager,
+                runtime=mock_runtime,
+            )
+
+            with (
+                patch.object(
+                    TaskDispatcher,
+                    "resolve_executor_target",
+                    AsyncMock(side_effect=AssertionError("runtime should be injected")),
+                ),
+                patch.object(
+                    TaskDispatcher,
+                    "get_container_pool",
+                    side_effect=AssertionError("runtime should be injected"),
+                ),
+            ):
+                await TaskDispatcher.dispatch(
+                    task_id="task-123",
+                    session_id="session-456",
+                    prompt="Hello",
+                    config={"user_id": "user-789"},
+                    dependencies=dependencies,
+                )
+
+            mock_runtime.resolve_executor_target.assert_awaited_once_with(
+                session_id="session-456",
+                user_id="user-789",
+                browser_enabled=False,
+                container_mode="ephemeral",
+                container_id=None,
+            )
+            mock_runtime.cancel_task.assert_not_awaited()
+            mock_executor_client.execute_task.assert_awaited_once()
+
     async def test_dispatch_empty_callback_url(self) -> None:
         """Test dispatch raises ValueError when callback_base_url is empty."""
         with patch("app.scheduler.task_dispatcher.get_settings") as mock_settings:

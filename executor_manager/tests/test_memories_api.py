@@ -36,6 +36,34 @@ def test_memories_module_import_does_not_initialize_backend_client() -> None:
     assert module.create_memories is not None
 
 
+def test_memories_routes_use_backend_dependency_override() -> None:
+    from app.api.v1 import memories
+    from app.main import app
+
+    if hasattr(memories, "backend_client"):
+        memories.backend_client = None
+
+    mock_client = MagicMock()
+    mock_client.list_memories = AsyncMock(
+        return_value=[{"id": "mem-123", "content": "remember this"}]
+    )
+
+    app.dependency_overrides[memories.get_backend_client] = lambda: mock_client
+    try:
+        with patch(
+            "app.api.v1.memories.BackendClient",
+            side_effect=AssertionError("route should use dependency override"),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/v1/memories?session_id=session-123")
+    finally:
+        app.dependency_overrides.pop(memories.get_backend_client, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"][0]["id"] == "mem-123"
+    mock_client.list_memories.assert_awaited_once_with(session_id="session-123")
+
+
 class TestMemoriesEndpoints(unittest.TestCase):
     """Test /api/v1/memories endpoints."""
 

@@ -236,7 +236,7 @@ class TaskDispatcher:
             trace_id: Trace ID for correlating logs across async boundaries
             enqueued_at: perf_counter timestamp when the task was enqueued (for queue delay)
         """
-        settings = settings or get_settings()
+        settings = settings if settings is not None else get_settings()
         dispatch_dependencies = dependencies or build_task_dispatch_dependencies(
             settings=settings
         )

@@ -8,7 +8,7 @@ import httpx
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.observability.request_context import get_request_id, get_trace_id
-from app.core.settings import get_settings
+from app.core.settings import Settings, get_settings
 from app.scheduler.scheduler_config import scheduler
 from app.scheduler.task_dispatcher import TaskDispatcher
 from app.schemas.task import (
@@ -94,8 +94,9 @@ class TaskService:
         backend_client_factory: Callable[[], TaskBackendClient] | None = None,
         task_scheduler_factory: Callable[[], TaskScheduler] | None = None,
         target_resolver: TaskTargetResolver | None = None,
+        settings: Settings | None = None,
     ) -> None:
-        self.settings = get_settings()
+        self.settings = settings if settings is not None else get_settings()
         self.id_generator = id_generator or UuidIdGenerator()
         self.backend_client_factory = backend_client_factory or build_backend_client
         self.task_scheduler_factory = task_scheduler_factory or build_task_scheduler

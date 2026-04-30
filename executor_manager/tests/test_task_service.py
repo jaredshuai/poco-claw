@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -35,6 +36,18 @@ class TestTaskServiceInit(unittest.TestCase):
             service = TaskService()
 
             assert service.settings is mock_settings
+
+    def test_init_accepts_injected_settings(self) -> None:
+        """Test init can receive settings without reading global settings."""
+        settings = SimpleNamespace()
+
+        with patch(
+            "app.services.task_service.get_settings",
+            side_effect=AssertionError("settings should be injected"),
+        ):
+            service = TaskService(settings=settings)
+
+        assert service.settings is settings
 
 
 class TestTaskServiceCreateTask(unittest.TestCase):

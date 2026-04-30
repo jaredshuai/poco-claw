@@ -1,5 +1,6 @@
 """Tests for app/api/v1/user_input_requests.py."""
 
+from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
@@ -29,6 +30,19 @@ def _load_user_input_requests_module_from_source():
         return module
     finally:
         sys.modules.pop(module_name, None)
+
+
+@contextmanager
+def _backend_override(app, mock_client):
+    from app.api.v1 import user_input_requests
+
+    app.dependency_overrides[user_input_requests.get_backend_client] = lambda: (
+        mock_client
+    )
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(user_input_requests.get_backend_client, None)
 
 
 def test_user_input_requests_module_import_does_not_initialize_backend_client() -> None:
@@ -80,6 +94,12 @@ def test_user_input_requests_routes_use_backend_dependency_override() -> None:
     mock_client.get_user_input_request.assert_awaited_once_with("req-123")
 
 
+def test_user_input_requests_backend_provider_has_no_mutable_global() -> None:
+    from app.api.v1 import user_input_requests
+
+    assert not hasattr(user_input_requests, "backend_client")
+
+
 class TestUserInputRequestsEndpoints(unittest.TestCase):
     """Test /api/v1/user-input-requests endpoints."""
 
@@ -93,7 +113,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         )
 
         with (
-            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            _backend_override(app, mock_client),
             patch(
                 "app.core.deps.get_settings",
                 return_value=SimpleNamespace(callback_token="callback-token"),
@@ -122,7 +142,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         )
 
         with (
-            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            _backend_override(app, mock_client),
             patch(
                 "app.core.deps.get_settings",
                 return_value=SimpleNamespace(callback_token="callback-token"),
@@ -144,7 +164,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         )
 
         with (
-            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            _backend_override(app, mock_client),
             patch(
                 "app.core.deps.get_settings",
                 return_value=SimpleNamespace(callback_token="callback-token"),
@@ -177,7 +197,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         )
 
         with (
-            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            _backend_override(app, mock_client),
             patch(
                 "app.core.deps.get_settings",
                 return_value=SimpleNamespace(callback_token="callback-token"),
@@ -214,7 +234,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         )
 
         with (
-            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            _backend_override(app, mock_client),
             patch(
                 "app.core.deps.get_settings",
                 return_value=SimpleNamespace(callback_token="callback-token"),
@@ -240,7 +260,7 @@ class TestUserInputRequestsEndpoints(unittest.TestCase):
         mock_client.get_user_input_request = AsyncMock(return_value=None)
 
         with (
-            patch("app.api.v1.user_input_requests.backend_client", mock_client),
+            _backend_override(app, mock_client),
             patch(
                 "app.core.deps.get_settings",
                 return_value=SimpleNamespace(callback_token="callback-token"),

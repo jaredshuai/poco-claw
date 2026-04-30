@@ -1,6 +1,8 @@
+from functools import lru_cache
+from typing import Any, Protocol
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from typing import Any, Protocol
 
 from app.core.deps import require_callback_token
 from app.schemas.response import Response, ResponseSchema
@@ -19,14 +21,13 @@ class UserInputRequestsBackendClient(Protocol):
     async def get_user_input_request(self, request_id: str) -> Any: ...
 
 
-backend_client: BackendClient | None = None
+def build_backend_client() -> UserInputRequestsBackendClient:
+    return BackendClient()
 
 
+@lru_cache(maxsize=1)
 def get_backend_client() -> UserInputRequestsBackendClient:
-    global backend_client
-    if backend_client is None:
-        backend_client = BackendClient()
-    return backend_client
+    return build_backend_client()
 
 
 @router.post("", response_model=ResponseSchema[UserInputRequestResponse])

@@ -1,5 +1,6 @@
 """Tests for app/api/v1/tasks.py."""
 
+from contextlib import contextmanager
 import importlib.util
 from pathlib import Path
 import sys
@@ -26,6 +27,17 @@ def _load_tasks_module_from_source():
         sys.modules.pop(module_name, None)
 
 
+@contextmanager
+def _service_override(app, mock_service):
+    from app.api.v1 import tasks
+
+    app.dependency_overrides[tasks.get_task_service] = lambda: mock_service
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(tasks.get_task_service, None)
+
+
 def test_tasks_module_import_does_not_initialize_service() -> None:
     with patch(
         "app.services.task_service.TaskService",
@@ -37,10 +49,7 @@ def test_tasks_module_import_does_not_initialize_service() -> None:
 
 
 def test_tasks_routes_use_service_dependency_override() -> None:
-    from app.api.v1 import tasks
     from app.main import app
-
-    tasks.task_service = None
 
     mock_result = MagicMock()
     mock_result.model_dump.return_value = {
@@ -51,20 +60,23 @@ def test_tasks_routes_use_service_dependency_override() -> None:
     mock_service = MagicMock()
     mock_service.get_task_status.return_value = mock_result
 
-    app.dependency_overrides[tasks.get_task_service] = lambda: mock_service
-    try:
+    with _service_override(app, mock_service):
         with patch(
             "app.api.v1.tasks.TaskService",
             side_effect=AssertionError("route should use service override"),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.get("/api/v1/tasks/task-123")
-    finally:
-        app.dependency_overrides.pop(tasks.get_task_service, None)
 
     assert response.status_code == 200
     assert response.json()["data"]["task_id"] == "task-123"
     mock_service.get_task_status.assert_called_once_with("task-123")
+
+
+def test_tasks_service_provider_has_no_mutable_global() -> None:
+    from app.api.v1 import tasks
+
+    assert not hasattr(tasks, "task_service")
 
 
 class TestTasksEndpoints(unittest.TestCase):
@@ -84,10 +96,7 @@ class TestTasksEndpoints(unittest.TestCase):
         mock_service = MagicMock()
         mock_service.create_task = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "app.api.v1.tasks.task_service",
-            mock_service,
-        ):
+        with _service_override(app, mock_service):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/tasks",
@@ -120,10 +129,7 @@ class TestTasksEndpoints(unittest.TestCase):
         mock_service = MagicMock()
         mock_service.create_task = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "app.api.v1.tasks.task_service",
-            mock_service,
-        ):
+        with _service_override(app, mock_service):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/tasks",
@@ -156,10 +162,7 @@ class TestTasksEndpoints(unittest.TestCase):
         mock_service = MagicMock()
         mock_service.get_task_status.return_value = mock_result
 
-        with patch(
-            "app.api.v1.tasks.task_service",
-            mock_service,
-        ):
+        with _service_override(app, mock_service):
             client = TestClient(app)
             response = client.get("/api/v1/tasks/task-123")
 
@@ -183,10 +186,7 @@ class TestTasksEndpoints(unittest.TestCase):
         mock_service = MagicMock()
         mock_service.get_session_status = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "app.api.v1.tasks.task_service",
-            mock_service,
-        ):
+        with _service_override(app, mock_service):
             client = TestClient(app)
             response = client.get("/api/v1/tasks/session/session-123")
 

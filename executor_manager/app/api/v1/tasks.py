@@ -1,3 +1,4 @@
+from functools import lru_cache
 import logging
 from typing import Any, Protocol
 
@@ -32,14 +33,13 @@ class TaskApiService(Protocol):
     async def get_session_status(self, session_id: str) -> SessionStatusResponse: ...
 
 
-task_service: TaskApiService | None = None
+def build_task_service() -> TaskApiService:
+    return TaskService()
 
 
+@lru_cache(maxsize=1)
 def get_task_service() -> TaskApiService:
-    global task_service
-    if task_service is None:
-        task_service = TaskService()
-    return task_service
+    return build_task_service()
 
 
 @router.post("", response_model=ResponseSchema[TaskCreateResponse])

@@ -168,11 +168,21 @@ class ConfigResolver:
         backend_client_factory: Callable[[], ConfigBackendClient] | None = None,
         settings: ConfigResolverSettings | None = None,
     ) -> None:
-        factory = backend_client_factory or build_config_backend_client
-        self.backend_client = (
-            backend_client if backend_client is not None else factory()
+        self._backend_client = backend_client
+        self._backend_client_factory = (
+            backend_client_factory or build_config_backend_client
         )
         self.settings = settings if settings is not None else get_settings()
+
+    @property
+    def backend_client(self) -> ConfigBackendClient:
+        if self._backend_client is None:
+            self._backend_client = self._backend_client_factory()
+        return self._backend_client
+
+    @backend_client.setter
+    def backend_client(self, value: ConfigBackendClient) -> None:
+        self._backend_client = value
 
     async def resolve(
         self,

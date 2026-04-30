@@ -115,11 +115,30 @@ class TestConfigResolverInit(unittest.TestCase):
             resolver = ConfigResolver(backend_client=mock_client)
             assert resolver.backend_client == mock_client
 
-    def test_init_without_backend_client(self) -> None:
+    def test_init_without_backend_client_defers_default_construction(self) -> None:
         with patch("app.services.config_resolver.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock()
-            with patch("app.services.config_resolver.BackendClient") as mock_bc:
-                ConfigResolver()
+            with patch(
+                "app.services.config_resolver.BackendClient",
+                side_effect=AssertionError("backend client should be lazy"),
+            ):
+                resolver = ConfigResolver()
+
+        assert resolver.settings is mock_settings.return_value
+
+    def test_backend_client_property_constructs_default_once(self) -> None:
+        mock_client = MagicMock()
+        with patch("app.services.config_resolver.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock()
+            with patch(
+                "app.services.config_resolver.BackendClient",
+                return_value=mock_client,
+            ) as mock_bc:
+                resolver = ConfigResolver()
+                mock_bc.assert_not_called()
+
+                assert resolver.backend_client is mock_client
+                assert resolver.backend_client is mock_client
                 mock_bc.assert_called_once()
 
     def test_init_uses_injected_backend_factory_without_constructing_default(

@@ -48,16 +48,34 @@ class ComputerService:
         storage_service_factory: Callable[[], ComputerStorage] | None = None,
         workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
     ) -> None:
-        storage_factory = storage_service_factory or build_computer_storage
-        workspace_factory = (
+        self._workspace_manager = workspace_manager
+        self._workspace_manager_factory = (
             workspace_manager_factory or build_computer_workspace_manager
         )
-        self._workspace_manager = (
-            workspace_manager if workspace_manager is not None else workspace_factory()
+        self._storage_service = storage_service
+        self._storage_service_factory = (
+            storage_service_factory or build_computer_storage
         )
-        self._storage_service = (
-            storage_service if storage_service is not None else storage_factory()
-        )
+
+    @property
+    def workspace_manager(self) -> WorkspaceManager:
+        if self._workspace_manager is None:
+            self._workspace_manager = self._workspace_manager_factory()
+        return self._workspace_manager
+
+    @workspace_manager.setter
+    def workspace_manager(self, value: WorkspaceManager) -> None:
+        self._workspace_manager = value
+
+    @property
+    def storage_service(self) -> ComputerStorage:
+        if self._storage_service is None:
+            self._storage_service = self._storage_service_factory()
+        return self._storage_service
+
+    @storage_service.setter
+    def storage_service(self, value: ComputerStorage) -> None:
+        self._storage_service = value
 
     def upload_browser_screenshot(
         self,
@@ -67,7 +85,7 @@ class ComputerService:
         content_type: str,
         data: bytes,
     ) -> ComputerScreenshotUploadResponse:
-        user_id = self._workspace_manager.resolve_user_id(session_id)
+        user_id = self.workspace_manager.resolve_user_id(session_id)
         if not user_id:
             raise AppException(
                 error_code=ErrorCode.NOT_FOUND,
@@ -81,7 +99,7 @@ class ComputerService:
         # Keep the key deterministic so the frontend can map (session_id, tool_use_id) -> screenshot.
         key = f"replays/{user_id}/{safe_session_id}/browser/{safe_tool_use_id}.png"
 
-        self._storage_service.put_object(
+        self.storage_service.put_object(
             key=key,
             body=data,
             content_type=content_type or "image/png",

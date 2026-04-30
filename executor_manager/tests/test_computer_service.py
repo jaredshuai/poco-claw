@@ -63,18 +63,24 @@ class TestSanitizeToken(unittest.TestCase):
 class TestComputerServiceInit(unittest.TestCase):
     """Test ComputerService.__init__."""
 
-    def test_init_with_defaults(self) -> None:
+    def test_init_with_defaults_defers_adapter_construction(self) -> None:
         with (
             patch(
                 "app.services.computer_service.WorkspaceManager"
             ) as mock_workspace_cls,
             patch("app.services.computer_service.S3StorageService") as mock_storage_cls,
         ):
-            mock_workspace_cls.return_value = MagicMock()
-            mock_storage_cls.return_value = MagicMock()
+            mock_workspace = MagicMock()
+            mock_storage = MagicMock()
+            mock_workspace_cls.return_value = mock_workspace
+            mock_storage_cls.return_value = mock_storage
 
-            ComputerService()
+            service = ComputerService()
 
+            mock_workspace_cls.assert_not_called()
+            mock_storage_cls.assert_not_called()
+            assert service.workspace_manager is mock_workspace
+            assert service.storage_service is mock_storage
             mock_workspace_cls.assert_called_once()
             mock_storage_cls.assert_called_once()
 
@@ -87,8 +93,8 @@ class TestComputerServiceInit(unittest.TestCase):
             storage_service=mock_storage,
         )
 
-        assert service._workspace_manager is mock_workspace
-        assert service._storage_service is mock_storage
+        assert service.workspace_manager is mock_workspace
+        assert service.storage_service is mock_storage
 
     def test_init_uses_injected_storage_factory_without_constructing_s3(self) -> None:
         mock_workspace = MagicMock()
@@ -103,8 +109,8 @@ class TestComputerServiceInit(unittest.TestCase):
                 storage_service_factory=lambda: mock_storage,
             )
 
-        assert service._workspace_manager is mock_workspace
-        assert service._storage_service is mock_storage
+        assert service.workspace_manager is mock_workspace
+        assert service.storage_service is mock_storage
 
     def test_init_uses_injected_workspace_manager_factory_without_default_constructor(
         self,
@@ -121,8 +127,8 @@ class TestComputerServiceInit(unittest.TestCase):
                 workspace_manager_factory=lambda: mock_workspace,
             )
 
-        assert service._workspace_manager is mock_workspace
-        assert service._storage_service is mock_storage
+        assert service.workspace_manager is mock_workspace
+        assert service.storage_service is mock_storage
 
 
 class TestComputerServiceUploadBrowserScreenshot(unittest.TestCase):

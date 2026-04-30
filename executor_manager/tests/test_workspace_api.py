@@ -1,10 +1,39 @@
 """Tests for app/api/v1/workspace.py."""
 
+import importlib.util
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+
+def _load_workspace_api_module_from_source():
+    module_name = "_workspace_api_import_probe"
+    module_path = (
+        Path(__file__).resolve().parents[1] / "app" / "api" / "v1" / "workspace.py"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_workspace_api_module_import_does_not_initialize_workspace_manager() -> None:
+    with patch(
+        "app.services.workspace_manager.WorkspaceManager",
+        side_effect=AssertionError("workspace manager should be lazy"),
+    ):
+        module = _load_workspace_api_module_from_source()
+
+    assert module.router is not None
 
 
 class TestWorkspaceEndpoints(unittest.TestCase):

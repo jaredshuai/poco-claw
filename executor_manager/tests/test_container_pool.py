@@ -4,6 +4,33 @@ from unittest.mock import MagicMock, patch
 from app.services.container_pool import ContainerPool
 
 
+def test_init_with_defaults_defers_runtime_adapter_construction() -> None:
+    settings = SimpleNamespace()
+    docker_client = MagicMock()
+    workspace_manager = MagicMock()
+
+    with (
+        patch(
+            "app.services.container_pool.docker.from_env",
+            return_value=docker_client,
+        ) as docker_client_factory,
+        patch(
+            "app.services.container_pool.WorkspaceManager",
+            return_value=workspace_manager,
+        ) as workspace_manager_factory,
+    ):
+        pool = ContainerPool(settings=settings)
+
+        docker_client_factory.assert_not_called()
+        workspace_manager_factory.assert_not_called()
+
+        assert pool.docker_client is docker_client
+        assert pool.workspace_manager is workspace_manager
+
+    docker_client_factory.assert_called_once_with()
+    workspace_manager_factory.assert_called_once_with()
+
+
 def test_init_accepts_injected_runtime_adapters() -> None:
     docker_client = MagicMock()
     settings = SimpleNamespace()

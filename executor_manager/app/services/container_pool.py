@@ -30,6 +30,14 @@ def build_container_health_client() -> AbstractContextManager[ContainerHealthCli
     )
 
 
+def build_container_docker_client() -> Any:
+    return docker.from_env()
+
+
+def build_container_workspace_manager() -> WorkspaceManager:
+    return WorkspaceManager()
+
+
 class ContainerPool:
     """Executor container pool with ephemeral and persistent modes."""
 
@@ -46,14 +54,14 @@ class ContainerPool:
         ]
         | None = None,
     ):
-        docker_factory = docker_client_factory or docker.from_env
-        self.docker_client = (
-            docker_client if docker_client is not None else docker_factory()
+        self._docker_client = docker_client
+        self._docker_client_factory = (
+            docker_client_factory or build_container_docker_client
         )
         self.settings = settings if settings is not None else get_settings()
-        workspace_factory = workspace_manager_factory or WorkspaceManager
-        self.workspace_manager = (
-            workspace_manager if workspace_manager is not None else workspace_factory()
+        self._workspace_manager = workspace_manager
+        self._workspace_manager_factory = (
+            workspace_manager_factory or build_container_workspace_manager
         )
         self.health_client_factory = (
             health_client_factory
@@ -63,6 +71,26 @@ class ContainerPool:
 
         self.containers: dict[str, "Container"] = {}
         self.session_to_container: dict[str, str] = {}
+
+    @property
+    def docker_client(self) -> Any:
+        if self._docker_client is None:
+            self._docker_client = self._docker_client_factory()
+        return self._docker_client
+
+    @docker_client.setter
+    def docker_client(self, value: Any) -> None:
+        self._docker_client = value
+
+    @property
+    def workspace_manager(self) -> WorkspaceManager:
+        if self._workspace_manager is None:
+            self._workspace_manager = self._workspace_manager_factory()
+        return self._workspace_manager
+
+    @workspace_manager.setter
+    def workspace_manager(self, value: WorkspaceManager) -> None:
+        self._workspace_manager = value
 
     @staticmethod
     def _build_container_environment(

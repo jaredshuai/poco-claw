@@ -209,6 +209,31 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         assert service.backend_client is backend_client
         assert service.dispatch_service is dispatch_service
 
+    def test_constructor_uses_injected_settings_without_loading_global_settings(
+        self,
+    ) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        settings.__bool__.return_value = False
+        backend_client = MagicMock()
+        dispatch_service = MagicMock()
+
+        with patch(
+            "app.services.run_pull_service.get_settings",
+            side_effect=AssertionError("settings should be injected"),
+        ):
+            service = RunPullService(
+                settings=settings,
+                backend_client=backend_client,
+                dispatch_service=dispatch_service,
+            )
+
+        assert service.settings is settings
+
 
 class TestGetWindowLock(unittest.TestCase):
     """Test RunPullService._get_window_lock."""

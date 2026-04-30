@@ -33,7 +33,7 @@ class RunPullService:
         dispatch_service: Any | None = None,
         clock: Clock | None = None,
     ) -> None:
-        self.settings = settings or get_settings()
+        self.settings = settings if settings is not None else get_settings()
         factory = backend_client_factory or build_run_pull_backend_client
         self.backend_client = (
             backend_client if backend_client is not None else factory()

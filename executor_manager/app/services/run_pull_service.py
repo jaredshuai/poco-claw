@@ -12,6 +12,10 @@ from app.services.backend_client import BackendClient
 from app.services.clock import Clock, SystemClock
 from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_service import RunDispatchService
+from app.services.run_pull_queue_gateway import (
+    BackendRunPullQueueGateway,
+    RunPullQueueGateway,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,10 @@ def build_run_pull_dispatch_service(settings: Any, backend_client: Any) -> Any:
     )
 
 
+def build_run_pull_queue_gateway(backend_client: Any) -> RunPullQueueGateway:
+    return BackendRunPullQueueGateway(backend_client)
+
+
 class RunPullService:
     """Background service that pulls queued runs from Backend."""
 
@@ -38,6 +46,8 @@ class RunPullService:
         settings: Any | None = None,
         backend_client: Any | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
+        queue_gateway: RunPullQueueGateway | None = None,
+        queue_gateway_factory: Callable[[Any], RunPullQueueGateway] | None = None,
         dispatch_service: Any | None = None,
         dispatch_service_factory: Callable[[Any, Any], Any] | None = None,
         clock: Clock | None = None,
@@ -46,6 +56,10 @@ class RunPullService:
         self._backend_client = backend_client
         self._backend_client_factory = (
             backend_client_factory or build_run_pull_backend_client
+        )
+        self._queue_gateway = queue_gateway
+        self._queue_gateway_factory = (
+            queue_gateway_factory or build_run_pull_queue_gateway
         )
         self._dispatch_service = dispatch_service
         self._dispatch_service_factory = (
@@ -72,6 +86,16 @@ class RunPullService:
     @backend_client.setter
     def backend_client(self, value: Any) -> None:
         self._backend_client = value
+
+    @property
+    def queue_gateway(self) -> RunPullQueueGateway:
+        if self._queue_gateway is None:
+            self._queue_gateway = self._queue_gateway_factory(self.backend_client)
+        return self._queue_gateway
+
+    @queue_gateway.setter
+    def queue_gateway(self, value: RunPullQueueGateway) -> None:
+        self._queue_gateway = value
 
     @property
     def dispatch_service(self) -> Any:
@@ -258,7 +282,7 @@ class RunPullService:
 
             try:
                 step_started = time.perf_counter()
-                claim = await self.backend_client.claim_run(
+                claim = await self.queue_gateway.claim_run(
                     worker_id=self.worker_id,
                     lease_seconds=lease_seconds,
                     schedule_modes=schedule_modes,

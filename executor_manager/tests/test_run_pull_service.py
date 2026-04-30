@@ -264,6 +264,36 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         assert service.backend_client is backend_client
         assert service.dispatch_service is dispatch_service
 
+    def test_poll_uses_injected_queue_gateway(self) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+        backend_client.claim_run = AsyncMock(
+            side_effect=AssertionError("poll should claim through queue gateway")
+        )
+        queue_gateway = MagicMock()
+        queue_gateway.claim_run = AsyncMock(return_value=None)
+
+        service = RunPullService(
+            settings=settings,
+            backend_client=backend_client,
+            dispatch_service=MagicMock(),
+            queue_gateway=queue_gateway,
+        )
+
+        asyncio.run(service.poll(schedule_modes=["manual"]))
+
+        queue_gateway.claim_run.assert_awaited_once_with(
+            worker_id=service.worker_id,
+            lease_seconds=30,
+            schedule_modes=["manual"],
+        )
+        backend_client.claim_run.assert_not_called()
+
     def test_constructor_uses_injected_settings_without_loading_global_settings(
         self,
     ) -> None:

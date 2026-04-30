@@ -26,6 +26,10 @@ def build_computer_storage() -> ComputerStorage:
     return S3StorageService()
 
 
+def build_computer_workspace_manager() -> WorkspaceManager:
+    return WorkspaceManager()
+
+
 def _sanitize_token(value: str) -> str:
     token = (value or "").strip()
     token = _SAFE_TOKEN.sub("_", token)
@@ -42,11 +46,17 @@ class ComputerService:
         workspace_manager: WorkspaceManager | None = None,
         storage_service: ComputerStorage | None = None,
         storage_service_factory: Callable[[], ComputerStorage] | None = None,
+        workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
     ) -> None:
-        factory = storage_service_factory or build_computer_storage
-        self._workspace_manager = workspace_manager or WorkspaceManager()
+        storage_factory = storage_service_factory or build_computer_storage
+        workspace_factory = (
+            workspace_manager_factory or build_computer_workspace_manager
+        )
+        self._workspace_manager = (
+            workspace_manager if workspace_manager is not None else workspace_factory()
+        )
         self._storage_service = (
-            storage_service if storage_service is not None else factory()
+            storage_service if storage_service is not None else storage_factory()
         )
 
     def upload_browser_screenshot(

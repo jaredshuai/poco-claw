@@ -106,6 +106,24 @@ class TestComputerServiceInit(unittest.TestCase):
         assert service._workspace_manager is mock_workspace
         assert service._storage_service is mock_storage
 
+    def test_init_uses_injected_workspace_manager_factory_without_default_constructor(
+        self,
+    ) -> None:
+        mock_workspace = MagicMock()
+        mock_storage = MagicMock()
+
+        with patch(
+            "app.services.computer_service.WorkspaceManager",
+            side_effect=AssertionError("workspace manager should be injected"),
+        ):
+            service = ComputerService(
+                storage_service=mock_storage,
+                workspace_manager_factory=lambda: mock_workspace,
+            )
+
+        assert service._workspace_manager is mock_workspace
+        assert service._storage_service is mock_storage
+
 
 class TestComputerServiceUploadBrowserScreenshot(unittest.TestCase):
     """Test ComputerService.upload_browser_screenshot."""

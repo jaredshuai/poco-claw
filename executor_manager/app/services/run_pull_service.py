@@ -78,20 +78,17 @@ class RunPullService:
         self._inflight_run_ids: set[str] = set()
         self._inflight_lock = asyncio.Lock()
 
-    @property
-    def backend_client(self) -> Any:
+    def _get_backend_client(self) -> Any:
         if self._backend_client is None:
             self._backend_client = self._backend_client_factory()
         return self._backend_client
 
-    @backend_client.setter
-    def backend_client(self, value: Any) -> None:
-        self._backend_client = value
-
     @property
     def queue_gateway(self) -> RunPullQueueGateway:
         if self._queue_gateway is None:
-            self._queue_gateway = self._queue_gateway_factory(self.backend_client)
+            self._queue_gateway = self._queue_gateway_factory(
+                self._get_backend_client()
+            )
         return self._queue_gateway
 
     @queue_gateway.setter
@@ -103,7 +100,7 @@ class RunPullService:
         if self._dispatch_service is None:
             self._dispatch_service = self._dispatch_service_factory(
                 self.settings,
-                self.backend_client,
+                self._get_backend_client(),
             )
         return self._dispatch_service
 

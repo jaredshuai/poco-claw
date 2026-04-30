@@ -132,6 +132,7 @@ class TestRunPullServiceDependencies(unittest.TestCase):
 
     def test_service_does_not_expose_dispatch_adapter_proxies(self) -> None:
         adapter_names = [
+            "backend_client",
             "executor_client",
             "container_pool",
             "config_resolver",
@@ -266,6 +267,8 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         )
         backend_client = MagicMock()
         dispatch_service = MagicMock()
+        queue_gateway = MagicMock()
+        queue_gateway_factory = MagicMock(return_value=queue_gateway)
 
         with patch(
             "app.services.run_pull_service.BackendClient",
@@ -275,10 +278,12 @@ class TestRunPullServiceDependencies(unittest.TestCase):
                 settings=settings,
                 backend_client_factory=lambda: backend_client,
                 dispatch_service=dispatch_service,
+                queue_gateway_factory=queue_gateway_factory,
             )
 
-        assert service.backend_client is backend_client
         assert service.dispatch_service is dispatch_service
+        assert service.queue_gateway is queue_gateway
+        queue_gateway_factory.assert_called_once_with(backend_client)
 
     def test_poll_uses_injected_queue_gateway(self) -> None:
         settings = MagicMock(
@@ -763,13 +768,13 @@ class TestPoll(unittest.TestCase):
             callback_base_url="http://test.local",
             callback_token="test-token",
         )
-        backend_client = MagicMock()
-        backend_client.claim_run = AsyncMock()
+        queue_gateway = MagicMock()
+        queue_gateway.claim_run = AsyncMock()
         dispatch_service = MagicMock()
         dispatch_service.dispatch_claim = AsyncMock()
         return RunPullService(
             settings=settings,
-            backend_client=backend_client,
+            queue_gateway=queue_gateway,
             dispatch_service=dispatch_service,
         )
 
@@ -780,28 +785,28 @@ class TestPoll(unittest.TestCase):
 
         asyncio.run(service.poll())
 
-        assert service.backend_client.claim_run.called is False
+        assert service.queue_gateway.claim_run.called is False
 
     def test_poll_no_claim(self) -> None:
         """Test poll when no run to claim."""
         service = self._create_service()
-        service.backend_client.claim_run = AsyncMock(return_value=None)
+        service.queue_gateway.claim_run = AsyncMock(return_value=None)
 
         asyncio.run(service.poll())
 
-        service.backend_client.claim_run.assert_called_once()
+        service.queue_gateway.claim_run.assert_called_once()
 
     def test_poll_claim_exception(self) -> None:
         """Test poll handles claim exception."""
         service = self._create_service()
-        service.backend_client.claim_run = AsyncMock(
+        service.queue_gateway.claim_run = AsyncMock(
             side_effect=Exception("Backend error")
         )
 
         asyncio.run(service.poll())
 
         # Should not raise, just log error
-        service.backend_client.claim_run.assert_called_once()
+        service.queue_gateway.claim_run.assert_called_once()
 
 
 class TestOnTaskDone(unittest.TestCase):
@@ -936,8 +941,8 @@ class TestPollWithClaim(unittest.TestCase):
             callback_base_url="http://test.local",
             callback_token="test-token",
         )
-        backend_client = MagicMock()
-        backend_client.claim_run = AsyncMock(
+        queue_gateway = MagicMock()
+        queue_gateway.claim_run = AsyncMock(
             return_value={
                 "run": {"run_id": "run-1", "session_id": "sess-1"},
                 "user_id": "user-1",
@@ -949,7 +954,7 @@ class TestPollWithClaim(unittest.TestCase):
         dispatch_service.dispatch_claim = AsyncMock()
         return RunPullService(
             settings=settings,
-            backend_client=backend_client,
+            queue_gateway=queue_gateway,
             dispatch_service=dispatch_service,
         )
 
@@ -971,7 +976,7 @@ class TestPollWithClaim(unittest.TestCase):
         asyncio.run(run_poll())
 
         # Verify claim was called
-        service.backend_client.claim_run.assert_called()
+        service.queue_gateway.claim_run.assert_called()
 
 
 class TestHandleClaimDuplicateRun(unittest.TestCase):
@@ -1125,7 +1130,7 @@ class TestPollCancelledError(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service()
-            service.backend_client.claim_run = AsyncMock(
+            service.queue_gateway.claim_run = AsyncMock(
                 side_effect=asyncio.CancelledError
             )
 

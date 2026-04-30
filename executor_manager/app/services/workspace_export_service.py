@@ -6,6 +6,7 @@ import shutil
 import zipfile
 from collections.abc import Callable
 from datetime import datetime, timezone
+from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Protocol
@@ -104,18 +105,15 @@ class LazyWorkspaceManager:
 
 
 workspace_manager: WorkspaceExportWorkspaceManager = LazyWorkspaceManager()
-storage_service: WorkspaceExportStorage | None = None
 
 
 def build_workspace_export_storage() -> WorkspaceExportStorage:
     return S3StorageService()
 
 
+@lru_cache(maxsize=1)
 def get_storage_service() -> WorkspaceExportStorage:
-    global storage_service
-    if storage_service is None:
-        storage_service = build_workspace_export_storage()
-    return storage_service
+    return build_workspace_export_storage()
 
 
 def get_workspace_manager() -> WorkspaceExportWorkspaceManager:

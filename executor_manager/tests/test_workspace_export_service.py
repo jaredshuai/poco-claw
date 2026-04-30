@@ -76,6 +76,12 @@ def test_workspace_export_uses_injected_storage_factory_without_constructing_s3(
         assert service._get_storage_service() is storage_service
 
 
+def test_workspace_export_storage_provider_has_no_mutable_global() -> None:
+    from app.services import workspace_export_service
+
+    assert not hasattr(workspace_export_service, "storage_service")
+
+
 def test_workspace_export_uses_injected_workspace_manager_boundary() -> None:
     class ExplodingWorkspaceManager:
         def __getattr__(self, name: str) -> object:
@@ -832,8 +838,8 @@ class TestExportWorkspace(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService(clock=clock)
@@ -866,8 +872,8 @@ class TestExportWorkspace(unittest.TestCase):
                 mock_wm,
             ),
             patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+                "app.services.workspace_export_service.get_storage_service",
+                return_value=mock_storage,
             ),
         ):
             service = WorkspaceExportService()
@@ -890,8 +896,8 @@ class TestExportWorkspace(unittest.TestCase):
                 mock_wm,
             ),
             patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+                "app.services.workspace_export_service.get_storage_service",
+                return_value=mock_storage,
             ),
         ):
             service = WorkspaceExportService()
@@ -930,8 +936,8 @@ class TestExportWorkspace(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -967,8 +973,8 @@ class TestExportWorkspace(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1005,8 +1011,8 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1029,8 +1035,8 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
                 mock_wm,
             ),
             patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+                "app.services.workspace_export_service.get_storage_service",
+                return_value=mock_storage,
             ),
         ):
             service = WorkspaceExportService()
@@ -1055,8 +1061,8 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
                 mock_wm,
             ),
             patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+                "app.services.workspace_export_service.get_storage_service",
+                return_value=mock_storage,
             ),
         ):
             service = WorkspaceExportService()
@@ -1086,8 +1092,8 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1121,8 +1127,8 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1158,8 +1164,8 @@ class TestStageSkillSubmissionFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1199,8 +1205,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService(clock=clock)
@@ -1229,8 +1235,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                 mock_wm,
             ),
             patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+                "app.services.workspace_export_service.get_storage_service",
+                return_value=mock_storage,
             ),
         ):
             service = WorkspaceExportService()
@@ -1255,8 +1261,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                 mock_wm,
             ),
             patch(
-                "app.services.workspace_export_service.storage_service",
-                mock_storage,
+                "app.services.workspace_export_service.get_storage_service",
+                return_value=mock_storage,
             ),
         ):
             service = WorkspaceExportService()
@@ -1286,8 +1292,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1319,8 +1325,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1359,8 +1365,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1396,8 +1402,8 @@ class TestExportWorkspaceFolder(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()
@@ -1438,8 +1444,8 @@ class TestExportWorkspaceEdgeCases(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
                 patch.object(
                     Path, "unlink", side_effect=PermissionError("Cannot delete")
@@ -1481,8 +1487,8 @@ class TestExportWorkspaceEdgeCases(unittest.TestCase):
                     mock_wm,
                 ),
                 patch(
-                    "app.services.workspace_export_service.storage_service",
-                    mock_storage,
+                    "app.services.workspace_export_service.get_storage_service",
+                    return_value=mock_storage,
                 ),
             ):
                 service = WorkspaceExportService()

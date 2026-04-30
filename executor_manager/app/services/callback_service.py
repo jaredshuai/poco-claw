@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Any, Protocol
 
 from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
@@ -59,22 +60,22 @@ class CallbackWorkspacePathFilter(Protocol):
     def is_ignored(self, path: str) -> bool: ...
 
 
-backend_client: BackendClient | None = None
-workspace_export_service: WorkspaceExportService | None = None
+def build_backend_client() -> CallbackBackendClient:
+    return BackendClient()
 
 
-def get_backend_client() -> BackendClient:
-    global backend_client
-    if backend_client is None:
-        backend_client = BackendClient()
-    return backend_client
+@lru_cache(maxsize=1)
+def get_backend_client() -> CallbackBackendClient:
+    return build_backend_client()
 
 
-def get_workspace_export_service() -> WorkspaceExportService:
-    global workspace_export_service
-    if workspace_export_service is None:
-        workspace_export_service = WorkspaceExportService()
-    return workspace_export_service
+def build_workspace_export_service() -> CallbackWorkspaceExportService:
+    return WorkspaceExportService()
+
+
+@lru_cache(maxsize=1)
+def get_workspace_export_service() -> CallbackWorkspaceExportService:
+    return build_workspace_export_service()
 
 
 class TaskDispatcherRuntimeCleanup:

@@ -75,6 +75,13 @@ def test_callback_service_uses_injected_factories_without_constructing_defaults(
         assert service._get_workspace_export_service() is exporter
 
 
+def test_callback_service_providers_have_no_mutable_globals() -> None:
+    from app.services import callback_service
+
+    assert not hasattr(callback_service, "backend_client")
+    assert not hasattr(callback_service, "workspace_export_service")
+
+
 def test_callback_service_defers_default_runtime_adapters() -> None:
     runtime_cleanup = MagicMock()
     workspace_path_filter = MagicMock()
@@ -413,7 +420,10 @@ class TestProcessCallback(unittest.TestCase):
             return_value={"status": "received"}
         )
 
-        with patch("app.services.callback_service.backend_client", mock_backend_client):
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend_client,
+        ):
             service = CallbackService()
             callback = self._create_callback()
 
@@ -437,7 +447,10 @@ class TestProcessCallback(unittest.TestCase):
         mock_task_dispatcher.on_task_complete = AsyncMock()
 
         with (
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
             patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
             patch(
                 "app.services.callback_service.asyncio.create_task"
@@ -466,7 +479,10 @@ class TestProcessCallback(unittest.TestCase):
         mock_task_dispatcher.on_task_complete = AsyncMock()
 
         with (
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
             patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
             patch(
                 "app.services.callback_service.asyncio.create_task"
@@ -495,7 +511,10 @@ class TestProcessCallback(unittest.TestCase):
         mock_task_dispatcher.on_task_complete = AsyncMock()
 
         with (
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
             patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
             patch(
                 "app.services.callback_service.asyncio.create_task"
@@ -610,7 +629,10 @@ class TestProcessCallback(unittest.TestCase):
         )
 
         with (
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
             patch(
                 "app.services.callback_service.workspace_manager",
                 mock_workspace_manager,
@@ -635,7 +657,10 @@ class TestProcessCallback(unittest.TestCase):
             side_effect=Exception("Backend error")
         )
 
-        with patch("app.services.callback_service.backend_client", mock_backend_client):
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend_client,
+        ):
             service = CallbackService()
             callback = self._create_callback()
 
@@ -672,10 +697,13 @@ class TestExportAndForward(unittest.TestCase):
 
         with (
             patch(
-                "app.services.callback_service.workspace_export_service",
-                mock_workspace_export,
+                "app.services.callback_service.get_workspace_export_service",
+                return_value=mock_workspace_export,
             ),
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -706,10 +734,13 @@ class TestExportAndForward(unittest.TestCase):
 
         with (
             patch(
-                "app.services.callback_service.workspace_export_service",
-                mock_workspace_export,
+                "app.services.callback_service.get_workspace_export_service",
+                return_value=mock_workspace_export,
             ),
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -750,10 +781,13 @@ class TestExportAndForward(unittest.TestCase):
 
         with (
             patch(
-                "app.services.callback_service.workspace_export_service",
-                mock_workspace_export,
+                "app.services.callback_service.get_workspace_export_service",
+                return_value=mock_workspace_export,
             ),
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -789,10 +823,13 @@ class TestExportAndForward(unittest.TestCase):
 
         with (
             patch(
-                "app.services.callback_service.workspace_export_service",
-                mock_workspace_export,
+                "app.services.callback_service.get_workspace_export_service",
+                return_value=mock_workspace_export,
             ),
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
         ):
             service = CallbackService()
             callback = AgentCallbackRequest(
@@ -837,10 +874,13 @@ class TestExportAndForward(unittest.TestCase):
 
         with (
             patch(
-                "app.services.callback_service.workspace_export_service",
-                mock_workspace_export,
+                "app.services.callback_service.get_workspace_export_service",
+                return_value=mock_workspace_export,
             ),
-            patch("app.services.callback_service.backend_client", mock_backend_client),
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
         ):
             service = CallbackService(clock=clock)
             callback = AgentCallbackRequest(

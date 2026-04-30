@@ -36,8 +36,8 @@ class WorkspaceManager:
     archive_dir: Path
     temp_dir: Path
 
-    def __init__(self, *, clock: Clock | None = None):
-        self.settings = get_settings()
+    def __init__(self, *, clock: Clock | None = None, settings: Settings | None = None):
+        self.settings = settings if settings is not None else get_settings()
         self.clock = clock or SystemClock()
         self.base_dir = Path(self.settings.workspace_root)
         self.active_dir = self.base_dir / "active"

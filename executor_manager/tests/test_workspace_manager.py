@@ -53,6 +53,22 @@ class TestWorkspaceManagerInit(unittest.TestCase):
                 assert manager.archive_dir.exists()
                 assert manager.temp_dir.exists()
 
+    def test_init_accepts_injected_settings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_settings = MagicMock()
+            mock_settings.workspace_root = tmpdir
+            mock_settings.workspace_ignore_dot_files = True
+
+            with patch(
+                "app.services.workspace_manager.get_settings",
+                side_effect=AssertionError("settings should be injected"),
+            ):
+                manager = WorkspaceManager(settings=mock_settings)
+
+            assert manager.settings is mock_settings
+            assert manager.base_dir == Path(tmpdir)
+            assert manager.active_dir.exists()
+
 
 class TestWorkspaceManagerGetWorkspacePath(unittest.TestCase):
     """Test WorkspaceManager.get_workspace_path."""

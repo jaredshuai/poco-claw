@@ -10,6 +10,7 @@ from typing import Any
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
 from app.services.clock import Clock, SystemClock
+from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_service import RunDispatchService
 
 logger = logging.getLogger(__name__)
@@ -320,24 +321,19 @@ class RunPullService:
         self._tasks.clear()
 
     async def _handle_claim(self, claim: dict[str, Any]) -> None:
-        run = claim.get("run") or {}
-        run_id = run.get("run_id")
-        session_id = run.get("session_id")
-        user_id = claim.get("user_id") or ""
-        prompt = claim.get("prompt") or ""
-
-        if not run_id or not session_id or not user_id or not prompt:
+        dispatch_claim = RunDispatchClaim.from_payload(claim)
+        if dispatch_claim is None:
             logger.error(f"Invalid claim payload: {claim}")
             return
 
-        run_id_str = str(run_id)
+        run_id_str = dispatch_claim.run_id_str
         if not await self._register_inflight_run(run_id_str):
             logger.warning(
                 "Duplicate run claim detected while dispatch still in progress; skipping duplicate dispatch",
                 extra={
                     "run_id": run_id_str,
-                    "session_id": session_id,
-                    "user_id": user_id,
+                    "session_id": dispatch_claim.session_id,
+                    "user_id": dispatch_claim.user_id,
                     "worker_id": self.worker_id,
                 },
             )
@@ -345,7 +341,7 @@ class RunPullService:
 
         try:
             await self.dispatch_service.dispatch_claim(
-                claim,
+                dispatch_claim,
                 worker_id=self.worker_id,
             )
         finally:

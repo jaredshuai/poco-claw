@@ -10,6 +10,7 @@ from app.services.run_dispatch_config_preparer import (
     _extract_enabled_skill_names,
 )
 from app.services.run_pull_service import RunPullService
+from app.services.run_dispatch_claim import RunDispatchClaim
 
 
 class TestExtractEnabledSkillNames(unittest.TestCase):
@@ -155,8 +156,15 @@ class TestRunPullServiceDependencies(unittest.TestCase):
 
         asyncio.run(service._handle_claim(claim))
 
+        dispatch_service.dispatch_claim.assert_awaited_once()
+        dispatch_claim = dispatch_service.dispatch_claim.call_args.args[0]
+        assert isinstance(dispatch_claim, RunDispatchClaim)
+        assert dispatch_claim.run_id == "run-1"
+        assert dispatch_claim.session_id == "sess-1"
+        assert dispatch_claim.user_id == "user-1"
+        assert dispatch_claim.prompt == "test prompt"
         dispatch_service.dispatch_claim.assert_awaited_once_with(
-            claim,
+            dispatch_claim,
             worker_id=service.worker_id,
         )
 

@@ -36,6 +36,37 @@ def test_tasks_module_import_does_not_initialize_service() -> None:
     assert module.create_task is not None
 
 
+def test_tasks_routes_use_service_dependency_override() -> None:
+    from app.api.v1 import tasks
+    from app.main import app
+
+    tasks.task_service = None
+
+    mock_result = MagicMock()
+    mock_result.model_dump.return_value = {
+        "task_id": "task-123",
+        "status": "running",
+        "progress": 50,
+    }
+    mock_service = MagicMock()
+    mock_service.get_task_status.return_value = mock_result
+
+    app.dependency_overrides[tasks.get_task_service] = lambda: mock_service
+    try:
+        with patch(
+            "app.api.v1.tasks.TaskService",
+            side_effect=AssertionError("route should use service override"),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/v1/tasks/task-123")
+    finally:
+        app.dependency_overrides.pop(tasks.get_task_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["task_id"] == "task-123"
+    mock_service.get_task_status.assert_called_once_with("task-123")
+
+
 class TestTasksEndpoints(unittest.TestCase):
     """Test /api/v1/tasks endpoints."""
 

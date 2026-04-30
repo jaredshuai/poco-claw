@@ -1,6 +1,7 @@
 import logging
+from typing import Any, Protocol
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.schemas.response import Response, ResponseSchema
@@ -15,10 +16,26 @@ from app.services.task_service import TaskService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
-task_service: TaskService | None = None
 
 
-def get_task_service() -> TaskService:
+class TaskApiService(Protocol):
+    async def create_task(
+        self,
+        user_id: str,
+        prompt: str,
+        config: dict[str, Any],
+        session_id: str | None = None,
+    ) -> TaskCreateResponse: ...
+
+    def get_task_status(self, task_id: str) -> TaskStatusResponse: ...
+
+    async def get_session_status(self, session_id: str) -> SessionStatusResponse: ...
+
+
+task_service: TaskApiService | None = None
+
+
+def get_task_service() -> TaskApiService:
     global task_service
     if task_service is None:
         task_service = TaskService()
@@ -26,9 +43,11 @@ def get_task_service() -> TaskService:
 
 
 @router.post("", response_model=ResponseSchema[TaskCreateResponse])
-async def create_task(request: TaskCreateRequest) -> JSONResponse:
+async def create_task(
+    request: TaskCreateRequest,
+    service: TaskApiService = Depends(get_task_service),
+) -> JSONResponse:
     """Create a task and schedule it for execution. If session_id is provided, continues existing conversation."""
-    service = get_task_service()
     result = await service.create_task(
         user_id=request.user_id,
         prompt=request.prompt,
@@ -39,9 +58,11 @@ async def create_task(request: TaskCreateRequest) -> JSONResponse:
 
 
 @router.get("/{task_id}", response_model=ResponseSchema[TaskStatusResponse])
-async def get_task_status(task_id: str) -> JSONResponse:
+async def get_task_status(
+    task_id: str,
+    service: TaskApiService = Depends(get_task_service),
+) -> JSONResponse:
     """Get task status."""
-    service = get_task_service()
     result = service.get_task_status(task_id)
     return Response.success(data=result.model_dump())
 
@@ -49,8 +70,10 @@ async def get_task_status(task_id: str) -> JSONResponse:
 @router.get(
     "/session/{session_id}", response_model=ResponseSchema[SessionStatusResponse]
 )
-async def get_task_status_by_session(session_id: str) -> JSONResponse:
+async def get_task_status_by_session(
+    session_id: str,
+    service: TaskApiService = Depends(get_task_service),
+) -> JSONResponse:
     """Get task status by session ID."""
-    service = get_task_service()
     result = await service.get_session_status(session_id)
     return Response.success(data=result.model_dump())

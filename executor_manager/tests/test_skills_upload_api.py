@@ -1,5 +1,6 @@
 """Tests for app/api/v1/skills_upload.py."""
 
+from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
@@ -27,6 +28,21 @@ def _load_skills_upload_module_from_source():
         sys.modules.pop(module_name, None)
 
 
+@contextmanager
+def _dependency_overrides(app, *, backend, exporter):
+    from app.api.v1 import skills_upload
+
+    app.dependency_overrides[skills_upload.get_backend_client] = lambda: backend
+    app.dependency_overrides[skills_upload.get_workspace_export_service] = lambda: (
+        exporter
+    )
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(skills_upload.get_backend_client, None)
+        app.dependency_overrides.pop(skills_upload.get_workspace_export_service, None)
+
+
 def test_skills_upload_module_import_does_not_initialize_concrete_adapters() -> None:
     with (
         patch(
@@ -44,13 +60,7 @@ def test_skills_upload_module_import_does_not_initialize_concrete_adapters() -> 
 
 
 def test_skills_upload_route_uses_dependency_overrides() -> None:
-    from app.api.v1 import skills_upload
     from app.main import app
-
-    if hasattr(skills_upload, "backend_client"):
-        skills_upload.backend_client = None
-    if hasattr(skills_upload, "workspace_export_service"):
-        skills_upload.workspace_export_service = None
 
     mock_export_result = MagicMock()
     mock_export_result.workspace_export_status = "ready"
@@ -76,11 +86,11 @@ def test_skills_upload_route_uses_dependency_overrides() -> None:
     mock_settings = MagicMock()
     mock_settings.callback_token = "callback-token"
 
-    app.dependency_overrides[skills_upload.get_backend_client] = lambda: mock_client
-    app.dependency_overrides[skills_upload.get_workspace_export_service] = lambda: (
-        mock_export_service
-    )
-    try:
+    with _dependency_overrides(
+        app,
+        backend=mock_client,
+        exporter=mock_export_service,
+    ):
         with (
             patch(
                 "app.api.v1.skills_upload.BackendClient",
@@ -102,9 +112,6 @@ def test_skills_upload_route_uses_dependency_overrides() -> None:
                 },
                 headers={"Authorization": "Bearer callback-token"},
             )
-    finally:
-        app.dependency_overrides.pop(skills_upload.get_backend_client, None)
-        app.dependency_overrides.pop(skills_upload.get_workspace_export_service, None)
 
     assert response.status_code == 200
     assert response.json()["data"]["job_id"] == "skill-job-123"
@@ -114,6 +121,13 @@ def test_skills_upload_route_uses_dependency_overrides() -> None:
         skill_name="my-skill",
         workspace_files_prefix="files/prefix/",
     )
+
+
+def test_skills_upload_providers_have_no_mutable_globals() -> None:
+    from app.api.v1 import skills_upload
+
+    assert not hasattr(skills_upload, "backend_client")
+    assert not hasattr(skills_upload, "workspace_export_service")
 
 
 class TestSkillsUploadEndpoints(unittest.TestCase):
@@ -148,13 +162,10 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.callback_token = "callback-token"
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
-            ),
-            patch(
-                "app.api.v1.skills_upload.backend_client",
-                mock_client,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -209,13 +220,10 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.callback_token = "callback-token"
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
-            ),
-            patch(
-                "app.api.v1.skills_upload.backend_client",
-                mock_client,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.api.v1.skills_upload.get_settings",
@@ -267,11 +275,13 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
 
         mock_settings = MagicMock()
         mock_settings.callback_token = "callback-token"
+        mock_client = MagicMock()
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -311,11 +321,13 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
 
         mock_settings = MagicMock()
         mock_settings.callback_token = "callback-token"
+        mock_client = MagicMock()
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -372,13 +384,10 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.callback_token = "callback-token"
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
-            ),
-            patch(
-                "app.api.v1.skills_upload.backend_client",
-                mock_client,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -435,13 +444,10 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.callback_token = "callback-token"
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
-            ),
-            patch(
-                "app.api.v1.skills_upload.backend_client",
-                mock_client,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -498,13 +504,10 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_settings.callback_token = "callback-token"
 
         with (
-            patch(
-                "app.api.v1.skills_upload.workspace_export_service",
-                mock_export_service,
-            ),
-            patch(
-                "app.api.v1.skills_upload.backend_client",
-                mock_client,
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
             ),
             patch(
                 "app.core.deps.get_settings",

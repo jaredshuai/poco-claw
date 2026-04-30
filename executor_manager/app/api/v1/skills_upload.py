@@ -1,4 +1,5 @@
 import asyncio
+from functools import lru_cache
 from typing import Any, Protocol
 
 import httpx
@@ -33,22 +34,22 @@ class SkillsUploadWorkspaceExportService(Protocol):
     def export_workspace_folder(self, session_id: str, *, folder_path: str) -> Any: ...
 
 
-backend_client: BackendClient | None = None
-workspace_export_service: WorkspaceExportService | None = None
+def build_backend_client() -> SkillsUploadBackendClient:
+    return BackendClient()
 
 
+@lru_cache(maxsize=1)
 def get_backend_client() -> SkillsUploadBackendClient:
-    global backend_client
-    if backend_client is None:
-        backend_client = BackendClient()
-    return backend_client
+    return build_backend_client()
 
 
+def build_workspace_export_service() -> SkillsUploadWorkspaceExportService:
+    return WorkspaceExportService()
+
+
+@lru_cache(maxsize=1)
 def get_workspace_export_service() -> SkillsUploadWorkspaceExportService:
-    global workspace_export_service
-    if workspace_export_service is None:
-        workspace_export_service = WorkspaceExportService()
-    return workspace_export_service
+    return build_workspace_export_service()
 
 
 class SkillSubmitRequest(BaseModel):

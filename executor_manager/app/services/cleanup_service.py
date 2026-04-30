@@ -1,4 +1,5 @@
 import logging
+from typing import Protocol
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -7,17 +8,30 @@ from app.services.workspace_manager import WorkspaceManager
 logger = logging.getLogger(__name__)
 
 
+class CleanupWorkspaceManager(Protocol):
+    def cleanup_expired_workspaces(self) -> dict[str, int]: ...
+
+    def get_disk_usage(self) -> dict[str, int | float]: ...
+
+
 class CleanupService:
     """Scheduled cleanup service."""
 
-    def __init__(self, scheduler: AsyncIOScheduler):
+    def __init__(
+        self,
+        scheduler: AsyncIOScheduler,
+        *,
+        workspace_manager: CleanupWorkspaceManager | None = None,
+    ):
         """Initialize cleanup service.
 
         Args:
             scheduler: APScheduler instance
         """
         self.scheduler = scheduler
-        self.workspace_manager = WorkspaceManager()
+        self.workspace_manager = (
+            workspace_manager if workspace_manager is not None else WorkspaceManager()
+        )
 
         self._schedule_cleanup_job()
 

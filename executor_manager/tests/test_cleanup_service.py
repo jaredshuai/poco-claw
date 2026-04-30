@@ -41,6 +41,23 @@ class TestCleanupServiceInit(unittest.TestCase):
             mock_workspace_cls.assert_called_once()
             assert service.workspace_manager is mock_workspace
 
+    def test_init_accepts_injected_workspace_manager(self) -> None:
+        """Test that init can use an injected workspace manager boundary."""
+        mock_scheduler = MagicMock()
+        mock_workspace = MagicMock()
+
+        with patch(
+            "app.services.cleanup_service.WorkspaceManager",
+            side_effect=AssertionError("workspace manager should be injected"),
+        ):
+            service = CleanupService(
+                scheduler=mock_scheduler,
+                workspace_manager=mock_workspace,
+            )
+
+        assert service.workspace_manager is mock_workspace
+        mock_scheduler.add_job.assert_called_once()
+
 
 class TestCleanupServiceCleanupExpiredWorkspaces(unittest.TestCase):
     """Test CleanupService.cleanup_expired_workspaces."""

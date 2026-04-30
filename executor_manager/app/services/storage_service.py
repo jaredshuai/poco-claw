@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Protocol
 
@@ -64,6 +65,7 @@ class S3StorageService:
         *,
         settings: S3StorageSettings | None = None,
         s3_client: S3ObjectClient | None = None,
+        s3_client_factory: Callable[[S3StorageSettings], S3ObjectClient] | None = None,
     ) -> None:
         settings = settings if settings is not None else get_settings()
         if not settings.s3_bucket:
@@ -83,7 +85,19 @@ class S3StorageService:
             )
 
         self.bucket = settings.s3_bucket
-        self.client = s3_client if s3_client is not None else build_s3_client(settings)
+        self._settings = settings
+        self._client = s3_client
+        self._client_factory = s3_client_factory or build_s3_client
+
+    @property
+    def client(self) -> S3ObjectClient:
+        if self._client is None:
+            self._client = self._client_factory(self._settings)
+        return self._client
+
+    @client.setter
+    def client(self, value: S3ObjectClient) -> None:
+        self._client = value
 
     def upload_file(
         self, *, file_path: str, key: str, content_type: str | None = None

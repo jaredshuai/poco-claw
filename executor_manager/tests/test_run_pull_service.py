@@ -203,6 +203,34 @@ class TestRunPullServiceDependencies(unittest.TestCase):
                 backend_client=backend_client,
             )
 
+    def test_constructor_uses_injected_dispatch_service_factory_lazily(
+        self,
+    ) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+        dispatch_service = MagicMock()
+        dispatch_service_factory = MagicMock(return_value=dispatch_service)
+
+        with patch(
+            "app.services.run_pull_service.RunDispatchService.create_default",
+            side_effect=AssertionError("dispatch service should be injected"),
+        ):
+            service = RunPullService(
+                settings=settings,
+                backend_client=backend_client,
+                dispatch_service_factory=dispatch_service_factory,
+            )
+            dispatch_service_factory.assert_not_called()
+
+            assert service.dispatch_service is dispatch_service
+
+        dispatch_service_factory.assert_called_once_with(settings, backend_client)
+
     def test_constructor_uses_injected_backend_factory_without_constructing_default(
         self,
     ) -> None:

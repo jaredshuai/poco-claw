@@ -21,6 +21,13 @@ def build_run_pull_backend_client() -> Any:
     return BackendClient()
 
 
+def build_run_pull_dispatch_service(settings: Any, backend_client: Any) -> Any:
+    return RunDispatchService.create_default(
+        settings=settings,
+        backend_client=backend_client,
+    )
+
+
 class RunPullService:
     """Background service that pulls queued runs from Backend."""
 
@@ -31,6 +38,7 @@ class RunPullService:
         backend_client: Any | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         dispatch_service: Any | None = None,
+        dispatch_service_factory: Callable[[Any, Any], Any] | None = None,
         clock: Clock | None = None,
     ) -> None:
         self.settings = settings if settings is not None else get_settings()
@@ -39,6 +47,9 @@ class RunPullService:
             backend_client_factory or build_run_pull_backend_client
         )
         self._dispatch_service = dispatch_service
+        self._dispatch_service_factory = (
+            dispatch_service_factory or build_run_pull_dispatch_service
+        )
         self.clock = clock or SystemClock()
 
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
@@ -64,9 +75,9 @@ class RunPullService:
     @property
     def dispatch_service(self) -> Any:
         if self._dispatch_service is None:
-            self._dispatch_service = RunDispatchService.create_default(
-                settings=self.settings,
-                backend_client=self.backend_client,
+            self._dispatch_service = self._dispatch_service_factory(
+                self.settings,
+                self.backend_client,
             )
         return self._dispatch_service
 

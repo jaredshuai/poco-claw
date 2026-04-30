@@ -21,6 +21,10 @@ from app.services.config_resolver import ConfigResolver
 from app.services.skill_stager import SkillStager
 from app.services.plugin_stager import PluginStager
 from app.services.attachment_stager import AttachmentStager
+from app.services.run_dispatch_executor_gateway import (
+    ExecutorClientRunDispatchGateway,
+    RunDispatchExecutorGateway,
+)
 from app.services.run_dispatch_execution_context import (
     RunDispatchExecutionContextProvider,
     SettingsRunDispatchExecutionContextProvider,
@@ -81,6 +85,7 @@ class TaskDispatchDependencies:
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
         runtime: TaskDispatchRuntime | None = None,
+        executor_gateway: RunDispatchExecutorGateway | None = None,
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
@@ -91,6 +96,8 @@ class TaskDispatchDependencies:
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], Any] | None = None,
+        executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
+        | None = None,
         execution_context_provider_factory: Callable[
             [], RunDispatchExecutionContextProvider
         ]
@@ -131,6 +138,8 @@ class TaskDispatchDependencies:
         )
         self._runtime = runtime
         self._runtime_factory = runtime_factory or build_task_dispatch_runtime
+        self._executor_gateway = executor_gateway
+        self._executor_gateway_factory = executor_gateway_factory
         self._execution_context_provider = execution_context_provider
         self._execution_context_provider_factory = execution_context_provider_factory
 
@@ -227,6 +236,23 @@ class TaskDispatchDependencies:
     def runtime(self, value: TaskDispatchRuntime) -> None:
         self._runtime = value
 
+    @property
+    def executor_gateway(self) -> RunDispatchExecutorGateway:
+        if (
+            self._executor_gateway is None
+            and self._executor_gateway_factory is not None
+        ):
+            self._executor_gateway = self._executor_gateway_factory()
+        if self._executor_gateway is None:
+            self._executor_gateway = ExecutorClientRunDispatchGateway(
+                self.executor_client
+            )
+        return self._executor_gateway
+
+    @executor_gateway.setter
+    def executor_gateway(self, value: RunDispatchExecutorGateway) -> None:
+        self._executor_gateway = value
+
     def bind_settings_if_unset(self, settings: Any) -> None:
         if self._settings is None:
             self._settings = settings
@@ -309,6 +335,7 @@ def build_task_dispatch_dependencies(
     slash_command_stager_factory: Callable[[], Any] | None = None,
     subagent_stager_factory: Callable[[], Any] | None = None,
     runtime_factory: Callable[[], Any] | None = None,
+    executor_gateway_factory: Callable[[], RunDispatchExecutorGateway] | None = None,
     execution_context_provider_factory: Callable[
         [], RunDispatchExecutionContextProvider
     ]
@@ -338,6 +365,7 @@ def build_task_dispatch_dependencies(
         slash_command_stager_factory=slash_command_factory,
         subagent_stager_factory=subagent_factory,
         runtime_factory=runtime_factory,
+        executor_gateway_factory=executor_gateway_factory,
         execution_context_provider_factory=execution_context_provider_factory,
     )
 
@@ -423,7 +451,7 @@ class TaskDispatcher:
             settings=settings
         )
         dispatch_dependencies.bind_settings_if_unset(settings)
-        executor_client = dispatch_dependencies.executor_client
+        executor_gateway = dispatch_dependencies.executor_gateway
         backend_client = dispatch_dependencies.backend_client
         config_resolver = dispatch_dependencies.config_resolver
         skill_stager = dispatch_dependencies.skill_stager
@@ -624,7 +652,7 @@ class TaskDispatcher:
             )
 
             step_started = time.perf_counter()
-            await executor_client.execute_task(
+            await executor_gateway.execute_run(
                 executor_url=executor_url,
                 session_id=session_id,
                 run_id=None,
@@ -635,6 +663,7 @@ class TaskDispatcher:
                 config=resolved_config,
                 callback_base_url=execution_context.callback_base_url,
                 sdk_session_id=sdk_session_id,
+                permission_mode="default",
             )
             logger.info(
                 "timing",

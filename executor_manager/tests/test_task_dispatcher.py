@@ -777,6 +777,85 @@ class TestTaskDispatcherDispatch:
         assert call_kwargs["task_lease_secret"] == "provider-lease-token"
         assert call_kwargs["callback_base_url"] == "http://provider.local"
 
+    async def test_dispatch_uses_injected_executor_gateway(self) -> None:
+        settings = MagicMock()
+        settings.callback_base_url = "http://callback"
+        settings.callback_token = "token-123"
+        settings.executor_task_lease_secret = "lease-token"
+
+        mock_executor_client = MagicMock()
+        mock_executor_client.execute_task = AsyncMock(
+            side_effect=AssertionError("executor client should stay behind gateway")
+        )
+
+        mock_executor_gateway = MagicMock()
+        mock_executor_gateway.execute_run = AsyncMock()
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+        mock_backend_client.update_session_status = AsyncMock()
+
+        mock_config_resolver = MagicMock()
+        mock_config_resolver.resolve = AsyncMock(return_value={})
+
+        mock_skill_stager = MagicMock()
+        mock_skill_stager.stage_skills = MagicMock(return_value={})
+
+        mock_plugin_stager = MagicMock()
+        mock_plugin_stager.stage_plugins = MagicMock(return_value={})
+
+        mock_attachment_stager = MagicMock()
+        mock_attachment_stager.stage_inputs = MagicMock(return_value=[])
+
+        mock_slash_command_stager = MagicMock()
+        mock_slash_command_stager.stage_commands = MagicMock(return_value={})
+
+        mock_subagent_stager = MagicMock()
+        mock_subagent_stager.stage_raw_agents = MagicMock(return_value={})
+
+        mock_runtime = MagicMock()
+        mock_runtime.resolve_executor_target = AsyncMock(
+            return_value=("http://executor:8080", "container-123")
+        )
+        mock_runtime.cancel_task = AsyncMock()
+
+        dependencies = TaskDispatchDependencies(
+            executor_client=mock_executor_client,
+            backend_client=mock_backend_client,
+            config_resolver=mock_config_resolver,
+            skill_stager=mock_skill_stager,
+            plugin_stager=mock_plugin_stager,
+            attachment_stager=mock_attachment_stager,
+            slash_command_stager=mock_slash_command_stager,
+            subagent_stager=mock_subagent_stager,
+            runtime=mock_runtime,
+            executor_gateway=mock_executor_gateway,
+        )
+
+        await TaskDispatcher.dispatch(
+            task_id="task-123",
+            session_id="session-456",
+            prompt="Hello",
+            config={"user_id": "user-789"},
+            dependencies=dependencies,
+            settings=settings,
+        )
+
+        mock_executor_gateway.execute_run.assert_awaited_once_with(
+            executor_url="http://executor:8080",
+            session_id="session-456",
+            run_id=None,
+            prompt="Hello",
+            callback_url="http://callback/api/v1/callback",
+            callback_token="token-123",
+            task_lease_secret="lease-token",
+            config={"skill_files": {}, "plugin_files": {}, "input_files": []},
+            callback_base_url="http://callback",
+            sdk_session_id=None,
+            permission_mode="default",
+        )
+        mock_executor_client.execute_task.assert_not_awaited()
+
     async def test_dispatch_empty_callback_url(self) -> None:
         """Test dispatch raises ValueError when callback_base_url is empty."""
         with patch("app.scheduler.task_dispatcher.get_settings") as mock_settings:

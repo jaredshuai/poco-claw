@@ -7,7 +7,9 @@ import pytest
 from app.services.run_dispatch_service import RunDispatchService
 
 
-def _make_dispatch_service(*, runtime: object | None = None) -> RunDispatchService:
+def _make_dispatch_service(
+    *, runtime: object | None = None, config_preparer: object | None = None
+) -> RunDispatchService:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
         callback_token="callback-token",
@@ -64,6 +66,7 @@ def _make_dispatch_service(*, runtime: object | None = None) -> RunDispatchServi
         subagent_stager=subagent_stager,
         container_pool=container_pool,
         runtime=runtime,
+        config_preparer=config_preparer,
     )
 
 
@@ -135,6 +138,53 @@ async def test_dispatch_claim_cancels_injected_runtime_when_start_run_fails() ->
     await service.dispatch_claim(claim, worker_id="worker-1")
 
     runtime.cancel_runtime.assert_awaited_once_with("sess-123")
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_delegates_config_preparation_to_injected_port() -> None:
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        return_value=("http://runtime-executor.local", "runtime-container-1")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    config_preparer = MagicMock()
+    config_preparer.prepare_config = AsyncMock(
+        return_value={
+            "skill_files": {},
+            "plugin_files": {},
+            "input_files": [],
+            "browser_enabled": True,
+        }
+    )
+    service = _make_dispatch_service(runtime=runtime, config_preparer=config_preparer)
+    service.config_resolver.resolve.side_effect = AssertionError(
+        "config resolver should stay behind config preparer port"
+    )
+    service.skill_stager.stage_skills.side_effect = AssertionError(
+        "skill stager should stay behind config preparer port"
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {"container_mode": "persistent"},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    config_preparer.prepare_config.assert_awaited_once_with(
+        user_id="user-123",
+        session_id="sess-123",
+        run_id="run-123",
+        config_snapshot={"container_mode": "persistent"},
+    )
+    runtime.allocate_runtime.assert_awaited_once_with(
+        session_id="sess-123",
+        user_id="user-123",
+        browser_enabled=True,
+        container_mode="persistent",
+        container_id=None,
+    )
 
 
 def test_create_default_accepts_adapter_factories() -> None:

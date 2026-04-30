@@ -74,6 +74,17 @@ class RunDispatchRuntime(Protocol):
     async def cancel_runtime(self, session_id: str) -> None: ...
 
 
+class RunDispatchConfigPreparer(Protocol):
+    async def prepare_config(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        run_id: str,
+        config_snapshot: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
+
 class ContainerPoolRunDispatchRuntime:
     def __init__(self, container_pool: Any) -> None:
         self.container_pool = container_pool
@@ -116,6 +127,185 @@ def _extract_enabled_skill_names(skills: object) -> list[str]:
     return sorted(names)
 
 
+class StagingRunDispatchConfigPreparer:
+    def __init__(
+        self,
+        *,
+        backend_client: Any,
+        config_resolver: Any,
+        skill_stager: Any,
+        plugin_stager: Any,
+        attachment_stager: Any,
+        claude_md_stager: Any,
+        slash_command_stager: Any,
+        subagent_stager: Any,
+    ) -> None:
+        self.backend_client = backend_client
+        self.config_resolver = config_resolver
+        self.skill_stager = skill_stager
+        self.plugin_stager = plugin_stager
+        self.attachment_stager = attachment_stager
+        self.claude_md_stager = claude_md_stager
+        self.slash_command_stager = slash_command_stager
+        self.subagent_stager = subagent_stager
+
+    async def prepare_config(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        run_id: str,
+        config_snapshot: dict[str, Any],
+    ) -> dict[str, Any]:
+        ctx = {
+            "run_id": run_id,
+            "session_id": session_id,
+            "user_id": user_id,
+        }
+
+        step_started = time.perf_counter()
+        resolved_config = await self.config_resolver.resolve(
+            user_id,
+            config_snapshot,
+            session_id=session_id,
+            run_id=run_id,
+        )
+        logger.info(
+            "timing",
+            extra={
+                "step": "run_dispatch_resolve_config",
+                "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                **ctx,
+            },
+        )
+
+        step_started = time.perf_counter()
+        staged_skills = self.skill_stager.stage_skills(
+            user_id=user_id,
+            session_id=session_id,
+            skills=resolved_config.get("skill_files") or {},
+        )
+        resolved_config["skill_files"] = staged_skills
+        logger.info(
+            "timing",
+            extra={
+                "step": "run_dispatch_stage_skills",
+                "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                "skills_staged": len(staged_skills),
+                **ctx,
+            },
+        )
+
+        step_started = time.perf_counter()
+        staged_plugins = self.plugin_stager.stage_plugins(
+            user_id=user_id,
+            session_id=session_id,
+            plugins=resolved_config.get("plugin_files") or {},
+        )
+        resolved_config["plugin_files"] = staged_plugins
+        logger.info(
+            "timing",
+            extra={
+                "step": "run_dispatch_stage_plugins",
+                "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                "plugins_staged": len(staged_plugins),
+                **ctx,
+            },
+        )
+
+        step_started = time.perf_counter()
+        staged_inputs = self.attachment_stager.stage_inputs(
+            user_id=user_id,
+            session_id=session_id,
+            inputs=resolved_config.get("input_files") or [],
+        )
+        resolved_config["input_files"] = staged_inputs
+        logger.info(
+            "timing",
+            extra={
+                "step": "run_dispatch_stage_inputs",
+                "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                "inputs_staged": len(staged_inputs),
+                **ctx,
+            },
+        )
+
+        step_started = time.perf_counter()
+        skill_names = _extract_enabled_skill_names(staged_skills)
+        resolved_commands = await self.backend_client.resolve_slash_commands(
+            user_id=user_id,
+            skill_names=skill_names,
+        )
+        staged_commands = self.slash_command_stager.stage_commands(
+            user_id=user_id,
+            session_id=session_id,
+            commands=resolved_commands,
+        )
+        logger.info(
+            "timing",
+            extra={
+                "step": "run_dispatch_stage_slash_commands",
+                "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                "commands_staged": len(staged_commands),
+                **ctx,
+            },
+        )
+
+        # Best-effort: don't block execution if CLAUDE.md staging fails.
+        step_started = time.perf_counter()
+        try:
+            claude_md = await self.backend_client.get_claude_md(user_id=user_id)
+            enabled = bool(claude_md.get("enabled"))
+            content = (
+                claude_md.get("content")
+                if isinstance(claude_md.get("content"), str)
+                else ""
+            )
+            staged_md = self.claude_md_stager.stage(
+                user_id=user_id,
+                session_id=session_id,
+                enabled=enabled,
+                content=content,
+            )
+            bytes_val = staged_md.get("bytes", 0)
+            logger.info(
+                "timing",
+                extra={
+                    "step": "run_dispatch_stage_claude_md",
+                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                    "enabled": bool(staged_md.get("enabled")),
+                    "bytes": int(bytes_val) if isinstance(bytes_val, int) else 0,
+                    **ctx,
+                },
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to stage CLAUDE.md for session {session_id}: {exc}")
+
+        step_started = time.perf_counter()
+        raw_agents_val = resolved_config.pop("subagent_raw_agents", None)
+        raw_agents = raw_agents_val if isinstance(raw_agents_val, dict) else {}
+        try:
+            staged_agents = self.subagent_stager.stage_raw_agents(
+                user_id=user_id,
+                session_id=session_id,
+                raw_agents=raw_agents,
+            )
+            logger.info(
+                "timing",
+                extra={
+                    "step": "run_dispatch_stage_subagents",
+                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
+                    "subagents_requested": len(raw_agents),
+                    "subagents_staged": len(staged_agents),
+                    **ctx,
+                },
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to stage subagents for session {session_id}: {exc}")
+
+        return resolved_config
+
+
 class RunDispatchService:
     """Dispatch claimed runs to executor runtimes."""
 
@@ -134,6 +324,7 @@ class RunDispatchService:
         subagent_stager: Any | None = None,
         container_pool: Any | None = None,
         runtime: RunDispatchRuntime | None = None,
+        config_preparer: RunDispatchConfigPreparer | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -145,6 +336,7 @@ class RunDispatchService:
         subagent_stager_factory: Callable[[], Any] | None = None,
         container_pool_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
+        config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
     ) -> None:
         self.settings = settings
         self._backend_client = backend_client
@@ -161,6 +353,8 @@ class RunDispatchService:
         )
         self._runtime = runtime
         self._runtime_factory = runtime_factory
+        self._config_preparer = config_preparer
+        self._config_preparer_factory = config_preparer_factory
         self._config_resolver = config_resolver
         self._config_resolver_factory = (
             config_resolver_factory or build_run_dispatch_config_resolver
@@ -233,6 +427,27 @@ class RunDispatchService:
     @runtime.setter
     def runtime(self, value: RunDispatchRuntime) -> None:
         self._runtime = value
+
+    @property
+    def config_preparer(self) -> RunDispatchConfigPreparer:
+        if self._config_preparer is None and self._config_preparer_factory is not None:
+            self._config_preparer = self._config_preparer_factory()
+        if self._config_preparer is None:
+            self._config_preparer = StagingRunDispatchConfigPreparer(
+                backend_client=self.backend_client,
+                config_resolver=self.config_resolver,
+                skill_stager=self.skill_stager,
+                plugin_stager=self.plugin_stager,
+                attachment_stager=self.attachment_stager,
+                claude_md_stager=self.claude_md_stager,
+                slash_command_stager=self.slash_command_stager,
+                subagent_stager=self.subagent_stager,
+            )
+        return self._config_preparer
+
+    @config_preparer.setter
+    def config_preparer(self, value: RunDispatchConfigPreparer) -> None:
+        self._config_preparer = value
 
     @property
     def config_resolver(self) -> Any:
@@ -323,6 +538,7 @@ class RunDispatchService:
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
         runtime: RunDispatchRuntime | None = None,
+        config_preparer: RunDispatchConfigPreparer | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -334,6 +550,7 @@ class RunDispatchService:
         subagent_stager_factory: Callable[[], Any] | None = None,
         container_pool_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
+        config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
     ) -> "RunDispatchService":
         settings = settings if settings is not None else get_settings()
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
@@ -362,6 +579,8 @@ class RunDispatchService:
             container_pool_factory=container_factory,
             runtime=runtime,
             runtime_factory=runtime_factory,
+            config_preparer=config_preparer,
+            config_preparer_factory=config_preparer_factory,
             config_resolver=config_resolver,
             config_resolver_factory=config_factory,
             skill_stager=skill_stager,
@@ -409,149 +628,12 @@ class RunDispatchService:
         }
 
         try:
-            step_started = time.perf_counter()
-            resolved_config = await self.config_resolver.resolve(
-                user_id,
-                config_snapshot,
-                session_id=session_id,
-                run_id=str(run_id),
-            )
-            logger.info(
-                "timing",
-                extra={
-                    "step": "run_dispatch_resolve_config",
-                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                    **ctx,
-                },
-            )
-
-            step_started = time.perf_counter()
-            staged_skills = self.skill_stager.stage_skills(
+            resolved_config = await self.config_preparer.prepare_config(
                 user_id=user_id,
                 session_id=session_id,
-                skills=resolved_config.get("skill_files") or {},
+                run_id=run_id_str,
+                config_snapshot=config_snapshot,
             )
-            resolved_config["skill_files"] = staged_skills
-            logger.info(
-                "timing",
-                extra={
-                    "step": "run_dispatch_stage_skills",
-                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                    "skills_staged": len(staged_skills),
-                    **ctx,
-                },
-            )
-
-            step_started = time.perf_counter()
-            staged_plugins = self.plugin_stager.stage_plugins(
-                user_id=user_id,
-                session_id=session_id,
-                plugins=resolved_config.get("plugin_files") or {},
-            )
-            resolved_config["plugin_files"] = staged_plugins
-            logger.info(
-                "timing",
-                extra={
-                    "step": "run_dispatch_stage_plugins",
-                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                    "plugins_staged": len(staged_plugins),
-                    **ctx,
-                },
-            )
-
-            step_started = time.perf_counter()
-            staged_inputs = self.attachment_stager.stage_inputs(
-                user_id=user_id,
-                session_id=session_id,
-                inputs=resolved_config.get("input_files") or [],
-            )
-            resolved_config["input_files"] = staged_inputs
-            logger.info(
-                "timing",
-                extra={
-                    "step": "run_dispatch_stage_inputs",
-                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                    "inputs_staged": len(staged_inputs),
-                    **ctx,
-                },
-            )
-
-            step_started = time.perf_counter()
-            skill_names = _extract_enabled_skill_names(staged_skills)
-            resolved_commands = await self.backend_client.resolve_slash_commands(
-                user_id=user_id,
-                skill_names=skill_names,
-            )
-            staged_commands = self.slash_command_stager.stage_commands(
-                user_id=user_id,
-                session_id=session_id,
-                commands=resolved_commands,
-            )
-            logger.info(
-                "timing",
-                extra={
-                    "step": "run_dispatch_stage_slash_commands",
-                    "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                    "commands_staged": len(staged_commands),
-                    **ctx,
-                },
-            )
-
-            # Best-effort: don't block execution if CLAUDE.md staging fails.
-            step_started = time.perf_counter()
-            try:
-                claude_md = await self.backend_client.get_claude_md(user_id=user_id)
-                enabled = bool(claude_md.get("enabled"))
-                content = (
-                    claude_md.get("content")
-                    if isinstance(claude_md.get("content"), str)
-                    else ""
-                )
-                staged_md = self.claude_md_stager.stage(
-                    user_id=user_id,
-                    session_id=session_id,
-                    enabled=enabled,
-                    content=content,
-                )
-                bytes_val = staged_md.get("bytes", 0)
-                logger.info(
-                    "timing",
-                    extra={
-                        "step": "run_dispatch_stage_claude_md",
-                        "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                        "enabled": bool(staged_md.get("enabled")),
-                        "bytes": int(bytes_val) if isinstance(bytes_val, int) else 0,
-                        **ctx,
-                    },
-                )
-            except Exception as exc:
-                logger.warning(
-                    f"Failed to stage CLAUDE.md for session {session_id}: {exc}"
-                )
-
-            step_started = time.perf_counter()
-            raw_agents_val = resolved_config.pop("subagent_raw_agents", None)
-            raw_agents = raw_agents_val if isinstance(raw_agents_val, dict) else {}
-            try:
-                staged_agents = self.subagent_stager.stage_raw_agents(
-                    user_id=user_id,
-                    session_id=session_id,
-                    raw_agents=raw_agents,
-                )
-                logger.info(
-                    "timing",
-                    extra={
-                        "step": "run_dispatch_stage_subagents",
-                        "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                        "subagents_requested": len(raw_agents),
-                        "subagents_staged": len(staged_agents),
-                        **ctx,
-                    },
-                )
-            except Exception as exc:
-                logger.warning(
-                    f"Failed to stage subagents for session {session_id}: {exc}"
-                )
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))

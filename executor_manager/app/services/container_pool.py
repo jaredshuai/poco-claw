@@ -8,7 +8,7 @@ import httpx
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.core.settings import get_settings, resolve_executor_task_lease_secret
+from app.core.settings import Settings, get_settings, resolve_executor_task_lease_secret
 from app.services.workspace_manager import WorkspaceManager
 
 if TYPE_CHECKING:
@@ -20,10 +20,20 @@ logger = logging.getLogger(__name__)
 class ContainerPool:
     """Executor container pool with ephemeral and persistent modes."""
 
-    def __init__(self):
-        self.docker_client = docker.from_env()
-        self.settings = get_settings()
-        self.workspace_manager = WorkspaceManager()
+    def __init__(
+        self,
+        *,
+        docker_client: Any | None = None,
+        settings: Settings | None = None,
+        workspace_manager: WorkspaceManager | None = None,
+    ):
+        self.docker_client = (
+            docker_client if docker_client is not None else docker.from_env()
+        )
+        self.settings = settings if settings is not None else get_settings()
+        self.workspace_manager = (
+            workspace_manager if workspace_manager is not None else WorkspaceManager()
+        )
 
         self.containers: dict[str, "Container"] = {}
         self.session_to_container: dict[str, str] = {}

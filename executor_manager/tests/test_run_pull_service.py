@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import app.services.run_pull_service as run_pull_module
-from app.services.run_dispatch_service import (
+from app.services.run_dispatch_config_preparer import (
     _extract_enabled_skill_names,
 )
 from app.services.run_pull_service import RunPullService

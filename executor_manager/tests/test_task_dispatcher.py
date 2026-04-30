@@ -125,7 +125,7 @@ def test_build_task_dispatch_dependencies_accepts_adapter_factories() -> None:
         dependencies = build_task_dispatch_dependencies(
             executor_client_factory=lambda: executor_client,
             backend_client_factory=lambda: backend_client,
-            config_resolver_factory=lambda backend: config_resolver,
+            config_resolver_factory=lambda backend, settings: config_resolver,
             skill_stager_factory=lambda: skill_stager,
             plugin_stager_factory=lambda: plugin_stager,
             attachment_stager_factory=lambda: attachment_stager,
@@ -141,6 +141,40 @@ def test_build_task_dispatch_dependencies_accepts_adapter_factories() -> None:
     assert dependencies.attachment_stager is attachment_stager
     assert dependencies.slash_command_stager is slash_command_stager
     assert dependencies.subagent_stager is subagent_stager
+
+
+def test_build_task_dispatch_dependencies_passes_settings_to_default_config_resolver() -> (
+    None
+):
+    settings = MagicMock()
+    executor_client = MagicMock()
+    backend_client = MagicMock()
+    config_resolver = MagicMock()
+    skill_stager = MagicMock()
+    plugin_stager = MagicMock()
+    attachment_stager = MagicMock()
+    slash_command_stager = MagicMock()
+    subagent_stager = MagicMock()
+    runtime = MagicMock()
+
+    with patch(
+        "app.scheduler.task_dispatcher.ConfigResolver",
+        return_value=config_resolver,
+    ) as config_resolver_cls:
+        dependencies = build_task_dispatch_dependencies(
+            settings=settings,
+            executor_client_factory=lambda: executor_client,
+            backend_client_factory=lambda: backend_client,
+            skill_stager_factory=lambda: skill_stager,
+            plugin_stager_factory=lambda: plugin_stager,
+            attachment_stager_factory=lambda: attachment_stager,
+            slash_command_stager_factory=lambda: slash_command_stager,
+            subagent_stager_factory=lambda: subagent_stager,
+            runtime_factory=lambda: runtime,
+        )
+
+    config_resolver_cls.assert_called_once_with(backend_client, settings=settings)
+    assert dependencies.config_resolver is config_resolver
 
 
 class TestTaskDispatcherGetContainerPool(unittest.TestCase):
@@ -324,6 +358,79 @@ class TestTaskDispatcherDispatch:
             mock_backend_client.update_session_status.assert_called_once_with(
                 "session-456", "running"
             )
+
+    async def test_dispatch_passes_settings_to_default_dependency_builder(
+        self,
+    ) -> None:
+        settings = MagicMock()
+        settings.callback_base_url = "http://callback"
+        settings.callback_token = "token-123"
+        settings.executor_task_lease_secret = "lease-token"
+
+        mock_executor_client = MagicMock()
+        mock_executor_client.execute_task = AsyncMock()
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+        mock_backend_client.update_session_status = AsyncMock()
+
+        mock_config_resolver = MagicMock()
+        mock_config_resolver.resolve = AsyncMock(
+            return_value={"skill_files": {}, "plugin_files": {}, "input_files": []}
+        )
+
+        mock_skill_stager = MagicMock()
+        mock_skill_stager.stage_skills = MagicMock(return_value={})
+
+        mock_plugin_stager = MagicMock()
+        mock_plugin_stager.stage_plugins = MagicMock(return_value={})
+
+        mock_attachment_stager = MagicMock()
+        mock_attachment_stager.stage_inputs = MagicMock(return_value=[])
+
+        mock_slash_command_stager = MagicMock()
+        mock_slash_command_stager.stage_commands = MagicMock(return_value=[])
+
+        mock_subagent_stager = MagicMock()
+        mock_subagent_stager.stage_raw_agents = MagicMock(return_value=[])
+
+        mock_runtime = MagicMock()
+        mock_runtime.resolve_executor_target = AsyncMock(
+            return_value=("http://executor:8080", "container-123")
+        )
+        mock_runtime.cancel_task = AsyncMock()
+
+        dependencies = TaskDispatchDependencies(
+            executor_client=mock_executor_client,
+            backend_client=mock_backend_client,
+            config_resolver=mock_config_resolver,
+            skill_stager=mock_skill_stager,
+            plugin_stager=mock_plugin_stager,
+            attachment_stager=mock_attachment_stager,
+            slash_command_stager=mock_slash_command_stager,
+            subagent_stager=mock_subagent_stager,
+            runtime=mock_runtime,
+        )
+
+        with (
+            patch(
+                "app.scheduler.task_dispatcher.get_settings",
+                side_effect=AssertionError("settings should be injected"),
+            ),
+            patch(
+                "app.scheduler.task_dispatcher.build_task_dispatch_dependencies",
+                return_value=dependencies,
+            ) as build_dependencies,
+        ):
+            await TaskDispatcher.dispatch(
+                task_id="task-123",
+                session_id="session-456",
+                prompt="Hello",
+                config={"user_id": "user-789"},
+                settings=settings,
+            )
+
+        build_dependencies.assert_called_once_with(settings=settings)
 
     async def test_dispatch_uses_injected_runtime_boundary(self) -> None:
         """Test dispatch runtime allocation uses caller-supplied boundary."""

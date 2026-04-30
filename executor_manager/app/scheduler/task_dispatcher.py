@@ -87,8 +87,9 @@ def build_task_dispatch_executor_client() -> ExecutorClient:
 
 def build_task_dispatch_config_resolver(
     backend_client: BackendClient,
+    settings: Any | None = None,
 ) -> ConfigResolver:
-    return ConfigResolver(backend_client)
+    return ConfigResolver(backend_client, settings=settings)
 
 
 def build_task_dispatch_skill_stager() -> SkillStager:
@@ -121,9 +122,10 @@ def build_task_dispatch_container_pool() -> ContainerPool:
 
 def build_task_dispatch_dependencies(
     *,
+    settings: Any | None = None,
     executor_client_factory: Callable[[], Any] | None = None,
     backend_client_factory: Callable[[], Any] | None = None,
-    config_resolver_factory: Callable[[Any], Any] | None = None,
+    config_resolver_factory: Callable[[Any, Any | None], Any] | None = None,
     skill_stager_factory: Callable[[], Any] | None = None,
     plugin_stager_factory: Callable[[], Any] | None = None,
     attachment_stager_factory: Callable[[], Any] | None = None,
@@ -148,7 +150,7 @@ def build_task_dispatch_dependencies(
     return TaskDispatchDependencies(
         executor_client=executor_factory(),
         backend_client=backend_client,
-        config_resolver=config_factory(backend_client),
+        config_resolver=config_factory(backend_client, settings),
         skill_stager=skill_factory(),
         plugin_stager=plugin_factory(),
         attachment_stager=attachment_factory(),
@@ -235,7 +237,9 @@ class TaskDispatcher:
             enqueued_at: perf_counter timestamp when the task was enqueued (for queue delay)
         """
         settings = settings or get_settings()
-        dispatch_dependencies = dependencies or build_task_dispatch_dependencies()
+        dispatch_dependencies = dependencies or build_task_dispatch_dependencies(
+            settings=settings
+        )
         executor_client = dispatch_dependencies.executor_client
         backend_client = dispatch_dependencies.backend_client
         config_resolver = dispatch_dependencies.config_resolver

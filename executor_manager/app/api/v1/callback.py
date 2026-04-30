@@ -1,4 +1,5 @@
 import logging
+from typing import Protocol
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -11,10 +12,18 @@ from app.services.callback_service import CallbackService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/callback", tags=["callback"])
-callback_service: CallbackService | None = None
 
 
-def get_callback_service() -> CallbackService:
+class CallbackApiService(Protocol):
+    async def process_callback(
+        self, callback: AgentCallbackRequest
+    ) -> CallbackReceiveResponse: ...
+
+
+callback_service: CallbackApiService | None = None
+
+
+def get_callback_service() -> CallbackApiService:
     global callback_service
     if callback_service is None:
         callback_service = CallbackService()
@@ -25,8 +34,8 @@ def get_callback_service() -> CallbackService:
 async def receive_callback(
     callback: AgentCallbackRequest,
     _: None = Depends(require_callback_token),
+    service: CallbackApiService = Depends(get_callback_service),
 ) -> JSONResponse:
     """Receive callback from Executor and forward to Backend."""
-    service = get_callback_service()
     result = await service.process_callback(callback)
     return Response.success(data=result.model_dump(), message="Callback received")

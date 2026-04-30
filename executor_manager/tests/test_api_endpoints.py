@@ -55,6 +55,53 @@ def test_callback_module_import_does_not_initialize_service() -> None:
     assert module.receive_callback is not None
 
 
+def test_callback_route_uses_service_dependency_override() -> None:
+    from app.api.v1 import callback
+    from app.main import app
+
+    callback.callback_service = None
+
+    mock_result = MagicMock()
+    mock_result.model_dump.return_value = {
+        "session_id": "sess-123",
+        "status": "received",
+        "callback_status": "completed",
+        "progress": 100,
+    }
+    mock_service = MagicMock()
+    mock_service.process_callback = AsyncMock(return_value=mock_result)
+
+    app.dependency_overrides[callback.get_callback_service] = lambda: mock_service
+    try:
+        with (
+            patch(
+                "app.api.v1.callback.CallbackService",
+                side_effect=AssertionError("route should use service override"),
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(callback_token="callback-token"),
+            ),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/callback",
+                json={
+                    "session_id": "sess-123",
+                    "run_id": "run-456",
+                    "status": "completed",
+                    "progress": 100,
+                },
+                headers={"Authorization": "Bearer callback-token"},
+            )
+    finally:
+        app.dependency_overrides.pop(callback.get_callback_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["session_id"] == "sess-123"
+    mock_service.process_callback.assert_awaited_once()
+
+
 def test_computer_module_import_does_not_initialize_service() -> None:
     with patch(
         "app.services.computer_service.ComputerService",

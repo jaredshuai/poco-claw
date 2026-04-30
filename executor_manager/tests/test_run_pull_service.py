@@ -13,6 +13,23 @@ from app.services.run_pull_service import RunPullService
 from app.services.run_dispatch_claim import RunDispatchClaim
 
 
+def make_run_dispatch_claim(
+    *,
+    run_id: object = "run-1",
+    session_id: str = "sess-1",
+    user_id: str = "user-1",
+    prompt: str = "test",
+    config_snapshot: dict | None = None,
+) -> RunDispatchClaim:
+    return RunDispatchClaim(
+        run_id=run_id,
+        session_id=session_id,
+        user_id=user_id,
+        prompt=prompt,
+        config_snapshot=config_snapshot or {},
+    )
+
+
 class TestExtractEnabledSkillNames(unittest.TestCase):
     """Test _extract_enabled_skill_names pure function."""
 
@@ -158,12 +175,7 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         backend_client = MagicMock()
         dispatch_service = MagicMock()
         dispatch_service.dispatch_claim = AsyncMock()
-        claim = {
-            "run": {"run_id": "run-1", "session_id": "sess-1"},
-            "user_id": "user-1",
-            "prompt": "test prompt",
-            "config_snapshot": {},
-        }
+        claim = make_run_dispatch_claim(prompt="test prompt")
 
         service = RunPullService(
             settings=settings,
@@ -184,6 +196,31 @@ class TestRunPullServiceDependencies(unittest.TestCase):
             dispatch_claim,
             worker_id=service.worker_id,
         )
+
+    def test_handle_claim_rejects_raw_backend_payloads(self) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+        )
+        dispatch_service = MagicMock()
+        dispatch_service.dispatch_claim = AsyncMock()
+        service = RunPullService(
+            settings=settings,
+            dispatch_service=dispatch_service,
+        )
+
+        with self.assertRaises(TypeError):
+            asyncio.run(
+                service._handle_claim(
+                    {
+                        "run": {"run_id": "run-1", "session_id": "sess-1"},
+                        "user_id": "user-1",
+                        "prompt": "test",
+                    }
+                )
+            )
+
+        dispatch_service.dispatch_claim.assert_not_called()
 
     def test_constructor_defers_default_backend_client(self) -> None:
         settings = MagicMock(
@@ -943,12 +980,7 @@ class TestPollWithClaim(unittest.TestCase):
         )
         queue_gateway = MagicMock()
         queue_gateway.claim_run = AsyncMock(
-            return_value={
-                "run": {"run_id": "run-1", "session_id": "sess-1"},
-                "user_id": "user-1",
-                "prompt": "test prompt",
-                "config_snapshot": {},
-            }
+            return_value=make_run_dispatch_claim(prompt="test prompt")
         )
         dispatch_service = MagicMock()
         dispatch_service.dispatch_claim = AsyncMock()
@@ -1007,12 +1039,7 @@ class TestHandleClaimDuplicateRun(unittest.TestCase):
     def test_duplicate_run_skipped(self) -> None:
         """Test that duplicate run is skipped."""
         service = self._create_service()
-        claim = {
-            "run": {"run_id": "run-1", "session_id": "sess-1"},
-            "user_id": "user-1",
-            "prompt": "test",
-            "config_snapshot": {},
-        }
+        claim = make_run_dispatch_claim()
 
         # Register run first
         asyncio.run(service._register_inflight_run("run-1"))
@@ -1022,82 +1049,6 @@ class TestHandleClaimDuplicateRun(unittest.TestCase):
 
         # Should still only have one entry
         assert "run-1" in service._inflight_run_ids
-
-
-class TestHandleClaimValidation(unittest.TestCase):
-    """Test RunPullService._handle_claim validation logic."""
-
-    def _create_service(self) -> RunPullService:
-        """Create service with mocked dependencies."""
-        with (
-            patch("app.services.run_pull_service.get_settings") as mock_settings,
-            patch("app.services.run_pull_service.BackendClient"),
-            patch("app.services.run_dispatch_service.ExecutorClient"),
-            patch("app.services.run_dispatch_service.ConfigResolver"),
-            patch("app.services.run_dispatch_service.SkillStager"),
-            patch("app.services.run_dispatch_service.PluginStager"),
-            patch("app.services.run_dispatch_service.AttachmentStager"),
-            patch("app.services.run_dispatch_service.ClaudeMdStager"),
-            patch("app.services.run_dispatch_service.SlashCommandStager"),
-            patch("app.services.run_dispatch_service.SubAgentStager"),
-        ):
-            mock_settings.return_value = MagicMock(
-                max_concurrent_tasks=5,
-                task_claim_lease_seconds=30,
-                callback_base_url="http://test.local",
-                callback_token="test-token",
-            )
-            return RunPullService()
-
-    def test_invalid_claim_missing_run_id(self) -> None:
-        """Test claim with missing run_id returns early."""
-        service = self._create_service()
-        claim = {
-            "run": {"session_id": "sess-1"},
-            "user_id": "user-1",
-            "prompt": "test",
-        }
-
-        asyncio.run(service._handle_claim(claim))
-
-        assert service._inflight_run_ids == set()
-
-    def test_invalid_claim_missing_session_id(self) -> None:
-        """Test claim with missing session_id returns early."""
-        service = self._create_service()
-        claim = {
-            "run": {"run_id": "run-1"},
-            "user_id": "user-1",
-            "prompt": "test",
-        }
-
-        asyncio.run(service._handle_claim(claim))
-
-        assert service._inflight_run_ids == set()
-
-    def test_invalid_claim_missing_user_id(self) -> None:
-        """Test claim with missing user_id returns early."""
-        service = self._create_service()
-        claim = {
-            "run": {"run_id": "run-1", "session_id": "sess-1"},
-            "prompt": "test",
-        }
-
-        asyncio.run(service._handle_claim(claim))
-
-        assert service._inflight_run_ids == set()
-
-    def test_invalid_claim_missing_prompt(self) -> None:
-        """Test claim with missing prompt returns early."""
-        service = self._create_service()
-        claim = {
-            "run": {"run_id": "run-1", "session_id": "sess-1"},
-            "user_id": "user-1",
-        }
-
-        asyncio.run(service._handle_claim(claim))
-
-        assert service._inflight_run_ids == set()
 
 
 class TestPollCancelledError(unittest.TestCase):
@@ -1256,12 +1207,7 @@ class TestHandleClaimEmptyCallbackUrl(unittest.TestCase):
 
         async def run_test() -> None:
             service = self._create_service_with_empty_callback()
-            claim = {
-                "run": {"run_id": "run-1", "session_id": "sess-1"},
-                "user_id": "user-1",
-                "prompt": "test",
-                "config_snapshot": {},
-            }
+            claim = make_run_dispatch_claim()
 
             # Should raise ValueError for empty callback_base_url
             with self.assertRaises(ValueError) as ctx:
@@ -1296,12 +1242,7 @@ class TestHandleClaimEmptyCallbackUrl(unittest.TestCase):
             service = RunPullService()
 
             async def run_test() -> None:
-                claim = {
-                    "run": {"run_id": "run-1", "session_id": "sess-1"},
-                    "user_id": "user-1",
-                    "prompt": "test",
-                    "config_snapshot": {},
-                }
+                claim = make_run_dispatch_claim()
 
                 with self.assertRaises(ValueError) as ctx:
                     await service._handle_claim(claim)

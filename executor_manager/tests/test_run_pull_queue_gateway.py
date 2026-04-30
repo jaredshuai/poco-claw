@@ -37,3 +37,29 @@ async def test_backend_queue_gateway_normalizes_claim_payload() -> None:
         lease_seconds=30,
         schedule_modes=["manual"],
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"run": {"session_id": "sess-1"}, "user_id": "user-1", "prompt": "do work"},
+        {"run": {"run_id": "run-1"}, "user_id": "user-1", "prompt": "do work"},
+        {"run": {"run_id": "run-1", "session_id": "sess-1"}, "prompt": "do work"},
+        {"run": {"run_id": "run-1", "session_id": "sess-1"}, "user_id": "user-1"},
+    ],
+)
+async def test_backend_queue_gateway_returns_none_for_invalid_claim_payload(
+    payload: dict,
+) -> None:
+    backend_client = MagicMock()
+    backend_client.claim_run = AsyncMock(return_value=payload)
+    gateway = BackendRunPullQueueGateway(backend_client)
+
+    claim = await gateway.claim_run(
+        worker_id="worker-1",
+        lease_seconds=30,
+        schedule_modes=None,
+    )
+
+    assert claim is None

@@ -46,6 +46,20 @@ class ConfigBackendClient(Protocol):
     async def update_run_metadata(self, run_id: str, metadata: dict) -> None: ...
 
 
+class ConfigResolverSettings(Protocol):
+    default_model: str | None
+    default_model_provider_id: str | None
+    anthropic_api_key: str | None
+    anthropic_auth_token: str | None
+    anthropic_base_url: str | None
+    glm_api_key: str | None
+    glm_base_url: str | None
+    minimax_api_key: str | None
+    minimax_base_url: str | None
+    deepseek_api_key: str | None
+    deepseek_base_url: str | None
+
+
 def build_config_backend_client() -> ConfigBackendClient:
     return BackendClient()
 
@@ -152,12 +166,13 @@ class ConfigResolver:
         backend_client: ConfigBackendClient | None = None,
         *,
         backend_client_factory: Callable[[], ConfigBackendClient] | None = None,
+        settings: ConfigResolverSettings | None = None,
     ) -> None:
         factory = backend_client_factory or build_config_backend_client
         self.backend_client = (
             backend_client if backend_client is not None else factory()
         )
-        self.settings = get_settings()
+        self.settings = settings if settings is not None else get_settings()
 
     async def resolve(
         self,

@@ -143,6 +143,22 @@ class TestConfigResolverInit(unittest.TestCase):
 
             assert resolver.backend_client == mock_client
 
+    def test_init_uses_injected_settings_without_loading_global_settings(
+        self,
+    ) -> None:
+        mock_client = MagicMock()
+        settings = MagicMock()
+        with patch(
+            "app.services.config_resolver.get_settings",
+            side_effect=AssertionError("settings should be injected"),
+        ):
+            resolver = ConfigResolver(
+                backend_client=mock_client,
+                settings=settings,
+            )
+
+        assert resolver.settings is settings
+
 
 class TestConfigResolverNormalizeIds(unittest.TestCase):
     """Test ConfigResolver._normalize_ids."""

@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import unittest
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -18,6 +19,17 @@ class TestExecutorClientInit(unittest.TestCase):
             mock_settings.return_value = MagicMock()
             client = ExecutorClient()
             assert client.settings is not None
+
+    def test_init_accepts_injected_settings(self) -> None:
+        settings = SimpleNamespace()
+
+        with patch(
+            "app.services.executor_client.get_settings",
+            side_effect=AssertionError("settings should be injected"),
+        ):
+            client = ExecutorClient(settings=settings)
+
+        assert client.settings is settings
 
 
 class TestExecutorClientTraceHeaders(unittest.TestCase):

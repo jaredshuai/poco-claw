@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 from collections.abc import Callable
+from typing import Any
 
 import httpx
 
@@ -29,9 +30,10 @@ class ExecutorClient:
         self,
         *,
         clock: Clock | None = None,
+        settings: Any | None = None,
         task_client_factory: Callable[[], httpx.AsyncClient] | None = None,
     ) -> None:
-        self.settings = get_settings()
+        self.settings = settings if settings is not None else get_settings()
         self.clock = clock or SystemClock()
         self.task_client_factory = task_client_factory or build_executor_task_client
 

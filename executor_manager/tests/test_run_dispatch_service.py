@@ -12,6 +12,7 @@ def _make_dispatch_service(
     runtime: object | None = None,
     config_preparer: object | None = None,
     state_gateway: object | None = None,
+    executor_gateway: object | None = None,
 ) -> RunDispatchService:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
@@ -73,6 +74,8 @@ def _make_dispatch_service(
     }
     if state_gateway is not None:
         kwargs["state_gateway"] = state_gateway
+    if executor_gateway is not None:
+        kwargs["executor_gateway"] = executor_gateway
     return RunDispatchService(**kwargs)
 
 
@@ -246,6 +249,69 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
         worker_id="worker-1",
     )
     state_gateway.fail_run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_delegates_executor_call_to_injected_gateway() -> None:
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        return_value=("http://runtime-executor.local", "runtime-container-1")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    config_preparer = MagicMock()
+    config_preparer.prepare_config = AsyncMock(
+        return_value={
+            "skill_files": {},
+            "plugin_files": {},
+            "input_files": [],
+        }
+    )
+    state_gateway = MagicMock()
+    state_gateway.record_mcp_staged = AsyncMock()
+    state_gateway.start_run = AsyncMock()
+    state_gateway.fail_run = AsyncMock()
+    executor_gateway = MagicMock()
+    executor_gateway.execute_run = AsyncMock()
+    service = _make_dispatch_service(
+        runtime=runtime,
+        config_preparer=config_preparer,
+        state_gateway=state_gateway,
+        executor_gateway=executor_gateway,
+    )
+    service.executor_client.execute_task.side_effect = AssertionError(
+        "executor client should stay behind executor gateway"
+    )
+    claim = {
+        "run": {
+            "run_id": "run-123",
+            "session_id": "sess-123",
+            "permission_mode": "acceptEdits",
+        },
+        "user_id": "user-123",
+        "prompt": "do work",
+        "sdk_session_id": "sdk-123",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    executor_gateway.execute_run.assert_awaited_once_with(
+        executor_url="http://runtime-executor.local",
+        session_id="sess-123",
+        run_id="run-123",
+        prompt="do work",
+        callback_url="http://manager.local/api/v1/callback",
+        callback_token="callback-token",
+        task_lease_secret="lease-secret",
+        config={
+            "skill_files": {},
+            "plugin_files": {},
+            "input_files": [],
+        },
+        callback_base_url="http://manager.local",
+        sdk_session_id="sdk-123",
+        permission_mode="acceptEdits",
+    )
 
 
 def test_create_default_accepts_adapter_factories() -> None:

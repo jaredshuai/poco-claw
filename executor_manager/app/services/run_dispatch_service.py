@@ -15,6 +15,10 @@ from app.services.run_dispatch_config_preparer import (
     RunDispatchConfigPreparer,
     StagingRunDispatchConfigPreparer,
 )
+from app.services.run_dispatch_executor_gateway import (
+    ExecutorClientRunDispatchGateway,
+    RunDispatchExecutorGateway,
+)
 from app.services.run_dispatch_runtime import (
     ContainerPoolRunDispatchRuntime,
     RunDispatchRuntime,
@@ -92,6 +96,7 @@ class RunDispatchService:
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
+        executor_gateway: RunDispatchExecutorGateway | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -105,6 +110,8 @@ class RunDispatchService:
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
+        executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
+        | None = None,
     ) -> None:
         self.settings = settings
         self._backend_client = backend_client
@@ -125,6 +132,8 @@ class RunDispatchService:
         self._config_preparer_factory = config_preparer_factory
         self._state_gateway = state_gateway
         self._state_gateway_factory = state_gateway_factory
+        self._executor_gateway = executor_gateway
+        self._executor_gateway_factory = executor_gateway_factory
         self._config_resolver = config_resolver
         self._config_resolver_factory = (
             config_resolver_factory or build_run_dispatch_config_resolver
@@ -232,6 +241,23 @@ class RunDispatchService:
         self._state_gateway = value
 
     @property
+    def executor_gateway(self) -> RunDispatchExecutorGateway:
+        if (
+            self._executor_gateway is None
+            and self._executor_gateway_factory is not None
+        ):
+            self._executor_gateway = self._executor_gateway_factory()
+        if self._executor_gateway is None:
+            self._executor_gateway = ExecutorClientRunDispatchGateway(
+                self.executor_client
+            )
+        return self._executor_gateway
+
+    @executor_gateway.setter
+    def executor_gateway(self, value: RunDispatchExecutorGateway) -> None:
+        self._executor_gateway = value
+
+    @property
     def config_resolver(self) -> Any:
         if self._config_resolver is None:
             self._config_resolver = self._config_resolver_factory(
@@ -322,6 +348,7 @@ class RunDispatchService:
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
+        executor_gateway: RunDispatchExecutorGateway | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -335,6 +362,8 @@ class RunDispatchService:
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
+        executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
+        | None = None,
     ) -> "RunDispatchService":
         settings = settings if settings is not None else get_settings()
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
@@ -367,6 +396,8 @@ class RunDispatchService:
             config_preparer_factory=config_preparer_factory,
             state_gateway=state_gateway,
             state_gateway_factory=state_gateway_factory,
+            executor_gateway=executor_gateway,
+            executor_gateway_factory=executor_gateway_factory,
             config_resolver=config_resolver,
             config_resolver_factory=config_factory,
             skill_stager=skill_stager,
@@ -471,7 +502,7 @@ class RunDispatchService:
             )
 
             step_started = time.perf_counter()
-            await self.executor_client.execute_task(
+            await self.executor_gateway.execute_run(
                 executor_url=executor_url,
                 session_id=session_id,
                 run_id=str(run_id),

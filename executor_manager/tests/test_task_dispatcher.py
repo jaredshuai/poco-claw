@@ -955,6 +955,78 @@ class TestTaskDispatcherDispatch:
             container_id=None,
         )
 
+    async def test_dispatch_defaults_to_shared_config_preparer(self) -> None:
+        settings = MagicMock()
+        settings.callback_base_url = "http://callback"
+        settings.callback_token = "token-123"
+        settings.executor_task_lease_secret = "lease-token"
+
+        mock_executor_client = MagicMock()
+        mock_executor_client.execute_task = AsyncMock()
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+        mock_backend_client.get_claude_md = AsyncMock(return_value={})
+        mock_backend_client.update_session_status = AsyncMock()
+
+        mock_config_resolver = MagicMock()
+        mock_config_resolver.resolve = AsyncMock(return_value={})
+
+        mock_skill_stager = MagicMock()
+        mock_skill_stager.stage_skills = MagicMock(return_value={})
+
+        mock_plugin_stager = MagicMock()
+        mock_plugin_stager.stage_plugins = MagicMock(return_value={})
+
+        mock_attachment_stager = MagicMock()
+        mock_attachment_stager.stage_inputs = MagicMock(return_value=[])
+
+        mock_slash_command_stager = MagicMock()
+        mock_slash_command_stager.stage_commands = MagicMock(return_value={})
+
+        mock_subagent_stager = MagicMock()
+        mock_subagent_stager.stage_raw_agents = MagicMock(return_value={})
+
+        mock_runtime = MagicMock()
+        mock_runtime.resolve_executor_target = AsyncMock(
+            return_value=("http://executor:8080", "container-123")
+        )
+        mock_runtime.cancel_task = AsyncMock()
+
+        dependencies = TaskDispatchDependencies(
+            executor_client=mock_executor_client,
+            backend_client=mock_backend_client,
+            config_resolver=mock_config_resolver,
+            skill_stager=mock_skill_stager,
+            plugin_stager=mock_plugin_stager,
+            attachment_stager=mock_attachment_stager,
+            slash_command_stager=mock_slash_command_stager,
+            subagent_stager=mock_subagent_stager,
+            runtime=mock_runtime,
+        )
+
+        with patch(
+            "app.scheduler.task_dispatcher._prepare_task_dispatch_config",
+            AsyncMock(
+                side_effect=AssertionError("legacy config path should be unused")
+            ),
+        ):
+            await TaskDispatcher.dispatch(
+                task_id="task-123",
+                session_id="session-456",
+                prompt="Hello",
+                config={"user_id": "user-789"},
+                dependencies=dependencies,
+                settings=settings,
+            )
+
+        mock_config_resolver.resolve.assert_awaited_once_with(
+            "user-789",
+            {"user_id": "user-789"},
+            session_id="session-456",
+            run_id="task-123",
+        )
+
     async def test_dispatch_uses_injected_state_gateway(self) -> None:
         settings = MagicMock()
         settings.callback_base_url = "http://callback"

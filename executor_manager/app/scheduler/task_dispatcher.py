@@ -15,6 +15,7 @@ from app.core.observability.request_context import (
     set_trace_id,
 )
 from app.services.backend_client import BackendClient
+from app.services.claude_md_stager import ClaudeMdStager
 from app.services.container_pool import ContainerPool
 from app.services.executor_client import ExecutorClient
 from app.services.config_resolver import ConfigResolver
@@ -25,7 +26,10 @@ from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
     RunDispatchExecutorGateway,
 )
-from app.services.run_dispatch_config_preparer import RunDispatchConfigPreparer
+from app.services.run_dispatch_config_preparer import (
+    RunDispatchConfigPreparer,
+    StagingRunDispatchConfigPreparer,
+)
 from app.services.run_dispatch_execution_context import (
     RunDispatchExecutionContextProvider,
     SettingsRunDispatchExecutionContextProvider,
@@ -87,6 +91,7 @@ class TaskDispatchDependencies:
         skill_stager: Any | None = None,
         plugin_stager: Any | None = None,
         attachment_stager: Any | None = None,
+        claude_md_stager: Any | None = None,
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
         runtime: TaskDispatchRuntime | None = None,
@@ -100,6 +105,7 @@ class TaskDispatchDependencies:
         skill_stager_factory: Callable[[], Any] | None = None,
         plugin_stager_factory: Callable[[], Any] | None = None,
         attachment_stager_factory: Callable[[], Any] | None = None,
+        claude_md_stager_factory: Callable[[], Any] | None = None,
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], Any] | None = None,
@@ -136,6 +142,10 @@ class TaskDispatchDependencies:
         self._attachment_stager = attachment_stager
         self._attachment_stager_factory = (
             attachment_stager_factory or build_task_dispatch_attachment_stager
+        )
+        self._claude_md_stager = claude_md_stager
+        self._claude_md_stager_factory = (
+            claude_md_stager_factory or build_task_dispatch_claude_md_stager
         )
         self._slash_command_stager = slash_command_stager
         self._slash_command_stager_factory = (
@@ -220,6 +230,16 @@ class TaskDispatchDependencies:
         self._attachment_stager = value
 
     @property
+    def claude_md_stager(self) -> Any:
+        if self._claude_md_stager is None:
+            self._claude_md_stager = self._claude_md_stager_factory()
+        return self._claude_md_stager
+
+    @claude_md_stager.setter
+    def claude_md_stager(self, value: Any) -> None:
+        self._claude_md_stager = value
+
+    @property
     def slash_command_stager(self) -> Any:
         if self._slash_command_stager is None:
             self._slash_command_stager = self._slash_command_stager_factory()
@@ -253,6 +273,17 @@ class TaskDispatchDependencies:
     def config_preparer(self) -> RunDispatchConfigPreparer | None:
         if self._config_preparer is None and self._config_preparer_factory is not None:
             self._config_preparer = self._config_preparer_factory()
+        if self._config_preparer is None:
+            self._config_preparer = StagingRunDispatchConfigPreparer(
+                backend_client=self.backend_client,
+                config_resolver=self.config_resolver,
+                skill_stager=self.skill_stager,
+                plugin_stager=self.plugin_stager,
+                attachment_stager=self.attachment_stager,
+                claude_md_stager=self.claude_md_stager,
+                slash_command_stager=self.slash_command_stager,
+                subagent_stager=self.subagent_stager,
+            )
         return self._config_preparer
 
     @config_preparer.setter
@@ -342,6 +373,10 @@ def build_task_dispatch_attachment_stager() -> AttachmentStager:
     return AttachmentStager()
 
 
+def build_task_dispatch_claude_md_stager() -> ClaudeMdStager:
+    return ClaudeMdStager()
+
+
 def build_task_dispatch_slash_command_stager() -> SlashCommandStager:
     return SlashCommandStager()
 
@@ -367,6 +402,7 @@ def build_task_dispatch_dependencies(
     skill_stager_factory: Callable[[], Any] | None = None,
     plugin_stager_factory: Callable[[], Any] | None = None,
     attachment_stager_factory: Callable[[], Any] | None = None,
+    claude_md_stager_factory: Callable[[], Any] | None = None,
     slash_command_stager_factory: Callable[[], Any] | None = None,
     subagent_stager_factory: Callable[[], Any] | None = None,
     runtime_factory: Callable[[], Any] | None = None,
@@ -386,6 +422,7 @@ def build_task_dispatch_dependencies(
     attachment_factory = (
         attachment_stager_factory or build_task_dispatch_attachment_stager
     )
+    claude_md_factory = claude_md_stager_factory or build_task_dispatch_claude_md_stager
     slash_command_factory = (
         slash_command_stager_factory or build_task_dispatch_slash_command_stager
     )
@@ -399,6 +436,7 @@ def build_task_dispatch_dependencies(
         skill_stager_factory=skill_factory,
         plugin_stager_factory=plugin_factory,
         attachment_stager_factory=attachment_factory,
+        claude_md_stager_factory=claude_md_factory,
         slash_command_stager_factory=slash_command_factory,
         subagent_stager_factory=subagent_factory,
         runtime_factory=runtime_factory,

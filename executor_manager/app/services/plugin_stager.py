@@ -24,18 +24,26 @@ def build_plugin_storage() -> PluginStorage:
     return S3StorageService()
 
 
+def build_plugin_workspace_manager() -> WorkspaceManager:
+    return WorkspaceManager()
+
+
 class PluginStager:
     def __init__(
         self,
         storage_service: PluginStorage | None = None,
         storage_service_factory: Callable[[], PluginStorage] | None = None,
         workspace_manager: WorkspaceManager | None = None,
+        workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
     ) -> None:
-        factory = storage_service_factory or build_plugin_storage
+        storage_factory = storage_service_factory or build_plugin_storage
+        workspace_factory = workspace_manager_factory or build_plugin_workspace_manager
         self.storage_service = (
-            storage_service if storage_service is not None else factory()
+            storage_service if storage_service is not None else storage_factory()
         )
-        self.workspace_manager = workspace_manager or WorkspaceManager()
+        self.workspace_manager = (
+            workspace_manager if workspace_manager is not None else workspace_factory()
+        )
 
     @staticmethod
     def _validate_plugin_name(name: str) -> None:

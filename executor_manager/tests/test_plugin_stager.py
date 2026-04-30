@@ -52,6 +52,24 @@ class TestPluginStagerInit(unittest.TestCase):
         assert stager.storage_service is mock_storage
         assert stager.workspace_manager is mock_workspace
 
+    def test_init_uses_injected_workspace_manager_factory_without_default_constructor(
+        self,
+    ) -> None:
+        mock_storage = MagicMock()
+        mock_workspace = MagicMock()
+
+        with patch(
+            "app.services.plugin_stager.WorkspaceManager",
+            side_effect=AssertionError("workspace manager should be injected"),
+        ):
+            stager = PluginStager(
+                storage_service=mock_storage,
+                workspace_manager_factory=lambda: mock_workspace,
+            )
+
+        assert stager.storage_service is mock_storage
+        assert stager.workspace_manager is mock_workspace
+
 
 class TestPluginStagerValidatePluginName(unittest.TestCase):
     """Test PluginStager._validate_plugin_name."""

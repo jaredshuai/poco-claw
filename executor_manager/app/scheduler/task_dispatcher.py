@@ -220,6 +220,7 @@ class TaskDispatcher:
         trace_id: str | None = None,
         enqueued_at: float | None = None,
         dependencies: TaskDispatchDependencies | None = None,
+        settings: Any | None = None,
     ) -> None:
         """Dispatch task to executor.
 
@@ -233,7 +234,7 @@ class TaskDispatcher:
             trace_id: Trace ID for correlating logs across async boundaries
             enqueued_at: perf_counter timestamp when the task was enqueued (for queue delay)
         """
-        settings = get_settings()
+        settings = settings or get_settings()
         dispatch_dependencies = dependencies or build_task_dispatch_dependencies()
         executor_client = dispatch_dependencies.executor_client
         backend_client = dispatch_dependencies.backend_client

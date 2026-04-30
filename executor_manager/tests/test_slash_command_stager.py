@@ -11,14 +11,17 @@ from app.services.slash_command_stager import SlashCommandStager
 class TestSlashCommandStagerInit(unittest.TestCase):
     """Test SlashCommandStager.__init__."""
 
-    def test_init_with_defaults(self) -> None:
+    def test_init_with_defaults_defers_workspace_manager_construction(self) -> None:
         with patch(
             "app.services.slash_command_stager.WorkspaceManager"
         ) as mock_workspace_cls:
-            mock_workspace_cls.return_value = MagicMock()
+            mock_workspace = MagicMock()
+            mock_workspace_cls.return_value = mock_workspace
 
-            SlashCommandStager()
+            stager = SlashCommandStager()
 
+            mock_workspace_cls.assert_not_called()
+            assert stager.workspace_manager is mock_workspace
             mock_workspace_cls.assert_called_once()
 
     def test_init_with_dependencies(self) -> None:

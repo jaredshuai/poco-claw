@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -9,6 +10,29 @@ from app.services.backend_client import BackendClient
 
 class TestBackendClientTraceHeaders(unittest.TestCase):
     """Test BackendClient._trace_headers."""
+
+    def test_init_accepts_injected_settings_and_http_client(self) -> None:
+        settings = SimpleNamespace(
+            backend_url="http://backend/",
+            internal_api_token="token-123",
+        )
+        http_client = MagicMock()
+
+        with (
+            patch(
+                "app.services.backend_client.get_settings",
+                side_effect=AssertionError("settings should be injected"),
+            ),
+            patch(
+                "app.services.backend_client.httpx.AsyncClient",
+                side_effect=AssertionError("http client should be injected"),
+            ),
+        ):
+            client = BackendClient(settings=settings, http_client=http_client)
+
+        assert client.settings is settings
+        assert client.base_url == "http://backend"
+        assert client._client is http_client
 
     def test_trace_headers_with_existing_ids(self) -> None:
         with patch("app.services.backend_client.get_request_id") as mock_get_req:

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
@@ -12,21 +12,39 @@ from app.core.observability.request_context import (
 )
 
 
+class BackendClientSettings(Protocol):
+    backend_url: str
+    internal_api_token: str
+
+
+def build_backend_http_client(base_url: str) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url=base_url,
+        limits=httpx.Limits(
+            max_connections=100,
+            max_keepalive_connections=20,
+            keepalive_expiry=30.0,
+        ),
+        timeout=httpx.Timeout(connect=15.0, read=60.0, write=30.0, pool=15.0),
+        trust_env=False,
+    )
+
+
 class BackendClient:
     """Client for communicating with the Backend service."""
 
-    def __init__(self) -> None:
-        self.settings = get_settings()
+    def __init__(
+        self,
+        *,
+        settings: BackendClientSettings | None = None,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.settings = settings if settings is not None else get_settings()
         self.base_url = (self.settings.backend_url or "").rstrip("/")
-        self._client = httpx.AsyncClient(
-            base_url=self.base_url,
-            limits=httpx.Limits(
-                max_connections=100,
-                max_keepalive_connections=20,
-                keepalive_expiry=30.0,
-            ),
-            timeout=httpx.Timeout(connect=15.0, read=60.0, write=30.0, pool=15.0),
-            trust_env=False,
+        self._client = (
+            http_client
+            if http_client is not None
+            else build_backend_http_client(self.base_url)
         )
 
     @staticmethod

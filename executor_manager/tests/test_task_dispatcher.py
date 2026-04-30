@@ -3,80 +3,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import app.scheduler.task_dispatcher as task_dispatcher_module
 from app.scheduler.task_dispatcher import (
     TaskDispatchDependencies,
     TaskDispatcher,
-    _extract_enabled_skill_names,
     build_task_dispatch_dependencies,
 )
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
 
-class TestExtractEnabledSkillNames(unittest.TestCase):
-    """Test _extract_enabled_skill_names helper function."""
-
-    def test_empty_dict(self) -> None:
-        result = _extract_enabled_skill_names({})
-        assert result == []
-
-    def test_non_dict_input(self) -> None:
-        result = _extract_enabled_skill_names("not a dict")
-        assert result == []
-
-    def test_none_input(self) -> None:
-        result = _extract_enabled_skill_names(None)
-        assert result == []
-
-    def test_single_skill_enabled(self) -> None:
-        skills = {"skill1": {"enabled": True}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == ["skill1"]
-
-    def test_single_skill_no_enabled_field(self) -> None:
-        skills = {"skill1": {}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == ["skill1"]
-
-    def test_skill_disabled(self) -> None:
-        skills = {"skill1": {"enabled": False}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == []
-
-    def test_multiple_skills_mixed(self) -> None:
-        skills = {
-            "zebra": {"enabled": True},
-            "alpha": {"enabled": True},
-            "beta": {"enabled": False},
-            "gamma": {},
-        }
-        result = _extract_enabled_skill_names(skills)
-        # Should be sorted
-        assert result == ["alpha", "gamma", "zebra"]
-
-    def test_non_string_skill_name(self) -> None:
-        skills = {123: {"enabled": True}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == []
-
-    def test_empty_skill_name(self) -> None:
-        skills = {"": {"enabled": True}, "  ": {"enabled": True}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == []
-
-    def test_skill_name_with_whitespace(self) -> None:
-        skills = {"  skill1  ": {"enabled": True}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == ["skill1"]
-
-    def test_non_dict_spec(self) -> None:
-        skills = {"skill1": "not a dict"}
-        result = _extract_enabled_skill_names(skills)
-        assert result == ["skill1"]
-
-    def test_enabled_is_not_false(self) -> None:
-        skills = {"skill1": {"enabled": "true"}}
-        result = _extract_enabled_skill_names(skills)
-        assert result == ["skill1"]
+def test_task_dispatcher_does_not_own_legacy_config_preparation() -> None:
+    assert not hasattr(task_dispatcher_module, "_prepare_task_dispatch_config")
+    assert not hasattr(task_dispatcher_module, "_extract_enabled_skill_names")
 
 
 def test_build_task_dispatch_dependencies_accepts_adapter_factories() -> None:
@@ -1005,20 +943,14 @@ class TestTaskDispatcherDispatch:
             runtime=mock_runtime,
         )
 
-        with patch(
-            "app.scheduler.task_dispatcher._prepare_task_dispatch_config",
-            AsyncMock(
-                side_effect=AssertionError("legacy config path should be unused")
-            ),
-        ):
-            await TaskDispatcher.dispatch(
-                task_id="task-123",
-                session_id="session-456",
-                prompt="Hello",
-                config={"user_id": "user-789"},
-                dependencies=dependencies,
-                settings=settings,
-            )
+        await TaskDispatcher.dispatch(
+            task_id="task-123",
+            session_id="session-456",
+            prompt="Hello",
+            config={"user_id": "user-789"},
+            dependencies=dependencies,
+            settings=settings,
+        )
 
         mock_config_resolver.resolve.assert_awaited_once_with(
             "user-789",

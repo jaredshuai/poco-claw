@@ -270,7 +270,7 @@ class TaskDispatchDependencies:
         self._runtime = value
 
     @property
-    def config_preparer(self) -> RunDispatchConfigPreparer | None:
+    def config_preparer(self) -> RunDispatchConfigPreparer:
         if self._config_preparer is None and self._config_preparer_factory is not None:
             self._config_preparer = self._config_preparer_factory()
         if self._config_preparer is None:
@@ -447,162 +447,6 @@ def build_task_dispatch_dependencies(
     )
 
 
-def _extract_enabled_skill_names(skills: object) -> list[str]:
-    if not isinstance(skills, dict):
-        return []
-
-    names: set[str] = set()
-    for raw_name, spec in skills.items():
-        if not isinstance(raw_name, str):
-            continue
-        name = raw_name.strip()
-        if not name:
-            continue
-        if isinstance(spec, dict) and spec.get("enabled") is False:
-            continue
-        names.add(name)
-    return sorted(names)
-
-
-async def _prepare_task_dispatch_config(
-    *,
-    task_id: str,
-    session_id: str,
-    user_id: str,
-    config: dict,
-    backend_client: Any,
-    config_resolver: Any,
-    skill_stager: Any,
-    plugin_stager: Any,
-    attachment_stager: Any,
-    slash_command_stager: Any,
-    subagent_stager: Any,
-) -> dict[str, Any]:
-    step_started = time.perf_counter()
-    resolved_config = await config_resolver.resolve(
-        user_id,
-        config or {},
-        session_id=session_id,
-        task_id=task_id,
-    )
-    logger.info(
-        "timing",
-        extra={
-            "step": "task_dispatch_resolve_config",
-            "duration_ms": int((time.perf_counter() - step_started) * 1000),
-            "task_id": task_id,
-            "session_id": session_id,
-            "user_id": user_id,
-        },
-    )
-
-    step_started = time.perf_counter()
-    staged_skills = skill_stager.stage_skills(
-        user_id=user_id,
-        session_id=session_id,
-        skills=resolved_config.get("skill_files") or {},
-    )
-    resolved_config["skill_files"] = staged_skills
-    logger.info(
-        "timing",
-        extra={
-            "step": "task_dispatch_stage_skills",
-            "duration_ms": int((time.perf_counter() - step_started) * 1000),
-            "task_id": task_id,
-            "session_id": session_id,
-            "user_id": user_id,
-            "skills_staged": len(staged_skills),
-        },
-    )
-
-    step_started = time.perf_counter()
-    staged_plugins = plugin_stager.stage_plugins(
-        user_id=user_id,
-        session_id=session_id,
-        plugins=resolved_config.get("plugin_files") or {},
-    )
-    resolved_config["plugin_files"] = staged_plugins
-    logger.info(
-        "timing",
-        extra={
-            "step": "task_dispatch_stage_plugins",
-            "duration_ms": int((time.perf_counter() - step_started) * 1000),
-            "task_id": task_id,
-            "session_id": session_id,
-            "user_id": user_id,
-            "plugins_staged": len(staged_plugins),
-        },
-    )
-
-    step_started = time.perf_counter()
-    staged_inputs = attachment_stager.stage_inputs(
-        user_id=user_id,
-        session_id=session_id,
-        inputs=resolved_config.get("input_files") or [],
-    )
-    resolved_config["input_files"] = staged_inputs
-    logger.info(
-        "timing",
-        extra={
-            "step": "task_dispatch_stage_inputs",
-            "duration_ms": int((time.perf_counter() - step_started) * 1000),
-            "task_id": task_id,
-            "session_id": session_id,
-            "user_id": user_id,
-            "inputs_staged": len(staged_inputs),
-        },
-    )
-
-    step_started = time.perf_counter()
-    skill_names = _extract_enabled_skill_names(staged_skills)
-    resolved_commands = await backend_client.resolve_slash_commands(
-        user_id=user_id,
-        skill_names=skill_names,
-    )
-    staged_commands = slash_command_stager.stage_commands(
-        user_id=user_id,
-        session_id=session_id,
-        commands=resolved_commands,
-    )
-    logger.info(
-        "timing",
-        extra={
-            "step": "task_dispatch_stage_slash_commands",
-            "duration_ms": int((time.perf_counter() - step_started) * 1000),
-            "task_id": task_id,
-            "session_id": session_id,
-            "user_id": user_id,
-            "commands_staged": len(staged_commands),
-        },
-    )
-
-    step_started = time.perf_counter()
-    raw_agents_val = resolved_config.pop("subagent_raw_agents", None)
-    raw_agents = raw_agents_val if isinstance(raw_agents_val, dict) else {}
-    try:
-        staged_agents = subagent_stager.stage_raw_agents(
-            user_id=user_id,
-            session_id=session_id,
-            raw_agents=raw_agents,
-        )
-        logger.info(
-            "timing",
-            extra={
-                "step": "task_dispatch_stage_subagents",
-                "duration_ms": int((time.perf_counter() - step_started) * 1000),
-                "task_id": task_id,
-                "session_id": session_id,
-                "user_id": user_id,
-                "subagents_requested": len(raw_agents),
-                "subagents_staged": len(staged_agents),
-            },
-        )
-    except Exception as exc:
-        logger.warning(f"Failed to stage subagents for session {session_id}: {exc}")
-
-    return resolved_config
-
-
 class TaskDispatcher:
     """Task dispatcher with container pool integration."""
 
@@ -668,15 +512,8 @@ class TaskDispatcher:
         )
         dispatch_dependencies.bind_settings_if_unset(settings)
         executor_gateway = dispatch_dependencies.executor_gateway
-        backend_client = dispatch_dependencies.backend_client
         state_gateway = dispatch_dependencies.state_gateway
-        config_resolver = dispatch_dependencies.config_resolver
         config_preparer = dispatch_dependencies.config_preparer
-        skill_stager = dispatch_dependencies.skill_stager
-        plugin_stager = dispatch_dependencies.plugin_stager
-        attachment_stager = dispatch_dependencies.attachment_stager
-        slash_command_stager = dispatch_dependencies.slash_command_stager
-        subagent_stager = dispatch_dependencies.subagent_stager
         runtime = dispatch_dependencies.runtime
         execution_context = (
             dispatch_dependencies.execution_context_provider.get_context()
@@ -709,27 +546,12 @@ class TaskDispatcher:
                 f"Dispatching task {task_id} (session: {session_id}, mode: {container_mode})"
             )
 
-            if config_preparer is not None:
-                resolved_config = await config_preparer.prepare_config(
-                    user_id=user_id,
-                    session_id=session_id,
-                    run_id=task_id,
-                    config_snapshot=config,
-                )
-            else:
-                resolved_config = await _prepare_task_dispatch_config(
-                    task_id=task_id,
-                    session_id=session_id,
-                    user_id=user_id,
-                    config=config,
-                    backend_client=backend_client,
-                    config_resolver=config_resolver,
-                    skill_stager=skill_stager,
-                    plugin_stager=plugin_stager,
-                    attachment_stager=attachment_stager,
-                    slash_command_stager=slash_command_stager,
-                    subagent_stager=subagent_stager,
-                )
+            resolved_config = await config_preparer.prepare_config(
+                user_id=user_id,
+                session_id=session_id,
+                run_id=task_id,
+                config_snapshot=config,
+            )
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))

@@ -26,18 +26,28 @@ def build_attachment_storage() -> AttachmentStorage:
     return S3StorageService()
 
 
+def build_attachment_workspace_manager() -> WorkspaceManager:
+    return WorkspaceManager()
+
+
 class AttachmentStager:
     def __init__(
         self,
         storage_service: AttachmentStorage | None = None,
         storage_service_factory: Callable[[], AttachmentStorage] | None = None,
         workspace_manager: WorkspaceManager | None = None,
+        workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
     ) -> None:
-        factory = storage_service_factory or build_attachment_storage
-        self.storage_service = (
-            storage_service if storage_service is not None else factory()
+        storage_factory = storage_service_factory or build_attachment_storage
+        workspace_factory = (
+            workspace_manager_factory or build_attachment_workspace_manager
         )
-        self.workspace_manager = workspace_manager or WorkspaceManager()
+        self.storage_service = (
+            storage_service if storage_service is not None else storage_factory()
+        )
+        self.workspace_manager = (
+            workspace_manager if workspace_manager is not None else workspace_factory()
+        )
 
     def stage_inputs(
         self,

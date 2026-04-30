@@ -32,6 +32,10 @@ from app.services.run_dispatch_execution_context import (
 )
 from app.services.slash_command_stager import SlashCommandStager
 from app.services.sub_agent_stager import SubAgentStager
+from app.services.task_dispatch_state_gateway import (
+    BackendTaskDispatchStateGateway,
+    TaskDispatchStateGateway,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +92,7 @@ class TaskDispatchDependencies:
         runtime: TaskDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
+        state_gateway: TaskDispatchStateGateway | None = None,
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
@@ -101,6 +106,7 @@ class TaskDispatchDependencies:
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
         | None = None,
+        state_gateway_factory: Callable[[], TaskDispatchStateGateway] | None = None,
         execution_context_provider_factory: Callable[
             [], RunDispatchExecutionContextProvider
         ]
@@ -145,6 +151,8 @@ class TaskDispatchDependencies:
         self._config_preparer_factory = config_preparer_factory
         self._executor_gateway = executor_gateway
         self._executor_gateway_factory = executor_gateway_factory
+        self._state_gateway = state_gateway
+        self._state_gateway_factory = state_gateway_factory
         self._execution_context_provider = execution_context_provider
         self._execution_context_provider_factory = execution_context_provider_factory
 
@@ -268,6 +276,18 @@ class TaskDispatchDependencies:
     def executor_gateway(self, value: RunDispatchExecutorGateway) -> None:
         self._executor_gateway = value
 
+    @property
+    def state_gateway(self) -> TaskDispatchStateGateway:
+        if self._state_gateway is None and self._state_gateway_factory is not None:
+            self._state_gateway = self._state_gateway_factory()
+        if self._state_gateway is None:
+            self._state_gateway = BackendTaskDispatchStateGateway(self.backend_client)
+        return self._state_gateway
+
+    @state_gateway.setter
+    def state_gateway(self, value: TaskDispatchStateGateway) -> None:
+        self._state_gateway = value
+
     def bind_settings_if_unset(self, settings: Any) -> None:
         if self._settings is None:
             self._settings = settings
@@ -352,6 +372,7 @@ def build_task_dispatch_dependencies(
     runtime_factory: Callable[[], Any] | None = None,
     config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
     executor_gateway_factory: Callable[[], RunDispatchExecutorGateway] | None = None,
+    state_gateway_factory: Callable[[], TaskDispatchStateGateway] | None = None,
     execution_context_provider_factory: Callable[
         [], RunDispatchExecutionContextProvider
     ]
@@ -383,6 +404,7 @@ def build_task_dispatch_dependencies(
         runtime_factory=runtime_factory,
         config_preparer_factory=config_preparer_factory,
         executor_gateway_factory=executor_gateway_factory,
+        state_gateway_factory=state_gateway_factory,
         execution_context_provider_factory=execution_context_provider_factory,
     )
 
@@ -609,6 +631,7 @@ class TaskDispatcher:
         dispatch_dependencies.bind_settings_if_unset(settings)
         executor_gateway = dispatch_dependencies.executor_gateway
         backend_client = dispatch_dependencies.backend_client
+        state_gateway = dispatch_dependencies.state_gateway
         config_resolver = dispatch_dependencies.config_resolver
         config_preparer = dispatch_dependencies.config_preparer
         skill_stager = dispatch_dependencies.skill_stager
@@ -694,7 +717,7 @@ class TaskDispatcher:
             )
 
             step_started = time.perf_counter()
-            await backend_client.update_session_status(session_id, "running")
+            await state_gateway.mark_running(session_id=session_id)
             logger.info(
                 "timing",
                 extra={
@@ -748,7 +771,7 @@ class TaskDispatcher:
 
         except Exception as e:
             logger.error(f"Failed to dispatch task {task_id}: {e}")
-            await backend_client.update_session_status(session_id, "failed")
+            await state_gateway.mark_failed(session_id=session_id)
             await runtime.cancel_task(session_id)
             raise
         finally:

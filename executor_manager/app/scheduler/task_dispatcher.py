@@ -1,6 +1,8 @@
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from app.core.settings import get_settings, resolve_executor_task_lease_secret
 from app.core.observability.request_context import (
@@ -38,17 +40,73 @@ class TaskDispatchDependencies:
     subagent_stager: SubAgentStager
 
 
-def build_task_dispatch_dependencies() -> TaskDispatchDependencies:
-    backend_client = BackendClient()
+def build_task_dispatch_backend_client() -> BackendClient:
+    return BackendClient()
+
+
+def build_task_dispatch_executor_client() -> ExecutorClient:
+    return ExecutorClient()
+
+
+def build_task_dispatch_config_resolver(
+    backend_client: BackendClient,
+) -> ConfigResolver:
+    return ConfigResolver(backend_client)
+
+
+def build_task_dispatch_skill_stager() -> SkillStager:
+    return SkillStager()
+
+
+def build_task_dispatch_plugin_stager() -> PluginStager:
+    return PluginStager()
+
+
+def build_task_dispatch_attachment_stager() -> AttachmentStager:
+    return AttachmentStager()
+
+
+def build_task_dispatch_slash_command_stager() -> SlashCommandStager:
+    return SlashCommandStager()
+
+
+def build_task_dispatch_subagent_stager() -> SubAgentStager:
+    return SubAgentStager()
+
+
+def build_task_dispatch_dependencies(
+    *,
+    executor_client_factory: Callable[[], Any] | None = None,
+    backend_client_factory: Callable[[], Any] | None = None,
+    config_resolver_factory: Callable[[Any], Any] | None = None,
+    skill_stager_factory: Callable[[], Any] | None = None,
+    plugin_stager_factory: Callable[[], Any] | None = None,
+    attachment_stager_factory: Callable[[], Any] | None = None,
+    slash_command_stager_factory: Callable[[], Any] | None = None,
+    subagent_stager_factory: Callable[[], Any] | None = None,
+) -> TaskDispatchDependencies:
+    backend_factory = backend_client_factory or build_task_dispatch_backend_client
+    executor_factory = executor_client_factory or build_task_dispatch_executor_client
+    config_factory = config_resolver_factory or build_task_dispatch_config_resolver
+    skill_factory = skill_stager_factory or build_task_dispatch_skill_stager
+    plugin_factory = plugin_stager_factory or build_task_dispatch_plugin_stager
+    attachment_factory = (
+        attachment_stager_factory or build_task_dispatch_attachment_stager
+    )
+    slash_command_factory = (
+        slash_command_stager_factory or build_task_dispatch_slash_command_stager
+    )
+    subagent_factory = subagent_stager_factory or build_task_dispatch_subagent_stager
+    backend_client = backend_factory()
     return TaskDispatchDependencies(
-        executor_client=ExecutorClient(),
+        executor_client=executor_factory(),
         backend_client=backend_client,
-        config_resolver=ConfigResolver(backend_client),
-        skill_stager=SkillStager(),
-        plugin_stager=PluginStager(),
-        attachment_stager=AttachmentStager(),
-        slash_command_stager=SlashCommandStager(),
-        subagent_stager=SubAgentStager(),
+        config_resolver=config_factory(backend_client),
+        skill_stager=skill_factory(),
+        plugin_stager=plugin_factory(),
+        attachment_stager=attachment_factory(),
+        slash_command_stager=slash_command_factory(),
+        subagent_stager=subagent_factory(),
     )
 
 

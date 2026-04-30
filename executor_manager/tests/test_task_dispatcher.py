@@ -7,6 +7,7 @@ from app.scheduler.task_dispatcher import (
     TaskDispatchDependencies,
     TaskDispatcher,
     _extract_enabled_skill_names,
+    build_task_dispatch_dependencies,
 )
 
 
@@ -75,6 +76,71 @@ class TestExtractEnabledSkillNames(unittest.TestCase):
         skills = {"skill1": {"enabled": "true"}}
         result = _extract_enabled_skill_names(skills)
         assert result == ["skill1"]
+
+
+def test_build_task_dispatch_dependencies_accepts_adapter_factories() -> None:
+    executor_client = MagicMock()
+    backend_client = MagicMock()
+    config_resolver = MagicMock()
+    skill_stager = MagicMock()
+    plugin_stager = MagicMock()
+    attachment_stager = MagicMock()
+    slash_command_stager = MagicMock()
+    subagent_stager = MagicMock()
+
+    with (
+        patch(
+            "app.scheduler.task_dispatcher.ExecutorClient",
+            side_effect=AssertionError("default executor constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.BackendClient",
+            side_effect=AssertionError("default backend constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.ConfigResolver",
+            side_effect=AssertionError("default config resolver constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.SkillStager",
+            side_effect=AssertionError("default skill stager constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.PluginStager",
+            side_effect=AssertionError("default plugin stager constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.AttachmentStager",
+            side_effect=AssertionError("default attachment stager constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.SlashCommandStager",
+            side_effect=AssertionError("default slash command stager constructor used"),
+        ),
+        patch(
+            "app.scheduler.task_dispatcher.SubAgentStager",
+            side_effect=AssertionError("default subagent stager constructor used"),
+        ),
+    ):
+        dependencies = build_task_dispatch_dependencies(
+            executor_client_factory=lambda: executor_client,
+            backend_client_factory=lambda: backend_client,
+            config_resolver_factory=lambda backend: config_resolver,
+            skill_stager_factory=lambda: skill_stager,
+            plugin_stager_factory=lambda: plugin_stager,
+            attachment_stager_factory=lambda: attachment_stager,
+            slash_command_stager_factory=lambda: slash_command_stager,
+            subagent_stager_factory=lambda: subagent_stager,
+        )
+
+    assert dependencies.executor_client is executor_client
+    assert dependencies.backend_client is backend_client
+    assert dependencies.config_resolver is config_resolver
+    assert dependencies.skill_stager is skill_stager
+    assert dependencies.plugin_stager is plugin_stager
+    assert dependencies.attachment_stager is attachment_stager
+    assert dependencies.slash_command_stager is slash_command_stager
+    assert dependencies.subagent_stager is subagent_stager
 
 
 class TestTaskDispatcherGetContainerPool(unittest.TestCase):

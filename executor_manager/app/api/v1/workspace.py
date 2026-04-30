@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -53,18 +54,13 @@ class WorkspaceApiManager(Protocol):
     ) -> Path | None: ...
 
 
-workspace_manager: WorkspaceApiManager | None = None
-
-
 def build_workspace_manager() -> WorkspaceApiManager:
     return WorkspaceManager()
 
 
+@lru_cache(maxsize=1)
 def get_workspace_manager() -> WorkspaceApiManager:
-    global workspace_manager
-    if workspace_manager is None:
-        workspace_manager = build_workspace_manager()
-    return workspace_manager
+    return build_workspace_manager()
 
 
 @router.get("/stats", response_model=ResponseSchema[dict])

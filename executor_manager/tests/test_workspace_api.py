@@ -1,5 +1,6 @@
 """Tests for app/api/v1/workspace.py."""
 
+from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
@@ -26,6 +27,17 @@ def _load_workspace_api_module_from_source():
         sys.modules.pop(module_name, None)
 
 
+@contextmanager
+def _manager_override(app, mock_manager):
+    from app.api.v1 import workspace
+
+    app.dependency_overrides[workspace.get_workspace_manager] = lambda: mock_manager
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(workspace.get_workspace_manager, None)
+
+
 def test_workspace_api_module_import_does_not_initialize_workspace_manager() -> None:
     with patch(
         "app.services.workspace_manager.WorkspaceManager",
@@ -37,10 +49,7 @@ def test_workspace_api_module_import_does_not_initialize_workspace_manager() -> 
 
 
 def test_workspace_routes_use_manager_dependency_override() -> None:
-    from app.api.v1 import workspace
     from app.main import app
-
-    workspace.workspace_manager = None
 
     mock_manager = MagicMock()
     mock_manager.get_disk_usage.return_value = {
@@ -48,20 +57,23 @@ def test_workspace_routes_use_manager_dependency_override() -> None:
         "workspaces_count": 1,
     }
 
-    app.dependency_overrides[workspace.get_workspace_manager] = lambda: mock_manager
-    try:
+    with _manager_override(app, mock_manager):
         with patch(
             "app.api.v1.workspace.WorkspaceManager",
             side_effect=AssertionError("route should use manager override"),
         ):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.get("/api/v1/workspace/stats")
-    finally:
-        app.dependency_overrides.pop(workspace.get_workspace_manager, None)
 
     assert response.status_code == 200
     assert response.json()["data"]["total_size_bytes"] == 42
     mock_manager.get_disk_usage.assert_called_once_with()
+
+
+def test_workspace_manager_provider_has_no_mutable_global() -> None:
+    from app.api.v1 import workspace
+
+    assert not hasattr(workspace, "workspace_manager")
 
 
 class TestWorkspaceEndpoints(unittest.TestCase):
@@ -77,10 +89,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             "workspaces_count": 5,
         }
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.get("/api/v1/workspace/stats")
 
@@ -100,10 +109,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             {"session_id": "session-2", "path": "/workspace/user-123/session-2"},
         ]
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.get("/api/v1/workspace/users/user-123")
 
@@ -122,10 +128,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             "/archive/user-123/session-1.tar.gz"
         )
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.post("/api/v1/workspace/archive/user-123/session-1")
 
@@ -148,10 +151,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             "/archive/user-123/session-1.tar.gz"
         )
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/workspace/archive/user-123/session-1?keep_days=30"
@@ -171,10 +171,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         mock_manager = MagicMock()
         mock_manager.archive_workspace.return_value = None
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post("/api/v1/workspace/archive/user-123/session-1")
 
@@ -189,10 +186,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         mock_manager = MagicMock()
         mock_manager.delete_workspace.return_value = True
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.delete("/api/v1/workspace/user-123/session-1")
 
@@ -214,10 +208,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         mock_manager = MagicMock()
         mock_manager.delete_workspace.return_value = True
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.delete("/api/v1/workspace/user-123/session-1?force=true")
 
@@ -235,10 +226,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         mock_manager = MagicMock()
         mock_manager.delete_workspace.return_value = False
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.delete("/api/v1/workspace/user-123/session-1")
 
@@ -256,10 +244,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
             {"name": "src", "path": "src", "type": "directory"},
         ]
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.get("/api/v1/workspace/files/user-123/session-1")
 
@@ -283,10 +268,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
 
         # Mock FileResponse to avoid file system access
         with (
-            patch(
-                "app.api.v1.workspace.workspace_manager",
-                mock_manager,
-            ),
+            _manager_override(app, mock_manager),
             patch("app.api.v1.workspace.FileResponse") as mock_file_response,
         ):
             mock_file_response.return_value = MagicMock()
@@ -310,10 +292,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         mock_manager = MagicMock()
         mock_manager.resolve_workspace_file.return_value = None
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.get(
                 "/api/v1/workspace/file/user-123/session-1?path=nonexistent.py"
@@ -330,10 +309,7 @@ class TestWorkspaceEndpoints(unittest.TestCase):
         mock_manager = MagicMock()
         mock_manager.get_user_workspaces.return_value = []
 
-        with patch(
-            "app.api.v1.workspace.workspace_manager",
-            mock_manager,
-        ):
+        with _manager_override(app, mock_manager):
             client = TestClient(app)
             response = client.get("/api/v1/workspace/users/user-no-workspaces")
 

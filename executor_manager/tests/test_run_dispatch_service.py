@@ -8,7 +8,10 @@ from app.services.run_dispatch_service import RunDispatchService
 
 
 def _make_dispatch_service(
-    *, runtime: object | None = None, config_preparer: object | None = None
+    *,
+    runtime: object | None = None,
+    config_preparer: object | None = None,
+    state_gateway: object | None = None,
 ) -> RunDispatchService:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
@@ -53,21 +56,24 @@ def _make_dispatch_service(
     subagent_stager = MagicMock()
     subagent_stager.stage_raw_agents = MagicMock(return_value=[])
 
-    return RunDispatchService(
-        settings=settings,
-        backend_client=backend_client,
-        executor_client=executor_client,
-        config_resolver=config_resolver,
-        skill_stager=skill_stager,
-        plugin_stager=plugin_stager,
-        attachment_stager=attachment_stager,
-        claude_md_stager=claude_md_stager,
-        slash_command_stager=slash_command_stager,
-        subagent_stager=subagent_stager,
-        container_pool=container_pool,
-        runtime=runtime,
-        config_preparer=config_preparer,
-    )
+    kwargs = {
+        "settings": settings,
+        "backend_client": backend_client,
+        "executor_client": executor_client,
+        "config_resolver": config_resolver,
+        "skill_stager": skill_stager,
+        "plugin_stager": plugin_stager,
+        "attachment_stager": attachment_stager,
+        "claude_md_stager": claude_md_stager,
+        "slash_command_stager": slash_command_stager,
+        "subagent_stager": subagent_stager,
+        "container_pool": container_pool,
+        "runtime": runtime,
+        "config_preparer": config_preparer,
+    }
+    if state_gateway is not None:
+        kwargs["state_gateway"] = state_gateway
+    return RunDispatchService(**kwargs)
 
 
 @pytest.mark.asyncio
@@ -185,6 +191,61 @@ async def test_dispatch_claim_delegates_config_preparation_to_injected_port() ->
         container_mode="persistent",
         container_id=None,
     )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        return_value=("http://runtime-executor.local", "runtime-container-1")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    config_preparer = MagicMock()
+    config_preparer.prepare_config = AsyncMock(
+        return_value={
+            "skill_files": {},
+            "plugin_files": {},
+            "input_files": [],
+            "mcp_config": {"server-a": {}},
+        }
+    )
+    state_gateway = MagicMock()
+    state_gateway.record_mcp_staged = AsyncMock()
+    state_gateway.start_run = AsyncMock()
+    state_gateway.fail_run = AsyncMock()
+    service = _make_dispatch_service(
+        runtime=runtime,
+        config_preparer=config_preparer,
+        state_gateway=state_gateway,
+    )
+    service.backend_client.record_mcp_transition.side_effect = AssertionError(
+        "MCP state should stay behind state gateway"
+    )
+    service.backend_client.start_run.side_effect = AssertionError(
+        "run start should stay behind state gateway"
+    )
+    service.backend_client.fail_run.side_effect = AssertionError(
+        "run failure should stay behind state gateway"
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    state_gateway.record_mcp_staged.assert_awaited_once_with(
+        run_id="run-123",
+        session_id="sess-123",
+        server_name="server-a",
+    )
+    state_gateway.start_run.assert_awaited_once_with(
+        run_id="run-123",
+        worker_id="worker-1",
+    )
+    state_gateway.fail_run.assert_not_awaited()
 
 
 def test_create_default_accepts_adapter_factories() -> None:

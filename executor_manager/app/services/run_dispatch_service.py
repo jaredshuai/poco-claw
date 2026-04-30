@@ -19,6 +19,10 @@ from app.services.run_dispatch_runtime import (
     ContainerPoolRunDispatchRuntime,
     RunDispatchRuntime,
 )
+from app.services.run_dispatch_state_gateway import (
+    BackendRunDispatchStateGateway,
+    RunDispatchStateGateway,
+)
 from app.services.skill_stager import SkillStager
 from app.services.slash_command_stager import SlashCommandStager
 from app.services.sub_agent_stager import SubAgentStager
@@ -87,6 +91,7 @@ class RunDispatchService:
         container_pool: Any | None = None,
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
+        state_gateway: RunDispatchStateGateway | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -99,6 +104,7 @@ class RunDispatchService:
         container_pool_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
+        state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
     ) -> None:
         self.settings = settings
         self._backend_client = backend_client
@@ -117,6 +123,8 @@ class RunDispatchService:
         self._runtime_factory = runtime_factory
         self._config_preparer = config_preparer
         self._config_preparer_factory = config_preparer_factory
+        self._state_gateway = state_gateway
+        self._state_gateway_factory = state_gateway_factory
         self._config_resolver = config_resolver
         self._config_resolver_factory = (
             config_resolver_factory or build_run_dispatch_config_resolver
@@ -212,6 +220,18 @@ class RunDispatchService:
         self._config_preparer = value
 
     @property
+    def state_gateway(self) -> RunDispatchStateGateway:
+        if self._state_gateway is None and self._state_gateway_factory is not None:
+            self._state_gateway = self._state_gateway_factory()
+        if self._state_gateway is None:
+            self._state_gateway = BackendRunDispatchStateGateway(self.backend_client)
+        return self._state_gateway
+
+    @state_gateway.setter
+    def state_gateway(self, value: RunDispatchStateGateway) -> None:
+        self._state_gateway = value
+
+    @property
     def config_resolver(self) -> Any:
         if self._config_resolver is None:
             self._config_resolver = self._config_resolver_factory(
@@ -301,6 +321,7 @@ class RunDispatchService:
         subagent_stager: Any | None = None,
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
+        state_gateway: RunDispatchStateGateway | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -313,6 +334,7 @@ class RunDispatchService:
         container_pool_factory: Callable[[], Any] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
+        state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
     ) -> "RunDispatchService":
         settings = settings if settings is not None else get_settings()
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
@@ -343,6 +365,8 @@ class RunDispatchService:
             runtime_factory=runtime_factory,
             config_preparer=config_preparer,
             config_preparer_factory=config_preparer_factory,
+            state_gateway=state_gateway,
+            state_gateway_factory=state_gateway_factory,
             config_resolver=config_resolver,
             config_resolver_factory=config_factory,
             skill_stager=skill_stager,
@@ -426,18 +450,16 @@ class RunDispatchService:
             if isinstance(mcp_config, dict) and mcp_config:
                 for server_name in mcp_config:
                     try:
-                        await self.backend_client.record_mcp_transition(
-                            run_id=str(run_id),
+                        await self.state_gateway.record_mcp_staged(
+                            run_id=run_id_str,
                             session_id=session_id,
-                            server_name=server_name,
-                            to_state="staged",
-                            event_source="executor_manager",
+                            server_name=str(server_name),
                         )
                     except Exception:
                         pass
 
             step_started = time.perf_counter()
-            await self.backend_client.start_run(run_id=run_id, worker_id=worker_id)
+            await self.state_gateway.start_run(run_id=run_id, worker_id=worker_id)
             logger.info(
                 "timing",
                 extra={
@@ -491,7 +513,7 @@ class RunDispatchService:
                 exc_info=True,
             )
             try:
-                await self.backend_client.fail_run(
+                await self.state_gateway.fail_run(
                     run_id=run_id,
                     worker_id=worker_id,
                     error_message=str(e),

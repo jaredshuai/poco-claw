@@ -3,7 +3,7 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from app.core.settings import get_settings, resolve_executor_task_lease_secret
+from app.core.settings import get_settings
 from app.scheduler.task_dispatcher import TaskDispatcher
 from app.services.attachment_stager import AttachmentStager
 from app.services.backend_client import BackendClient
@@ -19,6 +19,10 @@ from app.services.run_dispatch_config_preparer import (
 from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
     RunDispatchExecutorGateway,
+)
+from app.services.run_dispatch_execution_context import (
+    RunDispatchExecutionContextProvider,
+    SettingsRunDispatchExecutionContextProvider,
 )
 from app.services.run_dispatch_runtime import (
     ContainerPoolRunDispatchRuntime,
@@ -98,6 +102,7 @@ class RunDispatchService:
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
+        execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -112,6 +117,10 @@ class RunDispatchService:
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
+        | None = None,
+        execution_context_provider_factory: Callable[
+            [], RunDispatchExecutionContextProvider
+        ]
         | None = None,
     ) -> None:
         self.settings = settings
@@ -135,6 +144,8 @@ class RunDispatchService:
         self._state_gateway_factory = state_gateway_factory
         self._executor_gateway = executor_gateway
         self._executor_gateway_factory = executor_gateway_factory
+        self._execution_context_provider = execution_context_provider
+        self._execution_context_provider_factory = execution_context_provider_factory
         self._config_resolver = config_resolver
         self._config_resolver_factory = (
             config_resolver_factory or build_run_dispatch_config_resolver
@@ -259,6 +270,28 @@ class RunDispatchService:
         self._executor_gateway = value
 
     @property
+    def execution_context_provider(self) -> RunDispatchExecutionContextProvider:
+        if (
+            self._execution_context_provider is None
+            and self._execution_context_provider_factory is not None
+        ):
+            self._execution_context_provider = (
+                self._execution_context_provider_factory()
+            )
+        if self._execution_context_provider is None:
+            self._execution_context_provider = (
+                SettingsRunDispatchExecutionContextProvider(self.settings)
+            )
+        return self._execution_context_provider
+
+    @execution_context_provider.setter
+    def execution_context_provider(
+        self,
+        value: RunDispatchExecutionContextProvider,
+    ) -> None:
+        self._execution_context_provider = value
+
+    @property
     def config_resolver(self) -> Any:
         if self._config_resolver is None:
             self._config_resolver = self._config_resolver_factory(
@@ -350,6 +383,7 @@ class RunDispatchService:
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
+        execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         backend_client_factory: Callable[[], Any] | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
         config_resolver_factory: Callable[[Any, Any], Any] | None = None,
@@ -364,6 +398,10 @@ class RunDispatchService:
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
+        | None = None,
+        execution_context_provider_factory: Callable[
+            [], RunDispatchExecutionContextProvider
+        ]
         | None = None,
     ) -> "RunDispatchService":
         settings = settings if settings is not None else get_settings()
@@ -399,6 +437,8 @@ class RunDispatchService:
             state_gateway_factory=state_gateway_factory,
             executor_gateway=executor_gateway,
             executor_gateway_factory=executor_gateway_factory,
+            execution_context_provider=execution_context_provider,
+            execution_context_provider_factory=execution_context_provider_factory,
             config_resolver=config_resolver,
             config_resolver_factory=config_factory,
             skill_stager=skill_stager,
@@ -442,10 +482,7 @@ class RunDispatchService:
         container_mode = dispatch_claim.container_mode
         container_id = dispatch_claim.container_id
 
-        callback_base_url = (self.settings.callback_base_url or "").strip().rstrip("/")
-        if not callback_base_url:
-            raise ValueError("callback_base_url cannot be empty")
-        callback_url = f"{callback_base_url}/api/v1/callback"
+        execution_context = self.execution_context_provider.get_context()
         ctx = {
             "run_id": run_id_str,
             "session_id": session_id,
@@ -515,11 +552,11 @@ class RunDispatchService:
                 session_id=session_id,
                 run_id=run_id_str,
                 prompt=prompt,
-                callback_url=callback_url,
-                callback_token=self.settings.callback_token,
-                task_lease_secret=resolve_executor_task_lease_secret(self.settings),
+                callback_url=execution_context.callback_url,
+                callback_token=execution_context.callback_token,
+                task_lease_secret=execution_context.task_lease_secret,
                 config=resolved_config,
-                callback_base_url=callback_base_url,
+                callback_base_url=execution_context.callback_base_url,
                 sdk_session_id=sdk_session_id,
                 permission_mode=permission_mode,
             )

@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from app.services.run_dispatch_claim import RunDispatchClaim
+from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 from app.services.run_dispatch_service import RunDispatchService
 
 
@@ -14,6 +15,7 @@ def _make_dispatch_service(
     config_preparer: object | None = None,
     state_gateway: object | None = None,
     executor_gateway: object | None = None,
+    execution_context_provider: object | None = None,
 ) -> RunDispatchService:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
@@ -77,6 +79,8 @@ def _make_dispatch_service(
         kwargs["state_gateway"] = state_gateway
     if executor_gateway is not None:
         kwargs["executor_gateway"] = executor_gateway
+    if execution_context_provider is not None:
+        kwargs["execution_context_provider"] = execution_context_provider
     return RunDispatchService(**kwargs)
 
 
@@ -335,6 +339,38 @@ async def test_dispatch_claim_accepts_parsed_claim_command() -> None:
     assert call_kwargs["run_id"] == "run-123"
     assert call_kwargs["sdk_session_id"] == "sdk-123"
     assert call_kwargs["permission_mode"] == "acceptEdits"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_uses_injected_execution_context_provider() -> None:
+    execution_context_provider = MagicMock()
+    execution_context_provider.get_context = MagicMock(
+        return_value=RunDispatchExecutionContext(
+            callback_base_url="http://provider.local",
+            callback_url="http://provider.local/callback",
+            callback_token="provider-token",
+            task_lease_secret="provider-lease-secret",
+        )
+    )
+    service = _make_dispatch_service(
+        execution_context_provider=execution_context_provider
+    )
+    service.settings.callback_base_url = ""
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    execution_context_provider.get_context.assert_called_once_with()
+    call_kwargs = service.executor_client.execute_task.call_args.kwargs
+    assert call_kwargs["callback_url"] == "http://provider.local/callback"
+    assert call_kwargs["callback_token"] == "provider-token"
+    assert call_kwargs["task_lease_secret"] == "provider-lease-secret"
+    assert call_kwargs["callback_base_url"] == "http://provider.local"
 
 
 def test_create_default_accepts_adapter_factories() -> None:

@@ -37,19 +37,23 @@ class ContainerPool:
         self,
         *,
         docker_client: Any | None = None,
+        docker_client_factory: Callable[[], Any] | None = None,
         settings: Settings | None = None,
         workspace_manager: WorkspaceManager | None = None,
+        workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
         health_client_factory: Callable[
             [], AbstractContextManager[ContainerHealthClient]
         ]
         | None = None,
     ):
+        docker_factory = docker_client_factory or docker.from_env
         self.docker_client = (
-            docker_client if docker_client is not None else docker.from_env()
+            docker_client if docker_client is not None else docker_factory()
         )
         self.settings = settings if settings is not None else get_settings()
+        workspace_factory = workspace_manager_factory or WorkspaceManager
         self.workspace_manager = (
-            workspace_manager if workspace_manager is not None else WorkspaceManager()
+            workspace_manager if workspace_manager is not None else workspace_factory()
         )
         self.health_client_factory = (
             health_client_factory

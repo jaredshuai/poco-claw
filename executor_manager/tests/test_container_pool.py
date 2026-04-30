@@ -34,6 +34,44 @@ def test_init_accepts_injected_runtime_adapters() -> None:
     assert pool.workspace_manager is workspace_manager
 
 
+def test_init_uses_injected_docker_client_factory_without_default_constructor() -> None:
+    docker_client = MagicMock()
+    settings = SimpleNamespace()
+    workspace_manager = MagicMock()
+
+    with patch(
+        "app.services.container_pool.docker.from_env",
+        side_effect=AssertionError("docker client should be injected"),
+    ):
+        pool = ContainerPool(
+            docker_client_factory=lambda: docker_client,
+            settings=settings,
+            workspace_manager=workspace_manager,
+        )
+
+    assert pool.docker_client is docker_client
+
+
+def test_init_uses_injected_workspace_manager_factory_without_default_constructor() -> (
+    None
+):
+    docker_client = MagicMock()
+    settings = SimpleNamespace()
+    workspace_manager = MagicMock()
+
+    with patch(
+        "app.services.container_pool.WorkspaceManager",
+        side_effect=AssertionError("workspace manager should be injected"),
+    ):
+        pool = ContainerPool(
+            docker_client=docker_client,
+            settings=settings,
+            workspace_manager_factory=lambda: workspace_manager,
+        )
+
+    assert pool.workspace_manager is workspace_manager
+
+
 def test_wait_for_service_ready_uses_injected_health_client_factory() -> None:
     docker_client = MagicMock()
     settings = SimpleNamespace()

@@ -13,6 +13,10 @@ class ScheduledTaskBackendClient(Protocol):
     async def dispatch_due_scheduled_tasks(self, *, limit: int) -> dict[str, Any]: ...
 
 
+class ScheduledTaskSettings(Protocol):
+    scheduled_tasks_dispatch_batch_size: int
+
+
 def build_scheduled_task_backend_client() -> ScheduledTaskBackendClient:
     return BackendClient()
 
@@ -25,8 +29,9 @@ class ScheduledTaskDispatchService:
         backend_client: ScheduledTaskBackendClient | None = None,
         *,
         backend_client_factory: Callable[[], ScheduledTaskBackendClient] | None = None,
+        settings: ScheduledTaskSettings | None = None,
     ) -> None:
-        self.settings = get_settings()
+        self.settings = settings if settings is not None else get_settings()
         factory = backend_client_factory or build_scheduled_task_backend_client
         self.backend_client = (
             backend_client if backend_client is not None else factory()

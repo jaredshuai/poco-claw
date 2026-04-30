@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.scheduled_task_dispatch_service import (
@@ -69,6 +70,22 @@ class TestScheduledTaskDispatchServiceInit(unittest.TestCase):
 
             assert service.backend_client is mock_backend
             assert service.settings is mock_settings
+
+    def test_init_accepts_injected_settings(self) -> None:
+        mock_backend = MagicMock()
+        settings = SimpleNamespace(scheduled_tasks_dispatch_batch_size=50)
+
+        with patch(
+            "app.services.scheduled_task_dispatch_service.get_settings",
+            side_effect=AssertionError("settings should be injected"),
+        ):
+            service = ScheduledTaskDispatchService(
+                backend_client=mock_backend,
+                settings=settings,
+            )
+
+        assert service.settings is settings
+        assert service.backend_client is mock_backend
 
 
 class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):

@@ -160,7 +160,25 @@ class TestRunPullServiceDependencies(unittest.TestCase):
             worker_id=service.worker_id,
         )
 
-    def test_constructor_builds_dispatch_service_boundary_by_default(self) -> None:
+    def test_constructor_defers_default_backend_client(self) -> None:
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+
+        with patch(
+            "app.services.run_pull_service.BackendClient",
+            side_effect=AssertionError("backend client should be lazy"),
+        ):
+            service = RunPullService(settings=settings)
+
+        assert service.settings is settings
+
+    def test_constructor_builds_dispatch_service_boundary_lazily_by_default(
+        self,
+    ) -> None:
         settings = MagicMock(
             max_concurrent_tasks=5,
             task_claim_lease_seconds=30,
@@ -177,12 +195,13 @@ class TestRunPullServiceDependencies(unittest.TestCase):
                 settings=settings,
                 backend_client=backend_client,
             )
+            dispatch_cls.create_default.assert_not_called()
 
-        dispatch_cls.create_default.assert_called_once_with(
-            settings=settings,
-            backend_client=backend_client,
-        )
-        assert service.dispatch_service is dispatch_service
+            assert service.dispatch_service is dispatch_service
+            dispatch_cls.create_default.assert_called_once_with(
+                settings=settings,
+                backend_client=backend_client,
+            )
 
     def test_constructor_uses_injected_backend_factory_without_constructing_default(
         self,
@@ -656,26 +675,21 @@ class TestPoll(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with (
-            patch("app.services.run_pull_service.get_settings") as mock_settings,
-            patch("app.services.run_pull_service.BackendClient") as mock_backend,
-            patch("app.services.run_dispatch_service.ExecutorClient"),
-            patch("app.services.run_dispatch_service.ConfigResolver"),
-            patch("app.services.run_dispatch_service.SkillStager"),
-            patch("app.services.run_dispatch_service.PluginStager"),
-            patch("app.services.run_dispatch_service.AttachmentStager"),
-            patch("app.services.run_dispatch_service.ClaudeMdStager"),
-            patch("app.services.run_dispatch_service.SlashCommandStager"),
-            patch("app.services.run_dispatch_service.SubAgentStager"),
-        ):
-            mock_settings.return_value = MagicMock(
-                max_concurrent_tasks=5,
-                task_claim_lease_seconds=30,
-                callback_base_url="http://test.local",
-                callback_token="test-token",
-            )
-            mock_backend.return_value.claim_run = AsyncMock()
-            return RunPullService()
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+        backend_client.claim_run = AsyncMock()
+        dispatch_service = MagicMock()
+        dispatch_service.dispatch_claim = AsyncMock()
+        return RunPullService(
+            settings=settings,
+            backend_client=backend_client,
+            dispatch_service=dispatch_service,
+        )
 
     def test_poll_when_shutdown(self) -> None:
         """Test poll returns early when shutdown."""
@@ -834,34 +848,28 @@ class TestPollWithClaim(unittest.TestCase):
 
     def _create_service(self) -> RunPullService:
         """Create service with mocked dependencies."""
-        with (
-            patch("app.services.run_pull_service.get_settings") as mock_settings,
-            patch("app.services.run_pull_service.BackendClient") as mock_backend,
-            patch("app.services.run_dispatch_service.ExecutorClient"),
-            patch("app.services.run_dispatch_service.ConfigResolver"),
-            patch("app.services.run_dispatch_service.SkillStager"),
-            patch("app.services.run_dispatch_service.PluginStager"),
-            patch("app.services.run_dispatch_service.AttachmentStager"),
-            patch("app.services.run_dispatch_service.ClaudeMdStager"),
-            patch("app.services.run_dispatch_service.SlashCommandStager"),
-            patch("app.services.run_dispatch_service.SubAgentStager"),
-        ):
-            mock_settings.return_value = MagicMock(
-                max_concurrent_tasks=5,
-                task_claim_lease_seconds=30,
-                callback_base_url="http://test.local",
-                callback_token="test-token",
-            )
-            # Return a valid claim
-            mock_backend.return_value.claim_run = AsyncMock(
-                return_value={
-                    "run": {"run_id": "run-1", "session_id": "sess-1"},
-                    "user_id": "user-1",
-                    "prompt": "test prompt",
-                    "config_snapshot": {},
-                }
-            )
-            return RunPullService()
+        settings = MagicMock(
+            max_concurrent_tasks=5,
+            task_claim_lease_seconds=30,
+            callback_base_url="http://test.local",
+            callback_token="test-token",
+        )
+        backend_client = MagicMock()
+        backend_client.claim_run = AsyncMock(
+            return_value={
+                "run": {"run_id": "run-1", "session_id": "sess-1"},
+                "user_id": "user-1",
+                "prompt": "test prompt",
+                "config_snapshot": {},
+            }
+        )
+        dispatch_service = MagicMock()
+        dispatch_service.dispatch_claim = AsyncMock()
+        return RunPullService(
+            settings=settings,
+            backend_client=backend_client,
+            dispatch_service=dispatch_service,
+        )
 
     def test_poll_creates_task_on_claim(self) -> None:
         """Test poll creates task when claim succeeds."""
@@ -1806,7 +1814,9 @@ class TestHandleClaimExceptionHandling(unittest.TestCase):
             mock_resolver.resolve = AsyncMock(return_value={"skill_files": {}})
             mock_resolver_cls.return_value = mock_resolver
 
-            return RunPullService()
+            service = RunPullService()
+            service.config_resolver = mock_resolver
+            return service
 
     def test_handle_claim_exception_logs_and_fails_run(self) -> None:
         """Test exception causes fail_run to be called (lines 487-498)."""

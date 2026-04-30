@@ -34,14 +34,11 @@ class RunPullService:
         clock: Clock | None = None,
     ) -> None:
         self.settings = settings if settings is not None else get_settings()
-        factory = backend_client_factory or build_run_pull_backend_client
-        self.backend_client = (
-            backend_client if backend_client is not None else factory()
+        self._backend_client = backend_client
+        self._backend_client_factory = (
+            backend_client_factory or build_run_pull_backend_client
         )
-        self.dispatch_service = dispatch_service or RunDispatchService.create_default(
-            settings=self.settings,
-            backend_client=self.backend_client,
-        )
+        self._dispatch_service = dispatch_service
         self.clock = clock or SystemClock()
 
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
@@ -53,6 +50,29 @@ class RunPullService:
         self._window_locks: dict[str, asyncio.Lock] = {}
         self._inflight_run_ids: set[str] = set()
         self._inflight_lock = asyncio.Lock()
+
+    @property
+    def backend_client(self) -> Any:
+        if self._backend_client is None:
+            self._backend_client = self._backend_client_factory()
+        return self._backend_client
+
+    @backend_client.setter
+    def backend_client(self, value: Any) -> None:
+        self._backend_client = value
+
+    @property
+    def dispatch_service(self) -> Any:
+        if self._dispatch_service is None:
+            self._dispatch_service = RunDispatchService.create_default(
+                settings=self.settings,
+                backend_client=self.backend_client,
+            )
+        return self._dispatch_service
+
+    @dispatch_service.setter
+    def dispatch_service(self, value: Any) -> None:
+        self._dispatch_service = value
 
     @property
     def executor_client(self) -> Any:

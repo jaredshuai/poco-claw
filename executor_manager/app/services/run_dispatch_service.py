@@ -80,28 +80,157 @@ class RunDispatchService:
         self,
         *,
         settings: Any,
-        backend_client: Any,
-        executor_client: Any,
-        config_resolver: Any,
-        skill_stager: Any,
-        plugin_stager: Any,
-        attachment_stager: Any,
-        claude_md_stager: Any,
-        slash_command_stager: Any,
-        subagent_stager: Any,
+        backend_client: Any | None = None,
+        executor_client: Any | None = None,
+        config_resolver: Any | None = None,
+        skill_stager: Any | None = None,
+        plugin_stager: Any | None = None,
+        attachment_stager: Any | None = None,
+        claude_md_stager: Any | None = None,
+        slash_command_stager: Any | None = None,
+        subagent_stager: Any | None = None,
         container_pool: Any | None = None,
+        backend_client_factory: Callable[[], Any] | None = None,
+        executor_client_factory: Callable[[], Any] | None = None,
+        config_resolver_factory: Callable[[Any, Any], Any] | None = None,
+        skill_stager_factory: Callable[[], Any] | None = None,
+        plugin_stager_factory: Callable[[], Any] | None = None,
+        attachment_stager_factory: Callable[[], Any] | None = None,
+        claude_md_stager_factory: Callable[[], Any] | None = None,
+        slash_command_stager_factory: Callable[[], Any] | None = None,
+        subagent_stager_factory: Callable[[], Any] | None = None,
     ) -> None:
         self.settings = settings
-        self.backend_client = backend_client
-        self.executor_client = executor_client
+        self._backend_client = backend_client
+        self._backend_client_factory = (
+            backend_client_factory or build_run_dispatch_backend_client
+        )
+        self._executor_client = executor_client
+        self._executor_client_factory = (
+            executor_client_factory or build_run_dispatch_executor_client
+        )
         self.container_pool = container_pool
-        self.config_resolver = config_resolver
-        self.skill_stager = skill_stager
-        self.plugin_stager = plugin_stager
-        self.attachment_stager = attachment_stager
-        self.claude_md_stager = claude_md_stager
-        self.slash_command_stager = slash_command_stager
-        self.subagent_stager = subagent_stager
+        self._config_resolver = config_resolver
+        self._config_resolver_factory = (
+            config_resolver_factory or build_run_dispatch_config_resolver
+        )
+        self._skill_stager = skill_stager
+        self._skill_stager_factory = (
+            skill_stager_factory or build_run_dispatch_skill_stager
+        )
+        self._plugin_stager = plugin_stager
+        self._plugin_stager_factory = (
+            plugin_stager_factory or build_run_dispatch_plugin_stager
+        )
+        self._attachment_stager = attachment_stager
+        self._attachment_stager_factory = (
+            attachment_stager_factory or build_run_dispatch_attachment_stager
+        )
+        self._claude_md_stager = claude_md_stager
+        self._claude_md_stager_factory = (
+            claude_md_stager_factory or build_run_dispatch_claude_md_stager
+        )
+        self._slash_command_stager = slash_command_stager
+        self._slash_command_stager_factory = (
+            slash_command_stager_factory or build_run_dispatch_slash_command_stager
+        )
+        self._subagent_stager = subagent_stager
+        self._subagent_stager_factory = (
+            subagent_stager_factory or build_run_dispatch_subagent_stager
+        )
+
+    @property
+    def backend_client(self) -> Any:
+        if self._backend_client is None:
+            self._backend_client = self._backend_client_factory()
+        return self._backend_client
+
+    @backend_client.setter
+    def backend_client(self, value: Any) -> None:
+        self._backend_client = value
+
+    @property
+    def executor_client(self) -> Any:
+        if self._executor_client is None:
+            self._executor_client = self._executor_client_factory()
+        return self._executor_client
+
+    @executor_client.setter
+    def executor_client(self, value: Any) -> None:
+        self._executor_client = value
+
+    @property
+    def config_resolver(self) -> Any:
+        if self._config_resolver is None:
+            self._config_resolver = self._config_resolver_factory(
+                self.backend_client,
+                self.settings,
+            )
+        return self._config_resolver
+
+    @config_resolver.setter
+    def config_resolver(self, value: Any) -> None:
+        self._config_resolver = value
+
+    @property
+    def skill_stager(self) -> Any:
+        if self._skill_stager is None:
+            self._skill_stager = self._skill_stager_factory()
+        return self._skill_stager
+
+    @skill_stager.setter
+    def skill_stager(self, value: Any) -> None:
+        self._skill_stager = value
+
+    @property
+    def plugin_stager(self) -> Any:
+        if self._plugin_stager is None:
+            self._plugin_stager = self._plugin_stager_factory()
+        return self._plugin_stager
+
+    @plugin_stager.setter
+    def plugin_stager(self, value: Any) -> None:
+        self._plugin_stager = value
+
+    @property
+    def attachment_stager(self) -> Any:
+        if self._attachment_stager is None:
+            self._attachment_stager = self._attachment_stager_factory()
+        return self._attachment_stager
+
+    @attachment_stager.setter
+    def attachment_stager(self, value: Any) -> None:
+        self._attachment_stager = value
+
+    @property
+    def claude_md_stager(self) -> Any:
+        if self._claude_md_stager is None:
+            self._claude_md_stager = self._claude_md_stager_factory()
+        return self._claude_md_stager
+
+    @claude_md_stager.setter
+    def claude_md_stager(self, value: Any) -> None:
+        self._claude_md_stager = value
+
+    @property
+    def slash_command_stager(self) -> Any:
+        if self._slash_command_stager is None:
+            self._slash_command_stager = self._slash_command_stager_factory()
+        return self._slash_command_stager
+
+    @slash_command_stager.setter
+    def slash_command_stager(self, value: Any) -> None:
+        self._slash_command_stager = value
+
+    @property
+    def subagent_stager(self) -> Any:
+        if self._subagent_stager is None:
+            self._subagent_stager = self._subagent_stager_factory()
+        return self._subagent_stager
+
+    @subagent_stager.setter
+    def subagent_stager(self, value: Any) -> None:
+        self._subagent_stager = value
 
     @classmethod
     def create_default(
@@ -144,19 +273,27 @@ class RunDispatchService:
             slash_command_stager_factory or build_run_dispatch_slash_command_stager
         )
         subagent_factory = subagent_stager_factory or build_run_dispatch_subagent_stager
-        backend_client = backend_client or backend_factory()
         return cls(
             settings=settings,
             backend_client=backend_client,
-            executor_client=executor_client or executor_factory(),
+            backend_client_factory=backend_factory,
+            executor_client=executor_client,
+            executor_client_factory=executor_factory,
             container_pool=container_pool,
-            config_resolver=config_resolver or config_factory(backend_client, settings),
-            skill_stager=skill_stager or skill_factory(),
-            plugin_stager=plugin_stager or plugin_factory(),
-            attachment_stager=attachment_stager or attachment_factory(),
-            claude_md_stager=claude_md_stager or claude_md_factory(),
-            slash_command_stager=slash_command_stager or slash_command_factory(),
-            subagent_stager=subagent_stager or subagent_factory(),
+            config_resolver=config_resolver,
+            config_resolver_factory=config_factory,
+            skill_stager=skill_stager,
+            skill_stager_factory=skill_factory,
+            plugin_stager=plugin_stager,
+            plugin_stager_factory=plugin_factory,
+            attachment_stager=attachment_stager,
+            attachment_stager_factory=attachment_factory,
+            claude_md_stager=claude_md_stager,
+            claude_md_stager_factory=claude_md_factory,
+            slash_command_stager=slash_command_stager,
+            slash_command_stager_factory=slash_command_factory,
+            subagent_stager=subagent_stager,
+            subagent_stager_factory=subagent_factory,
         )
 
     async def dispatch_claim(self, claim: dict[str, Any], *, worker_id: str) -> None:

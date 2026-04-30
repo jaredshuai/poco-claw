@@ -1318,6 +1318,15 @@ class TestHandleClaimMainFlow(unittest.TestCase):
             service = RunPullService()
             # Pre-set container_pool to avoid TaskDispatcher.get_container_pool() call
             service.container_pool = mock_pool
+            service.backend_client = mock_backend
+            service.executor_client = mock_executor
+            service.config_resolver = mock_resolver
+            service.skill_stager = mock_skill
+            service.plugin_stager = mock_plugin
+            service.attachment_stager = mock_attach
+            service.claude_md_stager = mock_claude
+            service.slash_command_stager = mock_slash
+            service.subagent_stager = mock_subagent
             return service
 
     def test_handle_claim_resolves_config(self) -> None:

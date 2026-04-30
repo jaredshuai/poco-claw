@@ -145,6 +145,56 @@ def test_create_default_accepts_adapter_factories() -> None:
     assert service.subagent_stager is subagent_stager
 
 
+def test_create_default_defers_default_adapter_construction() -> None:
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+
+    with (
+        patch(
+            "app.services.run_dispatch_service.BackendClient",
+            side_effect=AssertionError("backend client should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.ExecutorClient",
+            side_effect=AssertionError("executor client should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.ConfigResolver",
+            side_effect=AssertionError("config resolver should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.SkillStager",
+            side_effect=AssertionError("skill stager should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.PluginStager",
+            side_effect=AssertionError("plugin stager should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.AttachmentStager",
+            side_effect=AssertionError("attachment stager should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.ClaudeMdStager",
+            side_effect=AssertionError("claude md stager should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.SlashCommandStager",
+            side_effect=AssertionError("slash command stager should be lazy"),
+        ),
+        patch(
+            "app.services.run_dispatch_service.SubAgentStager",
+            side_effect=AssertionError("subagent stager should be lazy"),
+        ),
+    ):
+        service = RunDispatchService.create_default(settings=settings)
+
+    assert service.settings is settings
+
+
 def test_create_default_passes_settings_to_default_config_resolver() -> None:
     settings = SimpleNamespace(
         callback_base_url="http://manager.local",
@@ -177,8 +227,9 @@ def test_create_default_passes_settings_to_default_config_resolver() -> None:
             subagent_stager=subagent_stager,
         )
 
-    config_resolver_cls.assert_called_once_with(backend_client, settings=settings)
-    assert service.config_resolver is config_resolver
+        config_resolver_cls.assert_not_called()
+        assert service.config_resolver is config_resolver
+        config_resolver_cls.assert_called_once_with(backend_client, settings=settings)
 
 
 def test_create_default_uses_injected_settings_without_loading_global_settings() -> (

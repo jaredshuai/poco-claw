@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Protocol
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
@@ -21,14 +22,13 @@ class ComputerApiService(Protocol):
     ) -> ComputerScreenshotUploadResponse: ...
 
 
-computer_service: ComputerApiService | None = None
+def build_computer_service() -> ComputerApiService:
+    return ComputerService()
 
 
+@lru_cache(maxsize=1)
 def get_computer_service() -> ComputerApiService:
-    global computer_service
-    if computer_service is None:
-        computer_service = ComputerService()
-    return computer_service
+    return build_computer_service()
 
 
 @router.post(

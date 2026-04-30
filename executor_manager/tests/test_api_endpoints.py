@@ -57,6 +57,17 @@ def _callback_service_override(app, mock_service):
         app.dependency_overrides.pop(callback.get_callback_service, None)
 
 
+@contextmanager
+def _computer_service_override(app, mock_service):
+    from app.api.v1 import computer
+
+    app.dependency_overrides[computer.get_computer_service] = lambda: mock_service
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(computer.get_computer_service, None)
+
+
 def test_callback_module_import_does_not_initialize_service() -> None:
     with patch(
         "app.services.callback_service.CallbackService",
@@ -125,10 +136,7 @@ def test_computer_module_import_does_not_initialize_service() -> None:
 
 
 def test_computer_route_uses_service_dependency_override() -> None:
-    from app.api.v1 import computer
     from app.main import app
-
-    computer.computer_service = None
 
     mock_result = MagicMock()
     mock_result.model_dump.return_value = {
@@ -141,8 +149,7 @@ def test_computer_route_uses_service_dependency_override() -> None:
     mock_service = MagicMock()
     mock_service.upload_browser_screenshot.return_value = mock_result
 
-    app.dependency_overrides[computer.get_computer_service] = lambda: mock_service
-    try:
+    with _computer_service_override(app, mock_service):
         with (
             patch(
                 "app.api.v1.computer.ComputerService",
@@ -166,12 +173,16 @@ def test_computer_route_uses_service_dependency_override() -> None:
                 },
                 headers={"Authorization": "Bearer callback-token"},
             )
-    finally:
-        app.dependency_overrides.pop(computer.get_computer_service, None)
 
     assert response.status_code == 200
     assert response.json()["data"]["session_id"] == "sess-123"
     mock_service.upload_browser_screenshot.assert_called_once()
+
+
+def test_computer_service_provider_has_no_mutable_global() -> None:
+    from app.api.v1 import computer
+
+    assert not hasattr(computer, "computer_service")
 
 
 class TestCallbackEndpoint(unittest.TestCase):
@@ -250,7 +261,8 @@ class TestComputerEndpoint(unittest.TestCase):
             "app.core.deps.get_settings",
             return_value=SimpleNamespace(callback_token="callback-token"),
         ):
-            with patch("app.api.v1.computer.computer_service") as mock_service:
+            mock_service = MagicMock()
+            with _computer_service_override(app, mock_service):
                 client = TestClient(app)
                 fake_image = b"\x89PNG\r\n\x1a\n"
 
@@ -269,7 +281,8 @@ class TestComputerEndpoint(unittest.TestCase):
         """Test successful screenshot upload."""
         from app.main import app
 
-        with patch("app.api.v1.computer.computer_service") as mock_service:
+        mock_service = MagicMock()
+        with _computer_service_override(app, mock_service):
             mock_result = MagicMock()
             mock_result.model_dump.return_value = {
                 "session_id": "sess-123",
@@ -305,7 +318,8 @@ class TestComputerEndpoint(unittest.TestCase):
         """Test screenshot upload with default content type."""
         from app.main import app
 
-        with patch("app.api.v1.computer.computer_service") as mock_service:
+        mock_service = MagicMock()
+        with _computer_service_override(app, mock_service):
             mock_result = MagicMock()
             mock_result.model_dump.return_value = {
                 "session_id": "sess-123",

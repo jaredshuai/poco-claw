@@ -84,7 +84,9 @@ class RunPullService:
 
     @property
     def container_pool(self) -> Any:
-        return getattr(self.dispatch_service, "container_pool", None)
+        if self._dispatch_service is None:
+            return None
+        return getattr(self._dispatch_service, "_container_pool", None)
 
     @container_pool.setter
     def container_pool(self, value: Any) -> None:

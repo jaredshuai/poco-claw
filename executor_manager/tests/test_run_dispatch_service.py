@@ -271,6 +271,30 @@ def test_create_default_uses_injected_settings_without_loading_global_settings()
     assert service.settings is settings
 
 
+def test_create_default_accepts_lazy_container_pool_factory() -> None:
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    container_pool = MagicMock()
+    container_pool_factory = MagicMock(return_value=container_pool)
+
+    with patch(
+        "app.services.run_dispatch_service.TaskDispatcher.get_container_pool",
+        side_effect=AssertionError("default container pool should be injected"),
+    ):
+        service = RunDispatchService.create_default(
+            settings=settings,
+            container_pool_factory=container_pool_factory,
+        )
+
+        container_pool_factory.assert_not_called()
+        assert service.container_pool is container_pool
+
+    container_pool_factory.assert_called_once_with()
+
+
 @pytest.mark.asyncio
 async def test_dispatch_claim_fails_and_cancels_when_start_run_fails() -> None:
     service = _make_dispatch_service()

@@ -56,6 +56,10 @@ def build_run_dispatch_subagent_stager() -> SubAgentStager:
     return SubAgentStager()
 
 
+def build_run_dispatch_container_pool() -> Any:
+    return TaskDispatcher.get_container_pool()
+
+
 def _extract_enabled_skill_names(skills: object) -> list[str]:
     if not isinstance(skills, dict):
         return []
@@ -99,6 +103,7 @@ class RunDispatchService:
         claude_md_stager_factory: Callable[[], Any] | None = None,
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
+        container_pool_factory: Callable[[], Any] | None = None,
     ) -> None:
         self.settings = settings
         self._backend_client = backend_client
@@ -109,7 +114,10 @@ class RunDispatchService:
         self._executor_client_factory = (
             executor_client_factory or build_run_dispatch_executor_client
         )
-        self.container_pool = container_pool
+        self._container_pool = container_pool
+        self._container_pool_factory = (
+            container_pool_factory or build_run_dispatch_container_pool
+        )
         self._config_resolver = config_resolver
         self._config_resolver_factory = (
             config_resolver_factory or build_run_dispatch_config_resolver
@@ -158,6 +166,16 @@ class RunDispatchService:
     @executor_client.setter
     def executor_client(self, value: Any) -> None:
         self._executor_client = value
+
+    @property
+    def container_pool(self) -> Any:
+        if self._container_pool is None:
+            self._container_pool = self._container_pool_factory()
+        return self._container_pool
+
+    @container_pool.setter
+    def container_pool(self, value: Any) -> None:
+        self._container_pool = value
 
     @property
     def config_resolver(self) -> Any:
@@ -256,6 +274,7 @@ class RunDispatchService:
         claude_md_stager_factory: Callable[[], Any] | None = None,
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
+        container_pool_factory: Callable[[], Any] | None = None,
     ) -> "RunDispatchService":
         settings = settings if settings is not None else get_settings()
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
@@ -273,6 +292,7 @@ class RunDispatchService:
             slash_command_stager_factory or build_run_dispatch_slash_command_stager
         )
         subagent_factory = subagent_stager_factory or build_run_dispatch_subagent_stager
+        container_factory = container_pool_factory or build_run_dispatch_container_pool
         return cls(
             settings=settings,
             backend_client=backend_client,
@@ -280,6 +300,7 @@ class RunDispatchService:
             executor_client=executor_client,
             executor_client_factory=executor_factory,
             container_pool=container_pool,
+            container_pool_factory=container_factory,
             config_resolver=config_resolver,
             config_resolver_factory=config_factory,
             skill_stager=skill_stager,
@@ -473,8 +494,6 @@ class RunDispatchService:
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))
-            if self.container_pool is None:
-                self.container_pool = TaskDispatcher.get_container_pool()
             (
                 executor_url,
                 container_id,
@@ -576,8 +595,8 @@ class RunDispatchService:
                 logger.error(f"Failed to mark run {run_id} as failed: {fail_err}")
 
             try:
-                if self.container_pool:
-                    await self.container_pool.cancel_task(session_id)
+                if self._container_pool is not None:
+                    await self._container_pool.cancel_task(session_id)
             except Exception as cancel_err:
                 logger.error(
                     f"Failed to cancel task for session {session_id}: {cancel_err}"

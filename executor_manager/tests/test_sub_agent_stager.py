@@ -11,14 +11,17 @@ from app.services.sub_agent_stager import SubAgentStager
 class TestSubAgentStagerInit(unittest.TestCase):
     """Test SubAgentStager.__init__."""
 
-    def test_init_with_defaults(self) -> None:
+    def test_init_with_defaults_defers_workspace_manager_construction(self) -> None:
         with patch(
             "app.services.sub_agent_stager.WorkspaceManager"
         ) as mock_workspace_cls:
-            mock_workspace_cls.return_value = MagicMock()
+            mock_workspace = MagicMock()
+            mock_workspace_cls.return_value = mock_workspace
 
-            SubAgentStager()
+            stager = SubAgentStager()
 
+            mock_workspace_cls.assert_not_called()
+            assert stager.workspace_manager is mock_workspace
             mock_workspace_cls.assert_called_once()
 
     def test_init_with_dependencies(self) -> None:

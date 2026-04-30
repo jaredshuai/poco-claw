@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from app.core.deps import require_callback_token
-from app.core.settings import get_settings
 from app.schemas.response import Response, ResponseSchema
 from app.services.backend_client import BackendClient
 from app.services.workspace_export_service import WorkspaceExportService
@@ -76,19 +75,11 @@ async def submit_skill(
     )
     try:
         backend = get_backend_client()
-        response = await backend._request(
-            "POST",
-            "/api/v1/internal/skills/submit-from-workspace",
-            params={"session_id": request.session_id},
-            json={
-                "folder_path": folder_path,
-                "skill_name": request.skill_name,
-                "workspace_files_prefix": workspace_files_prefix,
-            },
-            headers={
-                "X-Internal-Token": get_settings().internal_api_token,
-                **BackendClient._trace_headers(),
-            },
+        payload = await backend.submit_skill_from_workspace(
+            request.session_id,
+            folder_path=folder_path,
+            skill_name=request.skill_name,
+            workspace_files_prefix=workspace_files_prefix,
         )
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text
@@ -101,7 +92,6 @@ async def submit_skill(
             status_code=exc.response.status_code, detail=detail
         ) from exc
 
-    payload = response.json()
     return Response.success(
         data=payload.get("data"),
         message=payload.get("message", "Skill submission queued successfully"),

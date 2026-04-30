@@ -623,6 +623,53 @@ class TestBackendClientResolveSkillConfig:
 
                 assert "skill1" in result
 
+    async def test_submit_skill_from_workspace_uses_internal_headers(self) -> None:
+        settings = SimpleNamespace(
+            backend_url="http://backend",
+            internal_api_token="token-123",
+        )
+        http_client = MagicMock()
+        client = BackendClient(settings=settings, http_client=http_client)
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "data": {"job_id": "skill-job-123"},
+            "message": "Skill submission queued",
+        }
+
+        with (
+            patch.object(
+                client, "_request", AsyncMock(return_value=mock_response)
+            ) as mock_request,
+            patch.object(
+                client,
+                "_internal_headers",
+                return_value={"X-Internal-Token": "token-123"},
+            ),
+        ):
+            result = await client.submit_skill_from_workspace(
+                "session-123",
+                folder_path="/staged/skill-folder",
+                skill_name="my-skill",
+                workspace_files_prefix="files/prefix/",
+            )
+
+        assert result == {
+            "data": {"job_id": "skill-job-123"},
+            "message": "Skill submission queued",
+        }
+        mock_request.assert_awaited_once_with(
+            "POST",
+            "/api/v1/internal/skills/submit-from-workspace",
+            params={"session_id": "session-123"},
+            json={
+                "folder_path": "/staged/skill-folder",
+                "skill_name": "my-skill",
+                "workspace_files_prefix": "files/prefix/",
+            },
+            headers={"X-Internal-Token": "token-123"},
+        )
+
 
 @pytest.mark.asyncio
 class TestBackendClientResolveSubagents:

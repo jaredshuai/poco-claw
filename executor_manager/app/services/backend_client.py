@@ -210,6 +210,28 @@ class BackendClient:
         data = response.json()
         return data.get("data", {}) or {}
 
+    async def submit_skill_from_workspace(
+        self,
+        session_id: str,
+        *,
+        folder_path: str,
+        skill_name: str | None,
+        workspace_files_prefix: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/api/v1/internal/skills/submit-from-workspace",
+            params={"session_id": session_id},
+            json={
+                "folder_path": folder_path,
+                "skill_name": skill_name,
+                "workspace_files_prefix": workspace_files_prefix,
+            },
+            headers=self._internal_headers(),
+        )
+        data = response.json()
+        return data if isinstance(data, dict) else {}
+
     async def resolve_plugin_config(self, user_id: str, plugin_ids: list[int]) -> dict:
         """Resolve effective plugin config for execution based on selected plugin ids."""
         response = await self._request(

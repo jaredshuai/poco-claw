@@ -63,18 +63,15 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             return_value=mock_export_result
         )
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "data": {"job_id": "skill-job-123"},
-            "message": "Skill submission queued",
-        }
-
         mock_client = MagicMock()
-        mock_client._request = AsyncMock(return_value=mock_response)
-        mock_client._trace_headers = MagicMock(return_value={})
+        mock_client.submit_skill_from_workspace = AsyncMock(
+            return_value={
+                "data": {"job_id": "skill-job-123"},
+                "message": "Skill submission queued",
+            }
+        )
 
         mock_settings = MagicMock()
-        mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
         with (
@@ -85,10 +82,6 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             patch(
                 "app.api.v1.skills_upload.backend_client",
                 mock_client,
-            ),
-            patch(
-                "app.api.v1.skills_upload.get_settings",
-                return_value=mock_settings,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -110,6 +103,77 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             data = response.json()
             assert data["code"] == 0
             assert data["data"]["job_id"] == "skill-job-123"
+
+    def test_submit_skill_delegates_backend_internal_auth_to_client(self) -> None:
+        """Test skill submission does not build internal auth headers in the route."""
+        from app.main import app
+
+        mock_export_result = MagicMock()
+        mock_export_result.workspace_export_status = "ready"
+        mock_export_result.workspace_files_prefix = "files/prefix/"
+        mock_export_result.error = None
+
+        mock_export_service = MagicMock()
+        mock_export_service.stage_skill_submission_folder = MagicMock(
+            return_value="/staged/skill-folder"
+        )
+        mock_export_service.export_workspace_folder = MagicMock(
+            return_value=mock_export_result
+        )
+
+        mock_client = MagicMock()
+        mock_client._request = AsyncMock(
+            side_effect=AssertionError("route should use backend client port")
+        )
+        mock_client.submit_skill_from_workspace = AsyncMock(
+            return_value={
+                "data": {"job_id": "skill-job-123"},
+                "message": "Skill submission queued",
+            }
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.callback_token = "callback-token"
+
+        with (
+            patch(
+                "app.api.v1.skills_upload.workspace_export_service",
+                mock_export_service,
+            ),
+            patch(
+                "app.api.v1.skills_upload.backend_client",
+                mock_client,
+            ),
+            patch(
+                "app.api.v1.skills_upload.get_settings",
+                side_effect=AssertionError("route should not read settings directly"),
+                create=True,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/skills/submit",
+                json={
+                    "session_id": "session-123",
+                    "folder_path": "/workspace/skill-folder",
+                    "skill_name": "my-skill",
+                },
+                headers={"Authorization": "Bearer callback-token"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["job_id"] == "skill-job-123"
+        mock_client.submit_skill_from_workspace.assert_awaited_once_with(
+            "session-123",
+            folder_path="/staged/skill-folder",
+            skill_name="my-skill",
+            workspace_files_prefix="files/prefix/",
+        )
 
     def test_submit_skill_export_not_ready(self) -> None:
         """Test skill submission when export is not ready."""
@@ -223,17 +287,15 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_http_response.json.return_value = {"message": "Backend service error"}
 
         mock_client = MagicMock()
-        mock_client._request = AsyncMock(
+        mock_client.submit_skill_from_workspace = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "Server error",
                 request=MagicMock(),
                 response=mock_http_response,
             )
         )
-        mock_client._trace_headers = MagicMock(return_value={})
 
         mock_settings = MagicMock()
-        mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
         with (
@@ -244,10 +306,6 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             patch(
                 "app.api.v1.skills_upload.backend_client",
                 mock_client,
-            ),
-            patch(
-                "app.api.v1.skills_upload.get_settings",
-                return_value=mock_settings,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -292,17 +350,15 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_http_response.json.side_effect = Exception("Not JSON")
 
         mock_client = MagicMock()
-        mock_client._request = AsyncMock(
+        mock_client.submit_skill_from_workspace = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "Service unavailable",
                 request=MagicMock(),
                 response=mock_http_response,
             )
         )
-        mock_client._trace_headers = MagicMock(return_value={})
 
         mock_settings = MagicMock()
-        mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
         with (
@@ -313,10 +369,6 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             patch(
                 "app.api.v1.skills_upload.backend_client",
                 mock_client,
-            ),
-            patch(
-                "app.api.v1.skills_upload.get_settings",
-                return_value=mock_settings,
             ),
             patch(
                 "app.core.deps.get_settings",
@@ -361,17 +413,15 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
         mock_http_response.json.return_value = {"detail": "Invalid skill configuration"}
 
         mock_client = MagicMock()
-        mock_client._request = AsyncMock(
+        mock_client.submit_skill_from_workspace = AsyncMock(
             side_effect=httpx.HTTPStatusError(
                 "Bad request",
                 request=MagicMock(),
                 response=mock_http_response,
             )
         )
-        mock_client._trace_headers = MagicMock(return_value={})
 
         mock_settings = MagicMock()
-        mock_settings.internal_api_token = "test-token"
         mock_settings.callback_token = "callback-token"
 
         with (
@@ -382,10 +432,6 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             patch(
                 "app.api.v1.skills_upload.backend_client",
                 mock_client,
-            ),
-            patch(
-                "app.api.v1.skills_upload.get_settings",
-                return_value=mock_settings,
             ),
             patch(
                 "app.core.deps.get_settings",

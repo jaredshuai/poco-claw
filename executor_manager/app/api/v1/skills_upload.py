@@ -1,9 +1,10 @@
 import asyncio
+from typing import Any, Protocol
 
 import httpx
-from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.core.deps import require_callback_token
 from app.schemas.response import Response, ResponseSchema
@@ -11,18 +12,39 @@ from app.services.backend_client import BackendClient
 from app.services.workspace_export_service import WorkspaceExportService
 
 router = APIRouter(prefix="/skills", tags=["skills"])
+
+
+class SkillsUploadBackendClient(Protocol):
+    async def submit_skill_from_workspace(
+        self,
+        session_id: str,
+        *,
+        folder_path: str,
+        skill_name: str | None,
+        workspace_files_prefix: str,
+    ) -> dict[str, Any]: ...
+
+
+class SkillsUploadWorkspaceExportService(Protocol):
+    def stage_skill_submission_folder(
+        self, session_id: str, *, folder_path: str
+    ) -> str: ...
+
+    def export_workspace_folder(self, session_id: str, *, folder_path: str) -> Any: ...
+
+
 backend_client: BackendClient | None = None
 workspace_export_service: WorkspaceExportService | None = None
 
 
-def get_backend_client() -> BackendClient:
+def get_backend_client() -> SkillsUploadBackendClient:
     global backend_client
     if backend_client is None:
         backend_client = BackendClient()
     return backend_client
 
 
-def get_workspace_export_service() -> WorkspaceExportService:
+def get_workspace_export_service() -> SkillsUploadWorkspaceExportService:
     global workspace_export_service
     if workspace_export_service is None:
         workspace_export_service = WorkspaceExportService()
@@ -39,8 +61,8 @@ async def _prepare_and_export_skill_folder(
     session_id: str,
     *,
     folder_path: str,
+    exporter: SkillsUploadWorkspaceExportService,
 ) -> tuple[str, str]:
-    exporter = get_workspace_export_service()
     staged_folder_path = await asyncio.to_thread(
         exporter.stage_skill_submission_folder,
         session_id,
@@ -68,13 +90,17 @@ async def _prepare_and_export_skill_folder(
 async def submit_skill(
     request: SkillSubmitRequest,
     _: None = Depends(require_callback_token),
+    backend: SkillsUploadBackendClient = Depends(get_backend_client),
+    exporter: SkillsUploadWorkspaceExportService = Depends(
+        get_workspace_export_service
+    ),
 ) -> JSONResponse:
     folder_path, workspace_files_prefix = await _prepare_and_export_skill_folder(
         request.session_id,
         folder_path=request.folder_path,
+        exporter=exporter,
     )
     try:
-        backend = get_backend_client()
         payload = await backend.submit_skill_from_workspace(
             request.session_id,
             folder_path=folder_path,

@@ -43,6 +43,79 @@ def test_skills_upload_module_import_does_not_initialize_concrete_adapters() -> 
     assert module.submit_skill is not None
 
 
+def test_skills_upload_route_uses_dependency_overrides() -> None:
+    from app.api.v1 import skills_upload
+    from app.main import app
+
+    if hasattr(skills_upload, "backend_client"):
+        skills_upload.backend_client = None
+    if hasattr(skills_upload, "workspace_export_service"):
+        skills_upload.workspace_export_service = None
+
+    mock_export_result = MagicMock()
+    mock_export_result.workspace_export_status = "ready"
+    mock_export_result.workspace_files_prefix = "files/prefix/"
+    mock_export_result.error = None
+
+    mock_export_service = MagicMock()
+    mock_export_service.stage_skill_submission_folder = MagicMock(
+        return_value="/staged/skill-folder"
+    )
+    mock_export_service.export_workspace_folder = MagicMock(
+        return_value=mock_export_result
+    )
+
+    mock_client = MagicMock()
+    mock_client.submit_skill_from_workspace = AsyncMock(
+        return_value={
+            "data": {"job_id": "skill-job-123"},
+            "message": "Skill submission queued",
+        }
+    )
+
+    mock_settings = MagicMock()
+    mock_settings.callback_token = "callback-token"
+
+    app.dependency_overrides[skills_upload.get_backend_client] = lambda: mock_client
+    app.dependency_overrides[skills_upload.get_workspace_export_service] = lambda: (
+        mock_export_service
+    )
+    try:
+        with (
+            patch(
+                "app.api.v1.skills_upload.BackendClient",
+                side_effect=AssertionError("route should use backend override"),
+            ),
+            patch(
+                "app.api.v1.skills_upload.WorkspaceExportService",
+                side_effect=AssertionError("route should use exporter override"),
+            ),
+            patch("app.core.deps.get_settings", return_value=mock_settings),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/skills/submit",
+                json={
+                    "session_id": "session-123",
+                    "folder_path": "/workspace/skill-folder",
+                    "skill_name": "my-skill",
+                },
+                headers={"Authorization": "Bearer callback-token"},
+            )
+    finally:
+        app.dependency_overrides.pop(skills_upload.get_backend_client, None)
+        app.dependency_overrides.pop(skills_upload.get_workspace_export_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["job_id"] == "skill-job-123"
+    mock_client.submit_skill_from_workspace.assert_awaited_once_with(
+        "session-123",
+        folder_path="/staged/skill-folder",
+        skill_name="my-skill",
+        workspace_files_prefix="files/prefix/",
+    )
+
+
 class TestSkillsUploadEndpoints(unittest.TestCase):
     """Test /api/v1/skills endpoints."""
 

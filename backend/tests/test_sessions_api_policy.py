@@ -16,6 +16,12 @@ from app.api.v1.sessions import (
     get_session_state,
     update_session,
     delete_session,
+    get_session_messages,
+    get_session_messages_delta,
+    get_session_messages_with_files,
+    get_session_messages_with_files_delta,
+    get_session_message_attachments,
+    get_session_message_attachments_delta,
 )
 
 
@@ -303,3 +309,425 @@ class TestDeleteSessionPolicy:
             )
 
         mock_session_service.delete_session.assert_called_once_with(mock_db, session_id)
+
+
+class TestGetSessionMessagesPolicy:
+    """Tests for get_session_messages endpoint policy integration."""
+
+    def test_allowed_path_uses_policy_and_calls_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        mock_message_service.get_message_responses.return_value = []
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_messages(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_message_service.get_message_responses.assert_called_once_with(
+            mock_db, session_id, user_id=actor.user_id
+        )
+
+    def test_denied_path_raises_forbidden_and_does_not_call_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_messages(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_message_service.get_message_responses.assert_not_called()
+
+
+class TestGetSessionMessagesDeltaPolicy:
+    """Tests for get_session_messages_delta endpoint policy integration."""
+
+    def test_allowed_path_passes_actor_user_id_and_params_to_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        mock_message_service.get_messages_delta.return_value = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_messages_delta(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    after_message_id=42,
+                    limit=100,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_message_service.get_messages_delta.assert_called_once_with(
+            mock_db,
+            session_id,
+            user_id=actor.user_id,
+            after_message_id=42,
+            limit=100,
+        )
+
+
+class TestGetSessionMessageAttachmentsPolicy:
+    """Tests for get_session_message_attachments endpoint policy integration."""
+
+    def test_allowed_path_calls_message_service_with_actor_user_id(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        mock_message_service.get_message_attachments.return_value = []
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_message_attachments(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_message_service.get_message_attachments.assert_called_once_with(
+            mock_db, session_id, user_id=actor.user_id
+        )
+
+    def test_denied_path_raises_forbidden_and_does_not_call_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_message_attachments(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_message_service.get_message_attachments.assert_not_called()
+
+
+class TestGetSessionMessagesWithFilesPolicy:
+    """Tests for get_session_messages_with_files endpoint policy integration."""
+
+    def test_allowed_path_calls_message_service_with_actor_user_id(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        mock_message_service.get_messages_with_files.return_value = []
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_messages_with_files(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_message_service.get_messages_with_files.assert_called_once_with(
+            mock_db, session_id, user_id=actor.user_id
+        )
+
+    def test_denied_path_raises_forbidden_and_does_not_call_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_messages_with_files(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_message_service.get_messages_with_files.assert_not_called()
+
+
+class TestGetSessionMessagesWithFilesDeltaPolicy:
+    """Tests for get_session_messages_with_files_delta endpoint policy integration."""
+
+    def test_allowed_path_passes_actor_user_id_and_params_to_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        mock_message_service.get_messages_with_files_delta.return_value = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_messages_with_files_delta(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    after_message_id=10,
+                    limit=50,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_message_service.get_messages_with_files_delta.assert_called_once_with(
+            mock_db,
+            session_id,
+            user_id=actor.user_id,
+            after_message_id=10,
+            limit=50,
+        )
+
+    def test_denied_path_raises_forbidden_and_does_not_call_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_messages_with_files_delta(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    after_message_id=0,
+                    limit=200,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_message_service.get_messages_with_files_delta.assert_not_called()
+
+
+class TestGetSessionMessageAttachmentsDeltaPolicy:
+    """Tests for get_session_message_attachments_delta endpoint policy integration."""
+
+    def test_allowed_path_passes_actor_user_id_and_params_to_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        mock_message_service.get_message_attachments_delta.return_value = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_message_attachments_delta(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    after_message_id=5,
+                    limit=100,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_message_service.get_message_attachments_delta.assert_called_once_with(
+            mock_db,
+            session_id,
+            user_id=actor.user_id,
+            after_message_id=5,
+            limit=100,
+        )
+
+    def test_denied_path_raises_forbidden_and_does_not_call_message_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_message_service = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.message_service", mock_message_service)
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_message_attachments_delta(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    after_message_id=0,
+                    limit=200,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_message_service.get_message_attachments_delta.assert_not_called()

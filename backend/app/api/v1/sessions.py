@@ -356,19 +356,17 @@ async def delete_session(
 )
 async def get_session_messages(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets all messages for a session."""
-    # Verify session exists
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     return Response.success(
-        data=message_service.get_message_responses(db, session_id, user_id=user_id),
+        data=message_service.get_message_responses(
+            db, session_id, user_id=actor.user_id
+        ),
         message="Messages retrieved successfully",
     )
 
@@ -379,23 +377,20 @@ async def get_session_messages(
 )
 async def get_session_messages_delta(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     after_message_id: int = Query(default=0, ge=0),
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets incremental messages for a session without attachments."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     payload = message_service.get_messages_delta(
         db,
         session_id,
-        user_id=user_id,
+        user_id=actor.user_id,
         after_message_id=after_message_id,
         limit=limit,
     )
@@ -411,18 +406,17 @@ async def get_session_messages_delta(
 )
 async def get_session_messages_with_files(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets all messages for a session with per-message attachments."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
-    messages = message_service.get_messages_with_files(db, session_id, user_id=user_id)
+    messages = message_service.get_messages_with_files(
+        db, session_id, user_id=actor.user_id
+    )
     return Response.success(
         data=messages,
         message="Messages retrieved successfully",
@@ -435,7 +429,8 @@ async def get_session_messages_with_files(
 )
 async def get_session_messages_with_files_delta(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     after_message_id: int = Query(default=0, ge=0),
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
@@ -443,16 +438,12 @@ async def get_session_messages_with_files_delta(
     """Gets incremental messages for a session with per-message attachments."""
 
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     payload = message_service.get_messages_with_files_delta(
         db,
         session_id,
-        user_id=user_id,
+        user_id=actor.user_id,
         after_message_id=after_message_id,
         limit=limit,
     )
@@ -468,19 +459,16 @@ async def get_session_messages_with_files_delta(
 )
 async def get_session_message_attachments(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets per-message attachments for a session."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     attachments = message_service.get_message_attachments(
-        db, session_id, user_id=user_id
+        db, session_id, user_id=actor.user_id
     )
     return Response.success(
         data=attachments,
@@ -494,23 +482,20 @@ async def get_session_message_attachments(
 )
 async def get_session_message_attachments_delta(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     after_message_id: int = Query(default=0, ge=0),
     limit: int = Query(default=200, ge=1, le=1000),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets incremental per-message attachments for a session."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     payload = message_service.get_message_attachments_delta(
         db,
         session_id,
-        user_id=user_id,
+        user_id=actor.user_id,
         after_message_id=after_message_id,
         limit=limit,
     )

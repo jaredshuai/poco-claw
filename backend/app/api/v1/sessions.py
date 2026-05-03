@@ -754,20 +754,17 @@ async def get_session_workspace_folder_archive(
 async def submit_session_workspace_skill(
     session_id: uuid.UUID,
     request: SubmitSkillRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Submit a workspace folder for skill creation review."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     pending = pending_skill_creation_service.submit_from_workspace(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         session=db_session,
         folder_path=request.folder_path,
         skill_name=request.skill_name,

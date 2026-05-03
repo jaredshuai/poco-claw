@@ -29,6 +29,7 @@ from app.api.v1.sessions import (
     get_session_workspace_files,
     get_session_workspace_archive,
     get_session_workspace_folder_archive,
+    submit_session_workspace_skill,
 )
 
 
@@ -1377,3 +1378,103 @@ class TestGetSessionWorkspaceFolderArchivePolicy:
         assert exc_info.value.error_code == ErrorCode.FORBIDDEN
         assert str(exc_info.value.message) == "Session does not belong to the user"
         mock_archive_service.get_folder_archive.assert_not_called()
+
+
+class TestSubmitSessionWorkspaceSkillPolicy:
+    """Tests for submit_session_workspace_skill endpoint policy integration."""
+
+    def test_allowed_path_uses_policy_and_calls_pending_skill_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_pending = MagicMock()
+        mock_pending.id = uuid.uuid4()
+        mock_pending.status = "pending"
+
+        mock_pending_skill_service = MagicMock()
+        mock_pending_skill_service.submit_from_workspace.return_value = mock_pending
+        monkeypatch.setattr(
+            "app.api.v1.sessions.pending_skill_creation_service",
+            mock_pending_skill_service,
+        )
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        mock_request = MagicMock()
+        mock_request.folder_path = "skills/my-skill"
+        mock_request.skill_name = "my-skill"
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                submit_session_workspace_skill(
+                    session_id=session_id,
+                    request=mock_request,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_pending_skill_service.submit_from_workspace.assert_called_once_with(
+            mock_db,
+            user_id=actor.user_id,
+            session=mock_session,
+            folder_path="skills/my-skill",
+            skill_name="my-skill",
+        )
+        mock_db.commit.assert_called_once()
+        mock_db.refresh.assert_called_once_with(mock_pending)
+
+    def test_denied_path_raises_forbidden_and_does_not_call_pending_skill_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_pending_skill_service = MagicMock()
+        monkeypatch.setattr(
+            "app.api.v1.sessions.pending_skill_creation_service",
+            mock_pending_skill_service,
+        )
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        mock_request = MagicMock()
+        mock_request.folder_path = "skills/my-skill"
+        mock_request.skill_name = "my-skill"
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                submit_session_workspace_skill(
+                    session_id=session_id,
+                    request=mock_request,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_pending_skill_service.submit_from_workspace.assert_not_called()
+        mock_db.commit.assert_not_called()
+        mock_db.refresh.assert_not_called()

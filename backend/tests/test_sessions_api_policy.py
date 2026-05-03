@@ -24,6 +24,7 @@ from app.api.v1.sessions import (
     get_session_message_attachments_delta,
     get_session_tool_executions,
     get_session_tool_executions_delta,
+    get_session_usage,
 )
 
 
@@ -945,3 +946,75 @@ class TestGetSessionToolExecutionsDeltaPolicy:
         assert exc_info.value.error_code == ErrorCode.BAD_REQUEST
         assert "after_created_at is required" in str(exc_info.value.message)
         mock_tool_execution_service.get_tool_executions_delta.assert_not_called()
+
+
+class TestGetSessionUsagePolicy:
+    """Tests for get_session_usage endpoint policy integration."""
+
+    def test_allowed_path_uses_policy_and_calls_usage_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_usage_service = MagicMock()
+        mock_usage_service.get_usage_summary.return_value = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.usage_service", mock_usage_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_usage(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_usage_service.get_usage_summary.assert_called_once_with(
+            mock_db, session_id
+        )
+
+    def test_denied_path_raises_forbidden_and_does_not_call_usage_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_usage_service = MagicMock()
+        monkeypatch.setattr("app.api.v1.sessions.usage_service", mock_usage_service)
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_usage(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_usage_service.get_usage_summary.assert_not_called()

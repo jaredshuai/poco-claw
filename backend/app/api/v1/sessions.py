@@ -608,17 +608,13 @@ async def get_session_browser_screenshot(
 @router.get("/{session_id}/usage", response_model=ResponseSchema[UsageResponse])
 async def get_session_usage(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets usage statistics for a session."""
-    # Verify session exists
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     usage = usage_service.get_usage_summary(db, session_id)
     return Response.success(
         data=usage,

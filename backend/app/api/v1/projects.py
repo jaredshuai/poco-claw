@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.project import (
     ProjectCreateRequest,
     ProjectResponse,
@@ -20,30 +21,30 @@ service = ProjectService()
 
 @router.get("", response_model=ResponseSchema[list[ProjectResponse]])
 async def list_projects(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.list_projects(db, user_id)
+    result = service.list_projects(db, actor.user_id)
     return Response.success(data=result, message="Projects retrieved successfully")
 
 
 @router.get("/{project_id}", response_model=ResponseSchema[ProjectResponse])
 async def get_project(
     project_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.get_project(db, user_id, project_id)
+    result = service.get_project(db, actor.user_id, project_id)
     return Response.success(data=result, message="Project retrieved successfully")
 
 
 @router.post("", response_model=ResponseSchema[ProjectResponse])
 async def create_project(
     request: ProjectCreateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.create_project(db, user_id, request)
+    result = service.create_project(db, actor.user_id, request)
     return Response.success(data=result, message="Project created successfully")
 
 
@@ -51,20 +52,20 @@ async def create_project(
 async def update_project(
     project_id: uuid.UUID,
     request: ProjectUpdateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.update_project(db, user_id, project_id, request)
+    result = service.update_project(db, actor.user_id, project_id, request)
     return Response.success(data=result, message="Project updated successfully")
 
 
 @router.delete("/{project_id}", response_model=ResponseSchema[dict])
 async def delete_project(
     project_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    service.delete_project(db, user_id, project_id)
+    service.delete_project(db, actor.user_id, project_id)
     return Response.success(
         data={"id": project_id}, message="Project deleted successfully"
     )

@@ -26,6 +26,9 @@ from app.api.v1.sessions import (
     get_session_tool_executions_delta,
     get_session_browser_screenshot,
     get_session_usage,
+    get_session_workspace_files,
+    get_session_workspace_archive,
+    get_session_workspace_folder_archive,
 )
 
 
@@ -1154,3 +1157,223 @@ class TestGetSessionBrowserScreenshotPolicy:
         assert exc_info.value.status_code == 404
         assert "not ready" in exc_info.value.detail.lower()
         mock_storage.presign_get.assert_not_called()
+
+
+class TestGetSessionWorkspaceFilesPolicy:
+    """Tests for get_session_workspace_files endpoint policy integration."""
+
+    def test_allowed_path_with_no_manifest_returns_empty_after_auth(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        """When workspace_manifest_key is None, returns empty data after auth."""
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session.workspace_manifest_key = None
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_workspace_files(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_success.assert_called_once()
+        call_args = mock_success.call_args
+        assert call_args[1]["data"] == []
+        assert call_args[1]["message"] == "Workspace export not ready"
+
+    def test_denied_path_raises_forbidden_and_does_not_touch_storage(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_storage = MagicMock()
+        monkeypatch.setattr(
+            "app.api.v1.sessions.get_storage_service", lambda: mock_storage
+        )
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_workspace_files(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_storage.get_manifest.assert_not_called()
+
+
+class TestGetSessionWorkspaceArchivePolicy:
+    """Tests for get_session_workspace_archive endpoint policy integration."""
+
+    def test_allowed_path_with_no_archive_key_returns_none_url_after_auth(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        """When archive key is missing or export not ready, returns url=None."""
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session.workspace_archive_key = ""
+        mock_session.workspace_export_status = "pending"
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_workspace_archive(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_success.assert_called_once()
+        call_args = mock_success.call_args
+        assert call_args[1]["data"].url is None
+
+    def test_denied_path_raises_forbidden_and_does_not_touch_storage(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_storage = MagicMock()
+        monkeypatch.setattr(
+            "app.api.v1.sessions.get_storage_service", lambda: mock_storage
+        )
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_workspace_archive(
+                    session_id=session_id,
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_storage.presign_get.assert_not_called()
+
+
+class TestGetSessionWorkspaceFolderArchivePolicy:
+    """Tests for get_session_workspace_folder_archive endpoint policy integration."""
+
+    def test_allowed_path_with_export_not_ready_returns_none_url_after_auth(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        """When export status is not ready, returns url=None after auth."""
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session.workspace_export_status = "pending"
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.Response.success") as mock_success:
+            mock_success.return_value = MagicMock()
+            _run(
+                get_session_workspace_folder_archive(
+                    session_id=session_id,
+                    path="some/folder",
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_success.assert_called_once()
+        call_args = mock_success.call_args
+        assert call_args[1]["data"].url is None
+
+    def test_denied_path_raises_forbidden_and_does_not_call_archive_service(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_archive_service = MagicMock()
+        monkeypatch.setattr(
+            "app.api.v1.sessions.workspace_archive_service", mock_archive_service
+        )
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with pytest.raises(AppException) as exc_info:
+            _run(
+                get_session_workspace_folder_archive(
+                    session_id=session_id,
+                    path="some/folder",
+                    actor=actor,
+                    policy_engine=fake_policy,
+                    db=mock_db,
+                )
+            )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_archive_service.get_folder_archive.assert_not_called()

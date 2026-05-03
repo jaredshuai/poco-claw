@@ -625,16 +625,13 @@ async def get_session_usage(
 )
 async def get_session_workspace_files(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """List workspace files for a session (served via OSS manifest)."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     if not db_session.workspace_manifest_key:
         return Response.success(data=[], message="Workspace export not ready")
 
@@ -683,16 +680,13 @@ async def get_session_workspace_files(
 )
 async def get_session_workspace_archive(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Get a presigned download URL for the exported workspace archive."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     filename = f"workspace-{session_id}.zip"
     archive_key = (db_session.workspace_archive_key or "").strip()
@@ -721,16 +715,13 @@ async def get_session_workspace_archive(
 async def get_session_workspace_folder_archive(
     session_id: uuid.UUID,
     path: str = Query(..., description="Folder path within the workspace"),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Get a presigned download URL for a workspace folder archive."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     normalized_path = normalize_manifest_path(path)
     folder_name = (

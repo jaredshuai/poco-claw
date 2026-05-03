@@ -24,6 +24,7 @@ from app.api.v1.sessions import (
     get_session_message_attachments_delta,
     get_session_tool_executions,
     get_session_tool_executions_delta,
+    get_session_browser_screenshot,
     get_session_usage,
 )
 
@@ -1018,3 +1019,138 @@ class TestGetSessionUsagePolicy:
         assert exc_info.value.error_code == ErrorCode.FORBIDDEN
         assert str(exc_info.value.message) == "Session does not belong to the user"
         mock_usage_service.get_usage_summary.assert_not_called()
+
+
+class TestGetSessionBrowserScreenshotPolicy:
+    """Tests for get_session_browser_screenshot endpoint policy integration."""
+
+    def test_allowed_path_uses_policy_and_builds_screenshot_key(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+        tool_use_id = "tool-use-456"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_storage = MagicMock()
+        mock_storage.exists.return_value = True
+        mock_storage.presign_get.return_value = "https://storage.url/screenshot.png"
+        monkeypatch.setattr(
+            "app.api.v1.sessions.get_storage_service", lambda: mock_storage
+        )
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        with patch("app.api.v1.sessions.build_browser_screenshot_key") as mock_key:
+            mock_key.return_value = "screenshots/owner-123/session-id/tool-use-456"
+            with patch("app.api.v1.sessions.Response.success") as mock_success:
+                mock_success.return_value = MagicMock()
+                _run(
+                    get_session_browser_screenshot(
+                        session_id=session_id,
+                        tool_use_id=tool_use_id,
+                        actor=actor,
+                        policy_engine=fake_policy,
+                        db=mock_db,
+                    )
+                )
+
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        mock_key.assert_called_once_with(
+            user_id=actor.user_id,
+            session_id=str(session_id),
+            tool_use_id=tool_use_id,
+        )
+        mock_storage.exists.assert_called_once()
+        mock_storage.presign_get.assert_called_once()
+
+    def test_denied_path_raises_forbidden_and_does_not_build_key(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+        tool_use_id = "tool-use-456"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_storage = MagicMock()
+        monkeypatch.setattr(
+            "app.api.v1.sessions.get_storage_service", lambda: mock_storage
+        )
+
+        actor = Actor(user_id="different-user")
+        fake_policy = FakePolicyEngine(allow=False)
+
+        with patch("app.api.v1.sessions.build_browser_screenshot_key") as mock_key:
+            with pytest.raises(AppException) as exc_info:
+                _run(
+                    get_session_browser_screenshot(
+                        session_id=session_id,
+                        tool_use_id=tool_use_id,
+                        actor=actor,
+                        policy_engine=fake_policy,
+                        db=mock_db,
+                    )
+                )
+
+        assert exc_info.value.error_code == ErrorCode.FORBIDDEN
+        assert str(exc_info.value.message) == "Session does not belong to the user"
+        mock_key.assert_not_called()
+        mock_storage.exists.assert_not_called()
+        mock_storage.presign_get.assert_not_called()
+
+    def test_not_ready_path_raises_404_after_successful_auth(
+        self, mock_db, mock_session_service, monkeypatch
+    ) -> None:
+        session_id = uuid.uuid4()
+        owner_user_id = "owner-123"
+        tool_use_id = "tool-use-456"
+
+        mock_session = MagicMock()
+        mock_session.user_id = owner_user_id
+        mock_session_service.get_session.return_value = mock_session
+
+        monkeypatch.setattr("app.api.v1.sessions.session_service", mock_session_service)
+
+        mock_storage = MagicMock()
+        mock_storage.exists.return_value = False
+        monkeypatch.setattr(
+            "app.api.v1.sessions.get_storage_service", lambda: mock_storage
+        )
+
+        actor = Actor(user_id=owner_user_id)
+        fake_policy = FakePolicyEngine(allow=True)
+
+        from fastapi import HTTPException
+
+        with patch("app.api.v1.sessions.build_browser_screenshot_key") as mock_key:
+            mock_key.return_value = "screenshots/owner-123/session-id/tool-use-456"
+            with pytest.raises(HTTPException) as exc_info:
+                _run(
+                    get_session_browser_screenshot(
+                        session_id=session_id,
+                        tool_use_id=tool_use_id,
+                        actor=actor,
+                        policy_engine=fake_policy,
+                        db=mock_db,
+                    )
+                )
+
+        # Authorization succeeded
+        assert fake_policy.last_actor is actor
+        assert fake_policy.last_owner_user_id == owner_user_id
+        # But storage.exists returned False -> 404
+        assert exc_info.value.status_code == 404
+        assert "not ready" in exc_info.value.detail.lower()
+        mock_storage.presign_get.assert_not_called()

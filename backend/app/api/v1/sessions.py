@@ -574,19 +574,16 @@ async def get_session_tool_executions_delta(
 async def get_session_browser_screenshot(
     session_id: uuid.UUID,
     tool_use_id: str,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Return a presigned URL for a browser screenshot (Poco Computer)."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
 
     key = build_browser_screenshot_key(
-        user_id=user_id,
+        user_id=actor.user_id,
         session_id=str(session_id),
         tool_use_id=tool_use_id,
     )

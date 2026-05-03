@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db, get_policy_engine
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.core.identity import Actor
+from app.core.policy import PolicyEngine
 from app.schemas.deliverable import DeliverableResponse, DeliverableVersionResponse
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.tool_execution import ToolExecutionResponse
@@ -19,9 +21,12 @@ deliverable_service = DeliverableService()
 session_service = SessionService()
 
 
-def _ensure_session_owner(db: Session, session_id: uuid.UUID, user_id: str) -> None:
+def _ensure_session_owner(
+    db: Session, session_id: uuid.UUID, actor: Actor, policy_engine: PolicyEngine
+) -> None:
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
+    decision = policy_engine.can_access_user_resource(actor, db_session.user_id)
+    if not decision.allowed:
         raise AppException(
             error_code=ErrorCode.FORBIDDEN,
             message="Session does not belong to the user",
@@ -34,10 +39,11 @@ def _ensure_session_owner(db: Session, session_id: uuid.UUID, user_id: str) -> N
 )
 async def list_session_deliverables(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    _ensure_session_owner(db, session_id, user_id)
+    _ensure_session_owner(db, session_id, actor, policy_engine)
     payload = deliverable_service.list_by_session(db, session_id=session_id)
     return Response.success(data=payload, message="Deliverables retrieved")
 
@@ -49,10 +55,11 @@ async def list_session_deliverables(
 async def get_session_deliverable(
     session_id: uuid.UUID,
     deliverable_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    _ensure_session_owner(db, session_id, user_id)
+    _ensure_session_owner(db, session_id, actor, policy_engine)
     payload = deliverable_service.get_deliverable(
         db,
         session_id=session_id,
@@ -68,10 +75,11 @@ async def get_session_deliverable(
 async def list_session_deliverable_versions(
     session_id: uuid.UUID,
     deliverable_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    _ensure_session_owner(db, session_id, user_id)
+    _ensure_session_owner(db, session_id, actor, policy_engine)
     payload = deliverable_service.list_versions_by_deliverable(
         db,
         session_id=session_id,
@@ -87,10 +95,11 @@ async def list_session_deliverable_versions(
 async def get_session_deliverable_version(
     session_id: uuid.UUID,
     version_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    _ensure_session_owner(db, session_id, user_id)
+    _ensure_session_owner(db, session_id, actor, policy_engine)
     payload = deliverable_service.get_version(
         db,
         session_id=session_id,
@@ -106,10 +115,11 @@ async def get_session_deliverable_version(
 async def get_session_deliverable_version_tool_executions(
     session_id: uuid.UUID,
     version_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    _ensure_session_owner(db, session_id, user_id)
+    _ensure_session_owner(db, session_id, actor, policy_engine)
     payload = deliverable_service.get_version_tool_executions(
         db,
         session_id=session_id,

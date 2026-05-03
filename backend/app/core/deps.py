@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.core.identity import Actor
 from app.core.settings import get_settings
 from app.repositories.session_repository import SessionRepository
 
@@ -24,22 +25,47 @@ def _token_matches(provided: str | None, expected: str) -> bool:
     )
 
 
-def get_current_user_id(
+def _parse_csv_header(value: str | None) -> tuple[str, ...]:
+    """Parse a comma-separated header value into a tuple of stripped non-empty strings."""
+    if not value:
+        return ()
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def _normalize_tenant_id(value: str | None) -> str | None:
+    """Normalize tenant ID header value.
+
+    Strips leading/trailing whitespace. Returns None for empty or whitespace-only values.
+    """
+    if not value:
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
+def get_current_actor(
     x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
     x_internal_token: Annotated[str | None, Header(alias="X-Internal-Token")] = None,
     x_user_id_token: Annotated[str | None, Header(alias="X-User-Id-Token")] = None,
-) -> str:
-    """FastAPI dependency for the current user id.
+    x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-Id")] = None,
+    x_user_roles: Annotated[str | None, Header(alias="X-User-Roles")] = None,
+    x_user_scopes: Annotated[str | None, Header(alias="X-User-Scopes")] = None,
+) -> Actor:
+    """FastAPI dependency for the current authenticated actor.
 
     Auth is expected to be enforced by a trusted edge/proxy or by internal
     callers. The single-user DEFAULT_USER_ID fallback is available only when
     ALLOW_DEFAULT_USER is explicitly enabled.
+
+    Trusted actor metadata headers (X-Tenant-Id, X-User-Roles, X-User-Scopes)
+    are only attached after the user header is trusted.
     """
     settings = get_settings()
     value = (x_user_id or "").strip()
+
     if not value:
         if getattr(settings, "allow_default_user", False):
-            return DEFAULT_USER_ID
+            return Actor(user_id=DEFAULT_USER_ID, auth_source="default_user")
         raise AppException(
             error_code=ErrorCode.FORBIDDEN,
             message="User identity is required",
@@ -49,16 +75,45 @@ def get_current_user_id(
         getattr(settings, "trusted_user_header_token", "") or ""
     ).strip()
     if _token_matches(x_user_id_token, trusted_user_header_token):
-        return value
+        return Actor(
+            user_id=value,
+            tenant_id=_normalize_tenant_id(x_tenant_id),
+            roles=_parse_csv_header(x_user_roles),
+            scopes=_parse_csv_header(x_user_scopes),
+            auth_source="trusted_user_header",
+        )
 
     internal_api_token = (settings.internal_api_token or "").strip()
     if _token_matches(x_internal_token, internal_api_token):
-        return value
+        return Actor(
+            user_id=value,
+            tenant_id=_normalize_tenant_id(x_tenant_id),
+            roles=_parse_csv_header(x_user_roles),
+            scopes=_parse_csv_header(x_user_scopes),
+            auth_source="internal_token",
+        )
 
     raise AppException(
         error_code=ErrorCode.FORBIDDEN,
         message="X-User-Id header is not trusted",
     )
+
+
+def get_current_user_id(
+    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+    x_internal_token: Annotated[str | None, Header(alias="X-Internal-Token")] = None,
+    x_user_id_token: Annotated[str | None, Header(alias="X-User-Id-Token")] = None,
+) -> str:
+    """FastAPI dependency for the current user id.
+
+    Backward-compatible wrapper around get_current_actor that returns only the user id.
+    """
+    actor = get_current_actor(
+        x_user_id=x_user_id,
+        x_internal_token=x_internal_token,
+        x_user_id_token=x_user_id_token,
+    )
+    return actor.user_id
 
 
 def get_db() -> Generator[Session, None, None]:

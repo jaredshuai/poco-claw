@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import UploadFile
 
+from app.core.identity import Actor
+
 
 class FixedIdGenerator:
     def __init__(self, *ids: str) -> None:
@@ -50,11 +52,12 @@ def test_upload_attachment_uses_injected_dependencies_for_storage_key():
             content_type="text/plain",
         ),
     )
+    actor = Actor(user_id="user-123")
 
     response = asyncio.run(
         attachments.upload_attachment(
             file=file,
-            user_id="user-123",
+            actor=actor,
             id_generator=FixedIdGenerator("attachment-fixed"),
             storage_service=storage_service,
         )

@@ -4,7 +4,8 @@ import re
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.deps import get_current_user_id
+from app.core.deps import get_current_actor
+from app.core.identity import Actor
 from app.core.settings import get_settings
 from app.schemas.input_file import InputFile
 from app.schemas.response import Response, ResponseSchema
@@ -59,7 +60,7 @@ def get_storage_service() -> S3StorageService:
 @router.post("/upload", response_model=ResponseSchema[InputFile])
 async def upload_attachment(
     file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     id_generator: IdGenerator = Depends(get_attachment_id_generator),
     storage_service: S3StorageService = Depends(get_storage_service),
 ) -> JSONResponse:
@@ -70,7 +71,7 @@ async def upload_attachment(
     original_name = _normalize_upload_filename(file.filename or "")
     attachment_id = id_generator.new_id()
     # Use a stable object name to avoid any encoding/sanitization issues with filenames.
-    key = f"attachments/{user_id}/{attachment_id}/file"
+    key = f"attachments/{actor.user_id}/{attachment_id}/file"
 
     size = _get_file_size(file)
     if size is not None and size > max_size_bytes:

@@ -4,7 +4,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.skill_import import (
     SkillImportCommitRequest,
@@ -42,13 +43,13 @@ def get_job_service() -> SkillImportJobService:
 def discover_skill_import(
     file: UploadFile | None = File(default=None),
     github_url: str | None = Form(default=None),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_import_service()
     result = service.discover(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         file=file,
         github_url=github_url,
     )
@@ -62,11 +63,11 @@ def discover_skill_import(
 def commit_skill_import(
     request: SkillImportCommitRequest,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_job_service()
-    result = service.enqueue_commit(db, user_id=user_id, request=request)
+    result = service.enqueue_commit(db, user_id=actor.user_id, request=request)
     background_tasks.add_task(service.process_commit_job, result.job_id)
     return Response.success(data=result, message="Skill import queued")
 
@@ -77,9 +78,9 @@ def commit_skill_import(
 )
 def get_skill_import_job(
     job_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_job_service()
-    result = service.get_job(db, user_id=user_id, job_id=job_id)
+    result = service.get_job(db, user_id=actor.user_id, job_id=job_id)
     return Response.success(data=result, message="Skill import job retrieved")

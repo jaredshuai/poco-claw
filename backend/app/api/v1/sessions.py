@@ -511,19 +511,15 @@ async def get_session_message_attachments_delta(
 )
 async def get_session_tool_executions(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     limit: int = Query(default=500, ge=1, le=2000),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets all tool executions for a session."""
-    # Verify session exists
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     executions = tool_execution_service.get_tool_executions(
         db,
         session_id,
@@ -542,7 +538,8 @@ async def get_session_tool_executions(
 )
 async def get_session_tool_executions_delta(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     after_created_at: datetime | None = Query(default=None),
     after_id: uuid.UUID | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=2000),
@@ -550,11 +547,7 @@ async def get_session_tool_executions_delta(
 ) -> JSONResponse:
     """Gets incremental tool executions for a session."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     if after_id is not None and after_created_at is None:
         raise AppException(
             error_code=ErrorCode.BAD_REQUEST,

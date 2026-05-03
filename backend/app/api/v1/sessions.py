@@ -10,9 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.core.observability.request_context import get_request_id, get_trace_id
 from app.core.settings import get_settings
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import (
+    get_current_user_id,
+    get_current_actor,
+    get_db,
+    get_policy_engine,
+)
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.core.identity import Actor
+from app.core.policy import PolicyEngine
 from app.schemas.message import (
     MessageAttachmentsDeltaResponse,
     MessageAttachmentsResponse,
@@ -71,6 +78,27 @@ def get_storage_service() -> S3StorageService:
     if storage_service is None:
         storage_service = S3StorageService()
     return storage_service
+
+
+def _ensure_session_owner(
+    actor: Actor, policy_engine: PolicyEngine, owner_user_id: str
+) -> None:
+    """Ensure the actor owns the session via policy engine.
+
+    Args:
+        actor: The authenticated actor.
+        policy_engine: The policy engine for authorization.
+        owner_user_id: The user id of the session owner.
+
+    Raises:
+        AppException: If the policy engine denies access.
+    """
+    decision = policy_engine.can_access_user_resource(actor, owner_user_id)
+    if not decision.allowed:
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Session does not belong to the user",
+        )
 
 
 def _cancel_executor_manager(session_id: uuid.UUID, reason: str | None) -> bool:
@@ -159,16 +187,13 @@ async def list_sessions(
 @router.get("/{session_id}", response_model=ResponseSchema[SessionResponse])
 async def get_session(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets session details."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     return Response.success(
         data=SessionResponse.model_validate(db_session),
         message="Session retrieved successfully",
@@ -178,16 +203,13 @@ async def get_session(
 @router.get("/{session_id}/state", response_model=ResponseSchema[SessionStateResponse])
 async def get_session_state(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Gets session state details."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     return Response.success(
         data=SessionStateResponse.model_validate(db_session),
         message="Session state retrieved successfully",
@@ -198,16 +220,13 @@ async def get_session_state(
 async def update_session(
     session_id: uuid.UUID,
     request: SessionUpdateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Updates a session."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     db_session = session_service.update_session(db, session_id, request)
     return Response.success(
         data=SessionResponse.model_validate(db_session),
@@ -318,16 +337,13 @@ async def edit_message_and_regenerate(
 @router.delete("/{session_id}", response_model=ResponseSchema[dict])
 async def delete_session(
     session_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
+    policy_engine: PolicyEngine = Depends(get_policy_engine),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Soft deletes a session."""
     db_session = session_service.get_session(db, session_id)
-    if db_session.user_id != user_id:
-        raise AppException(
-            error_code=ErrorCode.FORBIDDEN,
-            message="Session does not belong to the user",
-        )
+    _ensure_session_owner(actor, policy_engine, db_session.user_id)
     session_service.delete_session(db, session_id)
     return Response.success(
         data={"id": session_id},

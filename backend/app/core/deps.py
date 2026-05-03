@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.identity import Actor
+from app.core.policy import PolicyEngine, get_default_policy_engine
 from app.core.settings import get_settings
 from app.repositories.session_repository import SessionRepository
 
@@ -155,3 +156,11 @@ def get_user_id_by_session_id(
             message=f"Session not found: {session_id}",
         )
     return db_session.user_id
+
+
+def get_policy_engine() -> PolicyEngine:
+    """FastAPI dependency for the policy engine.
+
+    Returns the default policy engine instance for authorization decisions.
+    """
+    return get_default_policy_engine()

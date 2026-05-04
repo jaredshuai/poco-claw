@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.pending_skill_creation import (
     PendingSkillCreationCancelRequest,
     PendingSkillCreationConfirmRequest,
@@ -24,12 +25,12 @@ service = PendingSkillCreationService()
 )
 def list_pending_skill_creations(
     session_id: uuid.UUID | None = Query(default=None),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = service.list_pending_for_user(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         session_id=session_id,
     )
     return Response.success(data=result, message="Pending skill creations retrieved")
@@ -41,10 +42,10 @@ def list_pending_skill_creations(
 )
 def get_pending_skill_creation(
     creation_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.get_creation(db, user_id=user_id, creation_id=creation_id)
+    result = service.get_creation(db, user_id=actor.user_id, creation_id=creation_id)
     return Response.success(data=result, message="Pending skill creation retrieved")
 
 
@@ -55,12 +56,12 @@ def get_pending_skill_creation(
 def confirm_pending_skill_creation(
     creation_id: uuid.UUID,
     request: PendingSkillCreationConfirmRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = service.confirm(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         creation_id=creation_id,
         request=request,
     )
@@ -74,12 +75,12 @@ def confirm_pending_skill_creation(
 def cancel_pending_skill_creation(
     creation_id: uuid.UUID,
     request: PendingSkillCreationCancelRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = service.cancel(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         creation_id=creation_id,
         reason=request.reason,
     )

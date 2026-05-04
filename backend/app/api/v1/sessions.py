@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.core.observability.request_context import get_request_id, get_trace_id
 from app.core.settings import get_settings
 from app.core.deps import (
-    get_current_user_id,
     get_current_actor,
     get_db,
     get_policy_engine,
@@ -147,11 +146,11 @@ def _cancel_executor_manager(session_id: uuid.UUID, reason: str | None) -> bool:
 @router.post("", response_model=ResponseSchema[SessionResponse])
 async def create_session(
     request: SessionCreateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Creates a new session."""
-    db_session = session_service.create_session(db, user_id, request)
+    db_session = session_service.create_session(db, actor.user_id, request)
     return Response.success(
         data=SessionResponse.model_validate(db_session),
         message="Session created successfully",
@@ -160,7 +159,7 @@ async def create_session(
 
 @router.get("", response_model=ResponseSchema[list[SessionResponse]])
 async def list_sessions(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     limit: int = 100,
     offset: int = 0,
     project_id: uuid.UUID | None = Query(default=None),
@@ -172,7 +171,7 @@ async def list_sessions(
     kind_value = None if kind_filter in {"", "all"} else kind_filter
     sessions = session_service.list_sessions(
         db,
-        user_id,
+        actor.user_id,
         limit,
         offset,
         project_id,
@@ -240,13 +239,13 @@ async def update_session(
 async def cancel_session(
     session_id: uuid.UUID,
     request: SessionCancelRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Cancel a session (cancel all unfinished runs and stop executor container)."""
     db_session, canceled_runs, canceled_queue_items, expired_requests = (
         session_service.cancel_session(
-            db, session_id, user_id=user_id, reason=request.reason
+            db, session_id, user_id=actor.user_id, reason=request.reason
         )
     )
     executor_cancelled = _cancel_executor_manager(session_id, request.reason)
@@ -270,14 +269,14 @@ async def cancel_session(
 async def branch_session(
     session_id: uuid.UUID,
     request: SessionBranchRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Create a branched session by cloning state up to a message checkpoint."""
     branched = session_service.branch_session(
         db,
         session_id,
-        user_id=user_id,
+        user_id=actor.user_id,
         cutoff_message_id=request.message_id,
     )
     return Response.success(
@@ -296,14 +295,14 @@ async def branch_session(
 async def regenerate_message(
     session_id: uuid.UUID,
     request: SessionRegenerateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Regenerate from a prior turn by pruning later messages then queueing a new run."""
     result = session_service.regenerate_from_message(
         db,
         session_id,
-        user_id=user_id,
+        user_id=actor.user_id,
         user_message_id=request.user_message_id,
         assistant_message_id=request.assistant_message_id,
         model=request.model,
@@ -318,14 +317,14 @@ async def regenerate_message(
 async def edit_message_and_regenerate(
     session_id: uuid.UUID,
     request: SessionEditMessageRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Edit a user message and regenerate by pruning all subsequent history."""
     result = session_service.edit_message_and_regenerate(
         db,
         session_id,
-        user_id=user_id,
+        user_id=actor.user_id,
         user_message_id=request.user_message_id,
         content=request.content,
         model=request.model,

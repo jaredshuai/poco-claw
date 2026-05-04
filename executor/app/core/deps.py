@@ -8,6 +8,7 @@ from app.core.clock import Clock, SystemClock
 
 TASK_LEASE_EXPIRES_AT_HEADER = "X-Poco-Task-Lease-Expires-At"
 TASK_LEASE_SIGNATURE_HEADER = "X-Poco-Task-Lease-Signature"
+TASK_LEASE_BODY_DIGEST_HEADER = "X-Poco-Task-Lease-Body-SHA256"
 
 
 def _expected_executor_token() -> str:
@@ -42,8 +43,9 @@ def _task_lease_signature(
     session_id: str,
     run_id: str | None,
     expires_at: int,
+    body_digest: str,
 ) -> str:
-    payload = f"{session_id}\n{run_id or ''}\n{expires_at}".encode()
+    payload = f"{session_id}\n{run_id or ''}\n{expires_at}\n{body_digest}".encode()
     return hmac.new(
         task_lease_secret.encode(),
         payload,
@@ -55,13 +57,20 @@ def require_executor_task_lease(
     *,
     session_id: str,
     run_id: str | None,
+    body: bytes,
     expires_at_header: str | None,
     signature_header: str | None,
+    body_digest_header: str | None,
     clock: Clock | None = None,
 ) -> None:
     """Validate the short-lived task lease bound to this execution request."""
     expected_secret = _expected_executor_task_lease_secret()
-    if not expected_secret or not expires_at_header or not signature_header:
+    if (
+        not expected_secret
+        or not expires_at_header
+        or not signature_header
+        or not body_digest_header
+    ):
         raise HTTPException(status_code=403, detail="Invalid executor task lease")
 
     try:
@@ -76,11 +85,17 @@ def require_executor_task_lease(
     if expires_at <= now_epoch_seconds:
         raise HTTPException(status_code=403, detail="Executor task lease expired")
 
+    # Verify body digest matches actual body
+    actual_body_digest = hashlib.sha256(body).hexdigest()
+    if not hmac.compare_digest(body_digest_header.strip(), actual_body_digest):
+        raise HTTPException(status_code=403, detail="Invalid executor task lease")
+
     expected_signature = _task_lease_signature(
         task_lease_secret=expected_secret,
         session_id=session_id,
         run_id=run_id,
         expires_at=expires_at,
+        body_digest=body_digest_header.strip(),
     )
     if not hmac.compare_digest(signature_header.strip(), expected_signature):
         raise HTTPException(status_code=403, detail="Invalid executor task lease")

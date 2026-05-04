@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request
 from pydantic import BaseModel
 
 from app.core.callback import CallbackClient
@@ -11,6 +11,7 @@ from app.core.computer import ComputerClient
 from app.core.deps import (
     TASK_LEASE_EXPIRES_AT_HEADER,
     TASK_LEASE_SIGNATURE_HEADER,
+    TASK_LEASE_BODY_DIGEST_HEADER,
     require_executor_task_lease,
     require_executor_token,
 )
@@ -44,8 +45,9 @@ def _build_task_context_env(
 
 @router.post("/execute")
 async def run_task(
-    req: TaskRun,
+    request: Request,
     background_tasks: BackgroundTasks,
+    req: TaskRun,
     _: None = Depends(require_executor_token),
     task_lease_expires_at: str | None = Header(
         default=None,
@@ -55,21 +57,29 @@ async def run_task(
         default=None,
         alias=TASK_LEASE_SIGNATURE_HEADER,
     ),
+    task_lease_body_digest: str | None = Header(
+        default=None,
+        alias=TASK_LEASE_BODY_DIGEST_HEADER,
+    ),
 ) -> dict:
     """Execute an agent task in the background.
 
     Args:
-        req: Task execution request containing prompt, config, and callback URL.
+        request: FastAPI request object for raw body access.
         background_tasks: FastAPI background tasks manager.
+        req: TaskRun request body (validated by FastAPI).
 
     Returns:
         Accepted status with session ID.
     """
+    body = await request.body()
     require_executor_task_lease(
         session_id=req.session_id,
         run_id=req.run_id,
+        body=body,
         expires_at_header=task_lease_expires_at,
         signature_header=task_lease_signature,
+        body_digest_header=task_lease_body_digest,
     )
 
     callback_client = CallbackClient(

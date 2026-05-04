@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -17,6 +18,26 @@ from app.services.clock import Clock, SystemClock
 TASK_LEASE_TTL_SECONDS = 300
 TASK_LEASE_EXPIRES_AT_HEADER = "X-Poco-Task-Lease-Expires-At"
 TASK_LEASE_SIGNATURE_HEADER = "X-Poco-Task-Lease-Signature"
+TASK_LEASE_BODY_DIGEST_HEADER = "X-Poco-Task-Lease-Body-SHA256"
+
+
+def _compute_body_digest(body: bytes) -> str:
+    """Compute SHA-256 digest of request body bytes."""
+    return hashlib.sha256(body).hexdigest()
+
+
+def _make_deterministic_json_bytes(data: dict) -> bytes:
+    """Produce stable JSON bytes for signing and sending.
+
+    Uses sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    to ensure consistent serialization.
+    """
+    return json.dumps(
+        data,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
 
 
 def build_executor_task_client() -> httpx.AsyncClient:
@@ -51,8 +72,9 @@ class ExecutorClient:
         session_id: str,
         run_id: str | None,
         expires_at: int,
+        body_digest: str,
     ) -> str:
-        payload = f"{session_id}\n{run_id or ''}\n{expires_at}".encode()
+        payload = f"{session_id}\n{run_id or ''}\n{expires_at}\n{body_digest}".encode()
         return hmac.new(
             task_lease_secret.strip().encode(),
             payload,
@@ -69,17 +91,21 @@ class ExecutorClient:
         task_lease_secret: str,
         session_id: str,
         run_id: str | None,
+        body_digest: str,
     ) -> dict[str, str]:
         expires_at = self._now_epoch_seconds() + TASK_LEASE_TTL_SECONDS
         return {
             **self._trace_headers(),
             "Authorization": f"Bearer {callback_token}",
+            "Content-Type": "application/json",
             TASK_LEASE_EXPIRES_AT_HEADER: str(expires_at),
+            TASK_LEASE_BODY_DIGEST_HEADER: body_digest,
             TASK_LEASE_SIGNATURE_HEADER: self._task_lease_signature(
                 task_lease_secret=task_lease_secret,
                 session_id=session_id,
                 run_id=run_id,
                 expires_at=expires_at,
+                body_digest=body_digest,
             ),
         }
 
@@ -111,25 +137,30 @@ class ExecutorClient:
             sdk_session_id: Claude SDK session ID for resuming conversations
         """
         resolved_task_lease_secret = (task_lease_secret or callback_token).strip()
+        body = _make_deterministic_json_bytes(
+            {
+                "session_id": session_id,
+                "run_id": run_id,
+                "prompt": prompt,
+                "callback_url": callback_url,
+                "callback_token": callback_token,
+                "callback_base_url": callback_base_url,
+                "config": config,
+                "sdk_session_id": sdk_session_id,
+                "permission_mode": permission_mode or "default",
+            }
+        )
+        body_digest = _compute_body_digest(body)
         async with self.task_client_factory() as client:
             response = await client.post(
                 f"{executor_url}/v1/tasks/execute",
-                json={
-                    "session_id": session_id,
-                    "run_id": run_id,
-                    "prompt": prompt,
-                    "callback_url": callback_url,
-                    "callback_token": callback_token,
-                    "callback_base_url": callback_base_url,
-                    "config": config,
-                    "sdk_session_id": sdk_session_id,
-                    "permission_mode": permission_mode or "default",
-                },
+                content=body,
                 headers=self._execution_headers(
                     callback_token=callback_token,
                     task_lease_secret=resolved_task_lease_secret,
                     session_id=session_id,
                     run_id=run_id,
+                    body_digest=body_digest,
                 ),
                 timeout=httpx.Timeout(30.0, connect=10.0),
             )

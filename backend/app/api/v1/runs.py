@@ -8,7 +8,7 @@ from app.core.deps import (
     get_current_actor,
     get_db,
     get_policy_engine,
-    require_internal_token,
+    require_executor_manager,
 )
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -37,7 +37,7 @@ session_service = SessionService()
 @router.post("/claim", response_model=ResponseSchema[RunClaimResponse | None])
 async def claim_next_run(
     request: RunClaimRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Claim the next available run for execution."""
@@ -49,7 +49,7 @@ async def claim_next_run(
 async def start_run(
     run_id: uuid.UUID,
     request: RunStartRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Mark a run as running (after dispatch accepted)."""
@@ -61,7 +61,7 @@ async def start_run(
 async def fail_run(
     run_id: uuid.UUID,
     request: RunFailRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Mark a run as failed."""

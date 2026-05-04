@@ -8,6 +8,7 @@ from app.core.deps import (
     get_current_actor,
     get_current_user_id,
     get_internal_actor,
+    require_executor_manager,
 )
 from app.core.errors.exceptions import AppException
 
@@ -292,3 +293,58 @@ def test_get_internal_actor_rejects_trusted_user_id_token_without_internal_token
         with pytest.raises(AppException) as exc_info:
             get_internal_actor(x_user_id="proxy-user")
         assert exc_info.value.error_code.name == "FORBIDDEN"
+
+
+# Tests for require_executor_manager
+
+
+def test_require_executor_manager_accepts_valid_token_and_service():
+    """require_executor_manager passes with valid token and executor_manager service."""
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        # Should not raise
+        require_executor_manager(
+            x_internal_token="internal-token",
+            x_internal_service="executor_manager",
+        )
+
+
+def test_require_executor_manager_rejects_missing_service_header():
+    """require_executor_manager rejects valid token but missing service header."""
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            require_executor_manager(x_internal_token="internal-token")
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+        assert "Service identity required" in exc_info.value.message
+
+
+def test_require_executor_manager_rejects_wrong_service():
+    """require_executor_manager rejects valid token but wrong service identity."""
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            require_executor_manager(
+                x_internal_token="internal-token",
+                x_internal_service="backend",
+            )
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+        assert "Service identity required" in exc_info.value.message
+
+
+def test_require_executor_manager_rejects_missing_token():
+    """require_executor_manager rejects missing token even with correct service."""
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            require_executor_manager(x_internal_service="executor_manager")
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+        assert "Invalid internal token" in exc_info.value.message
+
+
+def test_require_executor_manager_rejects_invalid_token():
+    """require_executor_manager rejects invalid token even with correct service."""
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            require_executor_manager(
+                x_internal_token="wrong-token",
+                x_internal_service="executor_manager",
+            )
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+        assert "Invalid internal token" in exc_info.value.message

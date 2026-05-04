@@ -66,7 +66,8 @@ def test_run_fail_requires_internal_token():
     assert response.status_code == 403
 
 
-def test_run_claim_accepts_internal_token():
+def test_run_claim_requires_service_identity():
+    """Run claim with valid token but missing service header fails."""
     client = _client()
     with patch("app.core.deps.get_settings", return_value=_settings()):
         with patch("app.api.v1.runs.run_service.claim_next_run", return_value=None):
@@ -76,7 +77,67 @@ def test_run_claim_accepts_internal_token():
                 headers={"X-Internal-Token": "internal-token"},
             )
 
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+
+
+def test_run_claim_accepts_valid_token_and_service():
+    """Run claim with valid token and executor_manager service succeeds."""
+    client = _client()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch("app.api.v1.runs.run_service.claim_next_run", return_value=None):
+            response = client.post(
+                "/runs/claim",
+                json={"worker_id": "worker-1", "lease_seconds": 30},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
     assert response.status_code == 200
+
+
+def test_run_start_requires_service_identity():
+    """Run start with valid token but missing service header fails."""
+    client = _client()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch("app.api.v1.runs.run_service.start_run") as mock:
+            mock.return_value = SimpleNamespace(
+                id="00000000-0000-0000-0000-000000000001",
+                session_id="session-1",
+                status="running",
+                worker_id="worker-1",
+            )
+            response = client.post(
+                "/runs/00000000-0000-0000-0000-000000000001/start",
+                json={"worker_id": "worker-1"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+
+
+def test_run_fail_requires_service_identity():
+    """Run fail with valid token but missing service header fails."""
+    client = _client()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch("app.api.v1.runs.run_service.fail_run") as mock:
+            mock.return_value = SimpleNamespace(
+                id="00000000-0000-0000-0000-000000000001",
+                session_id="session-1",
+                status="failed",
+                worker_id="worker-1",
+            )
+            response = client.post(
+                "/runs/00000000-0000-0000-0000-000000000001/fail",
+                json={"worker_id": "worker-1", "error_message": "dispatch failed"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
 
 
 def test_callback_requires_internal_token():

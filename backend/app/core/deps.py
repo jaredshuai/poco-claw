@@ -144,6 +144,43 @@ def require_internal_token(
         )
 
 
+def require_executor_manager(
+    x_internal_token: Annotated[str | None, Header(alias="X-Internal-Token")] = None,
+    x_internal_service: Annotated[
+        str | None, Header(alias="X-Internal-Service")
+    ] = None,
+) -> None:
+    """Validate internal token and service identity for run control endpoints.
+
+    Requires:
+    - Valid X-Internal-Token
+    - X-Internal-Service header set to 'executor_manager'
+
+    This enforces that only the executor_manager service can call run control endpoints.
+    """
+    # First validate the internal token (same as require_internal_token)
+    settings = get_settings()
+    internal_api_token = (settings.internal_api_token or "").strip()
+    if not internal_api_token:
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Internal API token is not configured",
+        )
+    if not _token_matches(x_internal_token, internal_api_token):
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Invalid internal token",
+        )
+
+    # Then validate the service identity
+    service = (x_internal_service or "").strip()
+    if service != "executor_manager":
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Service identity required for run control",
+        )
+
+
 def get_internal_actor(
     x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
     x_internal_token: Annotated[str | None, Header(alias="X-Internal-Token")] = None,

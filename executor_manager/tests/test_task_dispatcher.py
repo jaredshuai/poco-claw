@@ -354,6 +354,7 @@ class TestTaskDispatcherDispatch:
         settings.callback_base_url = "http://callback"
         settings.callback_token = "token-123"
         settings.executor_task_lease_secret = "lease-token"
+        settings.task_timeout_seconds = 3600
 
         mock_executor_client = MagicMock()
         mock_executor_client.execute_task = AsyncMock()
@@ -721,6 +722,7 @@ class TestTaskDispatcherDispatch:
         settings.callback_base_url = "http://callback"
         settings.callback_token = "token-123"
         settings.executor_task_lease_secret = "lease-token"
+        settings.task_timeout_seconds = 3600
 
         mock_executor_client = MagicMock()
         mock_executor_client.execute_task = AsyncMock(
@@ -785,11 +787,14 @@ class TestTaskDispatcherDispatch:
             session_id="session-456",
             run_id=None,
             prompt="Hello",
-            callback_url="http://callback/api/v1/callback",
-            callback_token="token-123",
-            task_lease_secret="lease-token",
+            execution_context=RunDispatchExecutionContext(
+                callback_base_url="http://callback",
+                callback_url="http://callback/api/v1/callback",
+                callback_token="token-123",
+                task_lease_secret="lease-token",
+                running_lease_seconds=3600,
+            ),
             config={"skill_files": {}, "plugin_files": {}, "input_files": []},
-            callback_base_url="http://callback",
             sdk_session_id=None,
             permission_mode="default",
         )

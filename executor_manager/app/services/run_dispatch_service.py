@@ -556,11 +556,8 @@ class RunDispatchService:
                 session_id=session_id,
                 run_id=run_id_str,
                 prompt=prompt,
-                callback_url=execution_context.callback_url,
-                callback_token=execution_context.callback_token,
-                task_lease_secret=execution_context.task_lease_secret,
+                execution_context=execution_context,
                 config=resolved_config,
-                callback_base_url=execution_context.callback_base_url,
                 sdk_session_id=sdk_session_id,
                 permission_mode=permission_mode,
             )

@@ -5,6 +5,7 @@ import pytest
 from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
 )
+from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
 
 @pytest.mark.asyncio
@@ -18,11 +19,14 @@ async def test_executor_client_gateway_executes_run_through_executor_client() ->
         session_id="sess-1",
         run_id="run-1",
         prompt="do work",
-        callback_url="http://manager.local/api/v1/callback",
-        callback_token="callback-token",
-        task_lease_secret="lease-secret",
+        execution_context=RunDispatchExecutionContext(
+            callback_base_url="http://manager.local",
+            callback_url="http://manager.local/api/v1/callback",
+            callback_token="callback-token",
+            task_lease_secret="lease-secret",
+            running_lease_seconds=3600,
+        ),
         config={"skill_files": {}, "plugin_files": {}, "input_files": []},
-        callback_base_url="http://manager.local",
         sdk_session_id="sdk-session-0",
         permission_mode="acceptEdits",
     )

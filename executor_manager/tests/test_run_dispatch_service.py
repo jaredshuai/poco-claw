@@ -352,15 +352,18 @@ async def test_dispatch_claim_delegates_executor_call_to_injected_gateway() -> N
         session_id="sess-123",
         run_id="run-123",
         prompt="do work",
-        callback_url="http://manager.local/api/v1/callback",
-        callback_token="callback-token",
-        task_lease_secret="lease-secret",
+        execution_context=RunDispatchExecutionContext(
+            callback_base_url="http://manager.local",
+            callback_url="http://manager.local/api/v1/callback",
+            callback_token="callback-token",
+            task_lease_secret="lease-secret",
+            running_lease_seconds=3600,
+        ),
         config={
             "skill_files": {},
             "plugin_files": {},
             "input_files": [],
         },
-        callback_base_url="http://manager.local",
         sdk_session_id="sdk-123",
         permission_mode="acceptEdits",
     )

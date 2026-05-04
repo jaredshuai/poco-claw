@@ -12,6 +12,7 @@ import pytest
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.core.identity import Actor
 from app.schemas.office import OfficeViewerConfigRequest
 
 
@@ -59,6 +60,10 @@ def _file_entry(path, *, key=None, size=None, mime_type=None):
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+def _actor(user_id: str = "user-1") -> Actor:
+    return Actor(user_id=user_id)
 
 
 def _signed_callback_body(payload: dict) -> dict:
@@ -123,7 +128,7 @@ class TestViewerConfig:
             )
 
             result = _run(
-                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=request, actor=_actor(), db=mock_db)
             )
 
         assert result.document.fileType == "docx"
@@ -146,7 +151,7 @@ class TestViewerConfig:
             mock_ss.get_session.return_value = session
 
             with pytest.raises(AppException) as exc:
-                _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+                _run(get_viewer_config(request=request, actor=_actor(), db=mock_db))
 
         assert exc.value.error_code == ErrorCode.FORBIDDEN
 
@@ -166,7 +171,7 @@ class TestViewerConfig:
             )
 
             with pytest.raises(AppException) as exc:
-                _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+                _run(get_viewer_config(request=request, actor=_actor(), db=mock_db))
 
         assert exc.value.error_code == ErrorCode.NOT_FOUND
 
@@ -184,7 +189,7 @@ class TestViewerConfig:
             mock_ss.get_session.return_value = session
 
             with pytest.raises(AppException) as exc:
-                _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+                _run(get_viewer_config(request=request, actor=_actor(), db=mock_db))
 
         assert exc.value.error_code == ErrorCode.BAD_REQUEST
 
@@ -220,7 +225,7 @@ class TestViewerConfig:
             }
 
             with pytest.raises(AppException) as exc:
-                _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+                _run(get_viewer_config(request=request, actor=_actor(), db=mock_db))
 
         assert exc.value.error_code == ErrorCode.BAD_REQUEST
         assert "too large" in exc.value.message.lower()
@@ -249,7 +254,7 @@ class TestViewerConfig:
             }
 
             with pytest.raises(AppException) as exc:
-                _run(get_viewer_config(request=request, user_id="user-1", db=mock_db))
+                _run(get_viewer_config(request=request, actor=_actor(), db=mock_db))
 
         assert exc.value.error_code == ErrorCode.BAD_REQUEST
         mock_storage.get_object_metadata.assert_called_once_with("ws/abc/big.xlsx")
@@ -289,7 +294,7 @@ class TestViewerConfig:
             )
 
             result = _run(
-                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=request, actor=_actor(), db=mock_db)
             )
 
         assert result.document.fileType == "docx"
@@ -331,7 +336,7 @@ class TestViewerConfig:
             )
 
             result = _run(
-                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=request, actor=_actor(), db=mock_db)
             )
 
         assert result.editorConfig.lang == "zh"
@@ -353,7 +358,7 @@ class TestOfficeHealth:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client):
-            result = _run(office_health(user_id="user-1"))
+            result = _run(office_health(_actor=_actor()))
 
         assert result.status_code == 200
 
@@ -370,7 +375,7 @@ class TestOfficeHealth:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client):
-            result = _run(office_health(user_id="user-1"))
+            result = _run(office_health(_actor=_actor()))
 
         assert result.status_code == 503
 
@@ -387,7 +392,7 @@ class TestOfficeHealth:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client):
-            result = _run(office_health(user_id="user-1"))
+            result = _run(office_health(_actor=_actor()))
 
         assert result.status_code == 503
 
@@ -397,7 +402,7 @@ class TestOfficeHealth:
 
         with patch.dict(os.environ, {"OFFICE_DOCUMENT_SERVER_URL": ""}, clear=False):
             get_settings.cache_clear()
-            result = _run(office_health(user_id="user-1"))
+            result = _run(office_health(_actor=_actor()))
             get_settings.cache_clear()
 
         assert result.status_code == 503
@@ -412,7 +417,7 @@ class TestOfficeHealth:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("app.api.v1.office.httpx.AsyncClient", return_value=mock_client):
-            result = _run(office_health(user_id="user-1"))
+            result = _run(office_health(_actor=_actor()))
 
         assert result.status_code == 503
 
@@ -455,7 +460,7 @@ class TestOfficeDownloadLatest:
                 download_latest(
                     session_id="00000000-0000-0000-0000-000000000012",
                     file_path="report.docx",
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -512,7 +517,7 @@ class TestOfficeEditingFlow:
             )
 
             result = _run(
-                get_viewer_config(request=request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=request, actor=_actor(), db=mock_db)
             )
 
         assert result.editorConfig.mode == "edit"
@@ -560,7 +565,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         save_request = OfficeForceSaveRequest(
@@ -576,9 +581,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
 
-            result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
-            )
+            result = _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
         assert result.status == "saving"
         assert result.save_request_id
@@ -619,7 +622,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         save_request = OfficeForceSaveRequest(
@@ -634,10 +637,10 @@ class TestOfficeEditingFlow:
         ):
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
-            first = _run(force_save(request=save_request, user_id="user-1", db=mock_db))
+            first = _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
             with pytest.raises(HTTPException) as exc:
-                _run(force_save(request=save_request, user_id="user-1", db=mock_db))
+                _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
         assert exc.value.status_code == 409
         assert exc.value.detail == {
@@ -690,7 +693,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
@@ -709,7 +712,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             save_result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
+                force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
         callback = OfficeCallbackRequest(
@@ -768,7 +771,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -820,7 +823,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         with (
@@ -836,7 +839,7 @@ class TestOfficeEditingFlow:
                         file_path="report.docx",
                         edit_session_id=config.edit_session_id,
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -853,7 +856,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -932,7 +935,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
@@ -951,7 +954,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             save_result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
+                force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
         callback = OfficeCallbackRequest(
@@ -1013,7 +1016,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -1067,7 +1070,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
@@ -1086,7 +1089,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             save_result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
+                force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
         callback = OfficeCallbackRequest(
@@ -1135,7 +1138,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -1179,7 +1182,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
@@ -1198,7 +1201,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             save_result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
+                force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
         callback = OfficeCallbackRequest(
@@ -1262,7 +1265,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
@@ -1281,7 +1284,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             save_result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
+                force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
         callback = OfficeCallbackRequest(
@@ -1361,7 +1364,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
@@ -1378,7 +1381,7 @@ class TestOfficeEditingFlow:
             discard_result = _run(
                 discard_edit_session(
                     request=discard_request,
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1394,7 +1397,7 @@ class TestOfficeEditingFlow:
         with patch("app.api.v1.office.session_service") as mock_ss:
             mock_ss.get_session.return_value = session
             with pytest.raises(AppException) as exc:
-                _run(force_save(request=save_request, user_id="user-1", db=mock_db))
+                _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
         assert exc.value.error_code == ErrorCode.BAD_REQUEST
 
@@ -1446,7 +1449,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         save_request = OfficeForceSaveRequest(
@@ -1462,7 +1465,7 @@ class TestOfficeEditingFlow:
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             save_result = _run(
-                force_save(request=save_request, user_id="user-1", db=mock_db)
+                force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
         edit_session = editing_store.get_edit_session(config.edit_session_id)
@@ -1473,7 +1476,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -1524,7 +1527,7 @@ class TestOfficeEditingFlow:
                         file_path="a.docx",
                         mode="edit",
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1535,7 +1538,7 @@ class TestOfficeEditingFlow:
                         file_path="b.docx",
                         mode="edit",
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1553,7 +1556,7 @@ class TestOfficeEditingFlow:
                         file_path="a.docx",
                         edit_session_id=config_a.edit_session_id,
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1575,7 +1578,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=session_id,
                 save_request_id=save_a.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -1620,7 +1623,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         with (
@@ -1636,7 +1639,7 @@ class TestOfficeEditingFlow:
                         file_path="report.docx",
                         edit_session_id=config.edit_session_id,
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1658,7 +1661,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -1706,7 +1709,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         with (
@@ -1722,7 +1725,7 @@ class TestOfficeEditingFlow:
                         file_path="report.docx",
                         edit_session_id=config.edit_session_id,
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1746,7 +1749,7 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
@@ -1793,7 +1796,7 @@ class TestOfficeEditingFlow:
                 "https://s3.example.com/report.docx?sig=abc"
             )
             config = _run(
-                get_viewer_config(request=config_request, user_id="user-1", db=mock_db)
+                get_viewer_config(request=config_request, actor=_actor(), db=mock_db)
             )
 
         with (
@@ -1809,7 +1812,7 @@ class TestOfficeEditingFlow:
                         file_path="report.docx",
                         edit_session_id=config.edit_session_id,
                     ),
-                    user_id="user-1",
+                    actor=_actor(),
                     db=mock_db,
                 )
             )
@@ -1851,10 +1854,243 @@ class TestOfficeEditingFlow:
             get_save_status(
                 session_id=config_request.session_id,
                 save_request_id=save_result.save_request_id,
-                user_id="user-1",
+                actor=_actor(),
                 db=mock_db,
             )
         )
 
         assert status.status == "failed"
         assert status.error_code == "manual_failure"
+
+
+class TestActorBoundaryMigration:
+    """Focused tests proving the Actor boundary migration."""
+
+    def test_office_module_does_not_import_get_current_user_id(self):
+        """office.py should not expose get_current_user_id after migration."""
+        import app.api.v1.office as office_module
+
+        assert not hasattr(office_module, "get_current_user_id")
+        assert hasattr(office_module, "get_current_actor")
+
+    def test_get_viewer_config_passes_actor_user_id_to_command(self):
+        """get_viewer_config should pass actor.user_id to OfficeViewerConfigCommand."""
+        from app.api.v1.office import get_viewer_config
+        from app.services.office_viewer_config_use_case import (
+            OfficeViewerConfigCommand,
+            OfficeViewerConfigUseCase,
+        )
+
+        session = _make_session()
+        request = OfficeViewerConfigRequest(
+            session_id="00000000-0000-0000-0000-000000000001",
+            file_path="report.docx",
+        )
+        mock_db = MagicMock()
+        actor = _actor(user_id="actor-user-viewer")
+
+        captured_command = None
+
+        def capture_command(cmd: OfficeViewerConfigCommand):
+            nonlocal captured_command
+            captured_command = cmd
+            return MagicMock()
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.OfficeViewerConfigUseCase") as mock_uc_class,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_uc_instance = MagicMock(spec=OfficeViewerConfigUseCase)
+            mock_uc_instance.execute.side_effect = capture_command
+            mock_uc_class.return_value = mock_uc_instance
+
+            _run(get_viewer_config(request=request, actor=actor, db=mock_db))
+
+        assert captured_command is not None
+        assert captured_command.user_id == "actor-user-viewer"
+
+    def test_download_latest_passes_actor_user_id_to_command(self):
+        """download_latest should pass actor.user_id to OfficeDownloadLatestCommand."""
+        from app.api.v1.office import download_latest
+        from app.services.office_download_latest_service import (
+            OfficeDownloadLatestCommand,
+            OfficeDownloadLatestUseCase,
+        )
+
+        session = _make_session()
+        mock_db = MagicMock()
+        actor = _actor(user_id="actor-user-download")
+
+        captured_command = None
+
+        def capture_command(cmd: OfficeDownloadLatestCommand):
+            nonlocal captured_command
+            captured_command = cmd
+            return MagicMock(
+                url="https://s3.example.com/file",
+                file_path="test.docx",
+                expires_in=3600,
+            )
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.OfficeDownloadLatestUseCase") as mock_uc_class,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_uc_instance = MagicMock(spec=OfficeDownloadLatestUseCase)
+            mock_uc_instance.execute.side_effect = capture_command
+            mock_uc_class.return_value = mock_uc_instance
+
+            _run(
+                download_latest(
+                    session_id="00000000-0000-0000-0000-000000000012",
+                    file_path="report.docx",
+                    actor=actor,
+                    db=mock_db,
+                )
+            )
+
+        assert captured_command is not None
+        assert captured_command.user_id == "actor-user-download"
+
+    def test_force_save_passes_actor_user_id_to_command(self):
+        """force_save should pass actor.user_id to OfficeForceSaveCommand."""
+        from app.api.v1.office import force_save
+        from app.schemas.office import OfficeForceSaveRequest
+        from app.services.office_force_save_service import (
+            OfficeForceSaveCommand,
+            OfficeForceSaveUseCase,
+        )
+
+        session = _make_session()
+        request = OfficeForceSaveRequest(
+            session_id="00000000-0000-0000-0000-000000000001",
+            file_path="report.docx",
+            edit_session_id="edit-session-123",
+        )
+        mock_db = MagicMock()
+        actor = _actor(user_id="actor-user-forcesave")
+
+        captured_command = None
+
+        async def capture_command(cmd: OfficeForceSaveCommand):
+            nonlocal captured_command
+            captured_command = cmd
+            return MagicMock(save_request_id="save-123", status="pending")
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.OfficeForceSaveUseCase") as mock_uc_class,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_uc_instance = MagicMock(spec=OfficeForceSaveUseCase)
+            mock_uc_instance.execute.side_effect = capture_command
+            mock_uc_class.return_value = mock_uc_instance
+
+            _run(force_save(request=request, actor=actor, db=mock_db))
+
+        assert captured_command is not None
+        assert captured_command.user_id == "actor-user-forcesave"
+
+    def test_get_save_status_passes_actor_user_id_to_query(self):
+        """get_save_status should pass actor.user_id to OfficeSaveStatusQuery."""
+        from app.api.v1.office import get_save_status
+        from app.services.office_save_status_service import (
+            OfficeSaveStatusQuery,
+            OfficeSaveStatusUseCase,
+        )
+
+        mock_db = MagicMock()
+        actor = _actor(user_id="actor-user-savestatus")
+
+        captured_query = None
+
+        def capture_query(q: OfficeSaveStatusQuery):
+            nonlocal captured_query
+            captured_query = q
+            return MagicMock(
+                save_request_id="save-123",
+                status="saved",
+                error_code=None,
+                error_message=None,
+                completed_at=None,
+            )
+
+        with (
+            patch("app.api.v1.office.OfficeSaveStatusUseCase") as mock_uc_class,
+        ):
+            mock_uc_instance = MagicMock(spec=OfficeSaveStatusUseCase)
+            mock_uc_instance.execute.side_effect = capture_query
+            mock_uc_class.return_value = mock_uc_instance
+
+            _run(
+                get_save_status(
+                    session_id="00000000-0000-0000-0000-000000000001",
+                    save_request_id="save-123",
+                    actor=actor,
+                    db=mock_db,
+                )
+            )
+
+        assert captured_query is not None
+        assert captured_query.user_id == "actor-user-savestatus"
+
+    def test_discard_edit_session_passes_actor_user_id_to_command(self):
+        """discard_edit_session should pass actor.user_id to OfficeDiscardEditSessionCommand."""
+        from app.api.v1.office import discard_edit_session
+        from app.schemas.office import OfficeDiscardEditSessionRequest
+        from app.services.office_discard_edit_session_service import (
+            OfficeDiscardEditSessionCommand,
+            OfficeDiscardEditSessionUseCase,
+        )
+
+        session = _make_session()
+        request = OfficeDiscardEditSessionRequest(
+            session_id="00000000-0000-0000-0000-000000000001",
+            file_path="report.docx",
+            edit_session_id="edit-session-123",
+        )
+        mock_db = MagicMock()
+        actor = _actor(user_id="actor-user-discard")
+
+        captured_command = None
+
+        def capture_command(cmd: OfficeDiscardEditSessionCommand):
+            nonlocal captured_command
+            captured_command = cmd
+            return MagicMock(edit_session_id="edit-session-123", status="discarded")
+
+        with (
+            patch("app.api.v1.office.session_service") as mock_ss,
+            patch("app.api.v1.office.OfficeDiscardEditSessionUseCase") as mock_uc_class,
+        ):
+            mock_ss.get_session.return_value = session
+            mock_uc_instance = MagicMock(spec=OfficeDiscardEditSessionUseCase)
+            mock_uc_instance.execute.side_effect = capture_command
+            mock_uc_class.return_value = mock_uc_instance
+
+            _run(discard_edit_session(request=request, actor=actor, db=mock_db))
+
+        assert captured_command is not None
+        assert captured_command.user_id == "actor-user-discard"
+
+    def test_office_health_uses_actor_auth(self):
+        """office_health should require Actor authentication via _actor parameter."""
+        from app.api.v1.office import office_health
+        from inspect import signature
+
+        sig = signature(office_health)
+        params = list(sig.parameters.keys())
+        assert "_actor" in params
+
+    def test_office_callback_remains_without_actor_auth(self):
+        """office_callback should not require Actor auth and use token/JWT path."""
+        from app.api.v1.office import office_callback
+        from inspect import signature
+
+        sig = signature(office_callback)
+        params = list(sig.parameters.keys())
+        assert "actor" not in params
+        assert "_actor" not in params
+        assert "token" in params

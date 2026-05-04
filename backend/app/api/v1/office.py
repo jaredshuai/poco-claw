@@ -11,7 +11,8 @@ from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.settings import get_settings
@@ -170,7 +171,7 @@ def _decode_callback_payload(
 @router.post("/viewer-config")
 async def get_viewer_config(
     request: OfficeViewerConfigRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> OfficeViewerConfigResponse:
     """Generate a signed OnlyOffice viewer config for read-only preview.
@@ -188,7 +189,7 @@ async def get_viewer_config(
         OfficeViewerConfigCommand(
             session_id=str(request.session_id),
             session_user_id=db_session.user_id,
-            user_id=user_id,
+            user_id=actor.user_id,
             file_path=request.file_path,
             file_type=request.file_type,
             language=request.language,
@@ -207,7 +208,7 @@ async def get_viewer_config(
 async def download_latest(
     session_id: uuid.UUID = Query(...),
     file_path: str = Query(...),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> OfficeDownloadLatestResponse:
     """Return a short-lived URL for the latest saved workspace file."""
@@ -217,7 +218,7 @@ async def download_latest(
         OfficeDownloadLatestCommand(
             session_id=str(session_id),
             session_user_id=db_session.user_id,
-            user_id=user_id,
+            user_id=actor.user_id,
             file_path=file_path,
             workspace_manifest_key=db_session.workspace_manifest_key,
             workspace_files_prefix=db_session.workspace_files_prefix,
@@ -235,7 +236,7 @@ async def download_latest(
 @router.post("/forcesave")
 async def force_save(
     request: OfficeForceSaveRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> OfficeForceSaveResponse:
     """Trigger an explicit OnlyOffice force-save for an active edit session."""
@@ -248,7 +249,7 @@ async def force_save(
             OfficeForceSaveCommand(
                 session_id=str(request.session_id),
                 session_user_id=db_session.user_id,
-                user_id=user_id,
+                user_id=actor.user_id,
                 file_path=request.file_path,
                 edit_session_id=request.edit_session_id,
             )
@@ -272,7 +273,7 @@ async def force_save(
 async def get_save_status(
     session_id: uuid.UUID = Query(...),
     save_request_id: str = Query(...),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> OfficeSaveStatusResponse:
     """Return a short-lived Office save request status."""
@@ -281,7 +282,7 @@ async def get_save_status(
         OfficeSaveStatusQuery(
             session_id=str(session_id),
             save_request_id=save_request_id,
-            user_id=user_id,
+            user_id=actor.user_id,
         )
     )
 
@@ -297,7 +298,7 @@ async def get_save_status(
 @router.post("/edit-session/discard")
 async def discard_edit_session(
     request: OfficeDiscardEditSessionRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> OfficeDiscardEditSessionResponse:
     """Discard an active Office edit session and revoke its callback token."""
@@ -306,7 +307,7 @@ async def discard_edit_session(
         OfficeDiscardEditSessionCommand(
             session_id=str(request.session_id),
             session_user_id=db_session.user_id,
-            user_id=user_id,
+            user_id=actor.user_id,
             file_path=request.file_path,
             edit_session_id=request.edit_session_id,
         )
@@ -347,7 +348,7 @@ async def office_callback(
 
 @router.get("/health")
 async def office_health(
-    user_id: str = Depends(get_current_user_id),
+    _actor: Actor = Depends(get_current_actor),
 ):
     """Proxy health check to the OnlyOffice Document Server."""
     settings = get_settings()

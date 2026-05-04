@@ -524,15 +524,12 @@ class RunDispatchService:
             step_started = time.perf_counter()
             mcp_config = resolved_config.get("mcp_config")
             if isinstance(mcp_config, dict) and mcp_config:
-                for server_name in mcp_config:
-                    try:
-                        await self.state_gateway.record_mcp_staged(
-                            run_id=run_id_str,
-                            session_id=session_id,
-                            server_name=str(server_name),
-                        )
-                    except Exception:
-                        pass
+                server_names = [str(name) for name in mcp_config]
+                await self.state_gateway.record_mcp_staged_servers(
+                    run_id=run_id_str,
+                    session_id=session_id,
+                    server_names=server_names,
+                )
 
             step_started = time.perf_counter()
             running_lease_seconds = getattr(self.settings, "task_timeout_seconds", 3600)

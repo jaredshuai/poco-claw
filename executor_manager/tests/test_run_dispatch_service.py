@@ -214,11 +214,11 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
             "skill_files": {},
             "plugin_files": {},
             "input_files": [],
-            "mcp_config": {"server-a": {}},
+            "mcp_config": {"server-a": {}, "server-b": {}},
         }
     )
     state_gateway = MagicMock()
-    state_gateway.record_mcp_staged = AsyncMock()
+    state_gateway.record_mcp_staged_servers = AsyncMock()
     state_gateway.start_run = AsyncMock()
     state_gateway.fail_run = AsyncMock()
     service = _make_dispatch_service(
@@ -244,10 +244,10 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
-    state_gateway.record_mcp_staged.assert_awaited_once_with(
+    state_gateway.record_mcp_staged_servers.assert_awaited_once_with(
         run_id="run-123",
         session_id="sess-123",
-        server_name="server-a",
+        server_names=["server-a", "server-b"],
     )
     state_gateway.start_run.assert_awaited_once_with(
         run_id="run-123",
@@ -255,6 +255,51 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
         lease_seconds=3600,
     )
     state_gateway.fail_run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_does_not_call_per_server_mcp_staged() -> None:
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        return_value=("http://runtime-executor.local", "runtime-container-1")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    config_preparer = MagicMock()
+    config_preparer.prepare_config = AsyncMock(
+        return_value={
+            "skill_files": {},
+            "plugin_files": {},
+            "input_files": [],
+            "mcp_config": {"server-a": {}, "server-b": {}},
+        }
+    )
+    state_gateway = MagicMock()
+    state_gateway.record_mcp_staged_servers = AsyncMock()
+    state_gateway.record_mcp_staged = AsyncMock(
+        side_effect=AssertionError("should use batch method")
+    )
+    state_gateway.start_run = AsyncMock()
+    state_gateway.fail_run = AsyncMock()
+    service = _make_dispatch_service(
+        runtime=runtime,
+        config_preparer=config_preparer,
+        state_gateway=state_gateway,
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    state_gateway.record_mcp_staged_servers.assert_awaited_once_with(
+        run_id="run-123",
+        session_id="sess-123",
+        server_names=["server-a", "server-b"],
+    )
+    state_gateway.record_mcp_staged.assert_not_awaited()
 
 
 @pytest.mark.asyncio

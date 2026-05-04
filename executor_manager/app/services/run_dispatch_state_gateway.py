@@ -10,6 +10,14 @@ class RunDispatchStateGateway(Protocol):
         server_name: str,
     ) -> None: ...
 
+    async def record_mcp_staged_servers(
+        self,
+        *,
+        run_id: str,
+        session_id: str,
+        server_names: list[str],
+    ) -> None: ...
+
     async def start_run(
         self, *, run_id: Any, worker_id: str, lease_seconds: int | None = None
     ) -> None: ...
@@ -41,6 +49,25 @@ class BackendRunDispatchStateGateway:
             to_state="staged",
             event_source="executor_manager",
         )
+
+    async def record_mcp_staged_servers(
+        self,
+        *,
+        run_id: str,
+        session_id: str,
+        server_names: list[str],
+    ) -> None:
+        for server_name in server_names:
+            try:
+                await self.backend_client.record_mcp_transition(
+                    run_id=run_id,
+                    session_id=session_id,
+                    server_name=server_name,
+                    to_state="staged",
+                    event_source="executor_manager",
+                )
+            except Exception:
+                pass
 
     async def start_run(
         self, *, run_id: Any, worker_id: str, lease_seconds: int | None = None

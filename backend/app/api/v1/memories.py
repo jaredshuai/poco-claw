@@ -5,7 +5,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db, require_internal_token
+from app.core.deps import get_current_actor, get_db, require_internal_token
+from app.core.identity import Actor
 from app.schemas.memory import (
     MemoryCreateJobEnqueueResponse,
     MemoryCreateJobResponse,
@@ -40,12 +41,12 @@ async def configure_memory(
 async def create_memories(
     request: MemoryCreateRequest,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = memory_create_job_service.enqueue_create(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         request=request,
     )
     background_tasks.add_task(
@@ -62,12 +63,12 @@ async def create_memories(
     response_model=ResponseSchema[MemoryCreateJobResponse | None],
 )
 async def get_active_memory_create_job(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = memory_create_job_service.get_active_job(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
     )
     return Response.success(
         data=result, message="Active memory create job retrieved successfully"
@@ -80,12 +81,12 @@ async def get_active_memory_create_job(
 )
 async def get_memory_create_job(
     job_id: uuid.UUID,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = memory_create_job_service.get_job(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         job_id=job_id,
     )
     return Response.success(
@@ -96,10 +97,10 @@ async def get_memory_create_job(
 @router.get("", response_model=ResponseSchema[Any])
 async def list_memories(
     run_id: str | None = None,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
 ) -> JSONResponse:
     result = memory_service.list_memories(
-        user_id=user_id,
+        user_id=actor.user_id,
         run_id=run_id,
     )
     return Response.success(data=result, message="Memories retrieved successfully")
@@ -108,9 +109,9 @@ async def list_memories(
 @router.post("/search", response_model=ResponseSchema[Any])
 async def search_memories(
     request: MemorySearchRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
 ) -> JSONResponse:
-    result = memory_service.search_memories(user_id=user_id, request=request)
+    result = memory_service.search_memories(user_id=actor.user_id, request=request)
     return Response.success(data=result, message="Memories searched successfully")
 
 
@@ -148,10 +149,10 @@ async def delete_memory(memory_id: str) -> JSONResponse:
 @router.delete("", response_model=ResponseSchema[dict[str, bool]])
 async def delete_all_memories(
     run_id: str | None = None,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
 ) -> JSONResponse:
     memory_service.delete_all_memories(
-        user_id=user_id,
+        user_id=actor.user_id,
         run_id=run_id,
     )
     return Response.success(

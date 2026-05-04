@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.mcp_server import (
     McpServerCreateRequest,
     McpServerResponse,
@@ -18,30 +19,30 @@ service = McpServerService()
 
 @router.get("", response_model=ResponseSchema[list[McpServerResponse]])
 async def list_mcp_servers(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.list_servers(db, user_id=user_id)
+    result = service.list_servers(db, user_id=actor.user_id)
     return Response.success(data=result, message="MCP servers retrieved")
 
 
 @router.get("/{server_id}", response_model=ResponseSchema[McpServerResponse])
 async def get_mcp_server(
     server_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.get_server(db, user_id, server_id)
+    result = service.get_server(db, actor.user_id, server_id)
     return Response.success(data=result, message="MCP server retrieved")
 
 
 @router.post("", response_model=ResponseSchema[McpServerResponse])
 async def create_mcp_server(
     request: McpServerCreateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.create_server(db, user_id, request)
+    result = service.create_server(db, actor.user_id, request)
     return Response.success(data=result, message="MCP server created")
 
 
@@ -49,18 +50,18 @@ async def create_mcp_server(
 async def update_mcp_server(
     server_id: int,
     request: McpServerUpdateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.update_server(db, user_id, server_id, request)
+    result = service.update_server(db, actor.user_id, server_id, request)
     return Response.success(data=result, message="MCP server updated")
 
 
 @router.delete("/{server_id}", response_model=ResponseSchema[dict])
 async def delete_mcp_server(
     server_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    service.delete_server(db, user_id, server_id)
+    service.delete_server(db, actor.user_id, server_id)
     return Response.success(data={"id": server_id}, message="MCP server deleted")

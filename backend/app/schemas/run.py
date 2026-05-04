@@ -86,6 +86,7 @@ class RunStartRequest(BaseModel):
     """Mark run as running request."""
 
     worker_id: str
+    lease_seconds: int = 3600
 
 
 class RunFailRequest(BaseModel):

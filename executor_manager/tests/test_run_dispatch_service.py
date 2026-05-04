@@ -252,6 +252,7 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
     state_gateway.start_run.assert_awaited_once_with(
         run_id="run-123",
         worker_id="worker-1",
+        lease_seconds=3600,
     )
     state_gateway.fail_run.assert_not_awaited()
 
@@ -653,7 +654,9 @@ async def test_dispatch_claim_starts_run_before_executor_execute_task() -> None:
     service = _make_dispatch_service()
     call_order: list[str] = []
 
-    async def start_run(*, run_id: str, worker_id: str) -> None:
+    async def start_run(
+        *, run_id: str, worker_id: str, lease_seconds: int | None = None
+    ) -> None:
         call_order.append(f"start:{run_id}:{worker_id}")
 
     async def execute_task(**kwargs) -> str:

@@ -1,6 +1,6 @@
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.services.run_lifecycle_service import RunLifecycleService
@@ -120,6 +120,61 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self.assertEqual(db_run.status, "running")
         self.assertEqual(db_run.started_at, self.now)
         self.queue_service.clear_execution_state.assert_called_once()
+
+    @patch("app.services.run_lifecycle_service.SessionRepository")
+    def test_mark_running_sets_lease_when_provided(self, mock_repo: MagicMock) -> None:
+        db_session = MagicMock()
+        db_session.status = "pending"
+        mock_repo.get_by_id_for_update.return_value = db_session
+
+        db_run = MagicMock()
+        db_run.session_id = uuid.uuid4()
+        db_run.status = "claimed"
+        db_run.started_at = None
+
+        self.service.mark_running(self.db, db_run, lease_seconds=3600)
+
+        self.assertEqual(db_run.status, "running")
+        self.assertEqual(db_run.lease_expires_at, self.now + timedelta(seconds=3600))
+
+    @patch("app.services.run_lifecycle_service.SessionRepository")
+    def test_mark_running_preserves_existing_lease_when_not_provided(
+        self, mock_repo: MagicMock
+    ) -> None:
+        db_session = MagicMock()
+        db_session.status = "pending"
+        mock_repo.get_by_id_for_update.return_value = db_session
+
+        existing_lease = datetime(2026, 4, 29, 13, 0, tzinfo=timezone.utc)
+        db_run = MagicMock()
+        db_run.session_id = uuid.uuid4()
+        db_run.status = "running"
+        db_run.started_at = self.now
+        db_run.lease_expires_at = existing_lease
+
+        self.service.mark_running(self.db, db_run)
+
+        # Lease should be preserved when not explicitly set
+        self.assertEqual(db_run.lease_expires_at, existing_lease)
+
+    @patch("app.services.run_lifecycle_service.SessionRepository")
+    def test_mark_running_updates_lease_when_provided(
+        self, mock_repo: MagicMock
+    ) -> None:
+        db_session = MagicMock()
+        db_session.status = "pending"
+        mock_repo.get_by_id_for_update.return_value = db_session
+
+        db_run = MagicMock()
+        db_run.session_id = uuid.uuid4()
+        db_run.status = "running"
+        db_run.started_at = self.now
+        db_run.lease_expires_at = datetime(2026, 4, 29, 13, 0, tzinfo=timezone.utc)
+
+        self.service.mark_running(self.db, db_run, lease_seconds=7200)
+
+        # Lease should be updated to new value
+        self.assertEqual(db_run.lease_expires_at, self.now + timedelta(seconds=7200))
 
 
 class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):

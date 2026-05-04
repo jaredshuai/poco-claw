@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from sqlalchemy.orm import Session
 
 from app.models.agent_run import AgentRun
@@ -38,7 +40,9 @@ class RunLifecycleService:
         elif db_run.status in {"completed", "canceled"}:
             db_task.last_error = None
 
-    def mark_running(self, db: Session, db_run: AgentRun) -> AgentSession | None:
+    def mark_running(
+        self, db: Session, db_run: AgentRun, lease_seconds: int | None = None
+    ) -> AgentSession | None:
         db_session = SessionRepository.get_by_id_for_update(db, db_run.session_id)
         if not db_session:
             return None
@@ -52,7 +56,12 @@ class RunLifecycleService:
             db_run.status = "running"
         if db_run.started_at is None:
             db_run.started_at = now
-        db_run.lease_expires_at = None
+
+        # Set lease expiration if duration provided; otherwise preserve existing lease
+        if lease_seconds is not None and lease_seconds > 0:
+            db_run.lease_expires_at = now + timedelta(seconds=lease_seconds)
+        # If no lease_seconds provided and run already has a lease, preserve it
+        # (this allows callback-driven mark_running to keep existing running lease)
 
         if db_session.status != "canceled":
             db_session.status = "running"

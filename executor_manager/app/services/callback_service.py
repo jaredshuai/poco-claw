@@ -12,6 +12,7 @@ from app.services.workspace_export_service import (
     WorkspaceExportService,
     workspace_manager,
 )
+from app.services.worker_identity import get_worker_id
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ class CallbackService:
         workspace_path_filter: CallbackWorkspacePathFilter | None = None,
         workspace_path_filter_factory: Callable[[], CallbackWorkspacePathFilter]
         | None = None,
+        worker_id_provider: Callable[[], str] | None = None,
     ) -> None:
         self.clock = clock or SystemClock()
         self._backend_client_factory = backend_client_factory or get_backend_client
@@ -156,6 +158,10 @@ class CallbackService:
         self._workspace_path_filter_factory = (
             workspace_path_filter_factory or build_callback_workspace_path_filter
         )
+        self._worker_id_provider = worker_id_provider or get_worker_id
+
+    def _get_worker_id(self) -> str:
+        return self._worker_id_provider()
 
     def _get_backend_client(self) -> CallbackBackendClient:
         return self._backend_client_factory()
@@ -346,6 +352,15 @@ class CallbackService:
                 payload_model = callback.model_copy(
                     update={"workspace_export_status": "pending"}
                 )
+
+            # Inject worker_id if available and not already present
+            if payload_model.worker_id is None:
+                worker_id = self._get_worker_id()
+                if worker_id is not None:
+                    payload_model = payload_model.model_copy(
+                        update={"worker_id": worker_id}
+                    )
+
             payload = payload_model.model_dump(mode="json")
 
             # Forward callback to backend
@@ -462,6 +477,7 @@ class CallbackService:
         payload_model = AgentCallbackRequest(
             session_id=callback.session_id,
             run_id=callback.run_id,
+            worker_id=callback.worker_id or self._get_worker_id(),
             time=self._now_utc(),
             status=callback.status,
             progress=100 if callback.status == "completed" else callback.progress,

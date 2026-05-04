@@ -190,6 +190,23 @@ class RunRepository:
         return result.rowcount
 
     @staticmethod
+    def release_expired_running_leases(session_db: Session, *, now: datetime) -> int:
+        """Requeue runs with expired running leases.
+
+        When a worker dies after starting a run, the lease will expire and the run
+        can be recovered by another worker.
+        """
+        stmt = (
+            update(AgentRun)
+            .where(AgentRun.status == "running")
+            .where(AgentRun.lease_expires_at.is_not(None))
+            .where(AgentRun.lease_expires_at < now)
+            .values(status="queued", claimed_by=None, lease_expires_at=None)
+        )
+        result = session_db.connection().execute(stmt)
+        return result.rowcount
+
+    @staticmethod
     def claim_next(
         session_db: Session,
         worker_id: str,
@@ -199,6 +216,7 @@ class RunRepository:
         now: datetime,
     ) -> AgentRun | None:
         _ = RunRepository.release_expired_claims(session_db, now=now)
+        _ = RunRepository.release_expired_running_leases(session_db, now=now)
         lease_until = now + timedelta(seconds=lease_seconds)
 
         running_or_claimed = aliased(AgentRun)

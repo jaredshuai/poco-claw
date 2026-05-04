@@ -162,12 +162,17 @@ class BackendClient:
         data = response.json()
         return data.get("data")
 
-    async def start_run(self, run_id: str, worker_id: str) -> dict:
+    async def start_run(
+        self, run_id: str, worker_id: str, lease_seconds: int | None = None
+    ) -> dict:
         """Mark run as running."""
+        payload: dict = {"worker_id": worker_id}
+        if lease_seconds is not None:
+            payload["lease_seconds"] = lease_seconds
         response = await self._request(
             "POST",
             f"/api/v1/runs/{run_id}/start",
-            json={"worker_id": worker_id},
+            json=payload,
             headers=self._internal_headers(),
             retry_connect_errors=2,
         )

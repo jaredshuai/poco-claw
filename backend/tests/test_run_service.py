@@ -477,6 +477,51 @@ class TestRunServiceStartRun(unittest.TestCase):
             lifecycle_service.mark_running.assert_called_once()
             db.commit.assert_called_once()
 
+    def test_run_start_passes_lease_seconds_to_lifecycle_service(self) -> None:
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        request = RunStartRequest(worker_id="worker-1", lease_seconds=3600)
+
+        mock_run = create_mock_run(
+            run_id=run_id, status="claimed", claimed_by="worker-1"
+        )
+        mock_run.lease_expires_at = future_lease()
+        mock_run.attempts = 0
+        lifecycle_service = MagicMock()
+
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            service = RunService(run_lifecycle_service=lifecycle_service)
+            result = service.start_run(db, run_id, request)
+            self.assertIsNotNone(result)
+            lifecycle_service.mark_running.assert_called_once_with(
+                db, mock_run, lease_seconds=3600
+            )
+
+    def test_run_start_passes_default_lease_seconds_to_lifecycle_service(self) -> None:
+        """Default lease_seconds (3600) is passed when omitted."""
+        db = MagicMock()
+        run_id = uuid.uuid4()
+        request = RunStartRequest(
+            worker_id="worker-1"
+        )  # lease_seconds defaults to 3600
+
+        mock_run = create_mock_run(
+            run_id=run_id, status="claimed", claimed_by="worker-1"
+        )
+        mock_run.lease_expires_at = future_lease()
+        mock_run.attempts = 0
+        lifecycle_service = MagicMock()
+
+        with patch("app.services.run_service.RunRepository") as mock_repo:
+            mock_repo.get_by_id.return_value = mock_run
+            service = RunService(run_lifecycle_service=lifecycle_service)
+            result = service.start_run(db, run_id, request)
+            self.assertIsNotNone(result)
+            lifecycle_service.mark_running.assert_called_once_with(
+                db, mock_run, lease_seconds=3600
+            )
+
     def test_run_start_passes_current_time_to_transition_policy(self) -> None:
         db = MagicMock()
         run_id = uuid.uuid4()

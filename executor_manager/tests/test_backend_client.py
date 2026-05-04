@@ -438,6 +438,54 @@ class TestBackendClientRunOperations:
                     == "token-123"
                 )
 
+    async def test_start_run_with_lease_seconds(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(
+                backend_url="http://backend",
+                internal_api_token="token-123",
+            )
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {"status": "running"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ) as mock_request:
+                result = await client.start_run(
+                    "run-123", "worker-1", lease_seconds=3600
+                )
+
+                assert result["status"] == "running"
+                call_kwargs = mock_request.call_args.kwargs
+                assert call_kwargs["json"]["worker_id"] == "worker-1"
+                assert call_kwargs["json"]["lease_seconds"] == 3600
+
+    async def test_start_run_without_lease_seconds(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(
+                backend_url="http://backend",
+                internal_api_token="token-123",
+            )
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {"status": "running"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ) as mock_request:
+                result = await client.start_run("run-123", "worker-1")
+
+                assert result["status"] == "running"
+                call_kwargs = mock_request.call_args.kwargs
+                assert call_kwargs["json"]["worker_id"] == "worker-1"
+                assert "lease_seconds" not in call_kwargs["json"]
+
     async def test_fail_run_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(backend_url="http://backend")

@@ -535,13 +535,17 @@ class RunDispatchService:
                         pass
 
             step_started = time.perf_counter()
-            await self.state_gateway.start_run(run_id=run_id, worker_id=worker_id)
+            running_lease_seconds = getattr(self.settings, "task_timeout_seconds", 3600)
+            await self.state_gateway.start_run(
+                run_id=run_id, worker_id=worker_id, lease_seconds=running_lease_seconds
+            )
             logger.info(
                 "timing",
                 extra={
                     "step": "run_dispatch_backend_start_run",
                     "duration_ms": int((time.perf_counter() - step_started) * 1000),
                     "worker_id": worker_id,
+                    "lease_seconds": running_lease_seconds,
                     **ctx,
                 },
             )

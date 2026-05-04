@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import os
-import socket
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -16,6 +14,7 @@ from app.services.run_pull_queue_gateway import (
     BackendRunPullQueueGateway,
     RunPullQueueGateway,
 )
+from app.services.worker_identity import get_worker_id
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +66,7 @@ class RunPullService:
         )
         self.clock = clock or SystemClock()
 
-        self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
+        self.worker_id = get_worker_id()
         self._semaphore = asyncio.Semaphore(self.settings.max_concurrent_tasks)
         self._tasks: set[asyncio.Task[None]] = set()
         self._shutdown = False

@@ -416,6 +416,57 @@ class TestRunRepositoryReleaseExpiredClaims(unittest.TestCase):
         self.assertEqual(result, 1)
 
 
+class TestRunRepositoryReleaseExpiredRunningLeases(unittest.TestCase):
+    """Test RunRepository.release_expired_running_leases method."""
+
+    def test_release_expired_running_leases(self) -> None:
+        db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 3
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value = mock_result
+
+        db.connection.return_value = mock_connection
+
+        result = RunRepository.release_expired_running_leases(
+            db,
+            now=datetime.now(timezone.utc),
+        )
+
+        self.assertEqual(result, 3)
+        mock_connection.execute.assert_called_once()
+
+    def test_release_expired_running_leases_none(self) -> None:
+        db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value = mock_result
+
+        db.connection.return_value = mock_connection
+
+        result = RunRepository.release_expired_running_leases(
+            db,
+            now=datetime.now(timezone.utc),
+        )
+
+        self.assertEqual(result, 0)
+
+    def test_release_expired_running_leases_accepts_supplied_now(self) -> None:
+        db = MagicMock()
+        now = datetime(2026, 4, 28, 12, 0, tzinfo=timezone.utc)
+        mock_result = MagicMock()
+        mock_result.rowcount = 2
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value = mock_result
+
+        db.connection.return_value = mock_connection
+
+        result = RunRepository.release_expired_running_leases(db, now=now)
+
+        self.assertEqual(result, 2)
+
+
 class TestRunRepositoryClaimNext(unittest.TestCase):
     """Test RunRepository.claim_next method."""
 

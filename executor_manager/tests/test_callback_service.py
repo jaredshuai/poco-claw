@@ -672,6 +672,87 @@ class TestProcessCallback(unittest.TestCase):
             assert ctx.exception.error_code == ErrorCode.CALLBACK_FORWARD_FAILED
             assert "Failed to forward callback" in ctx.exception.message
 
+    def test_process_callback_injects_worker_id_from_provider(self) -> None:
+        """Test callback payload includes worker_id from injected provider."""
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "received"}
+        )
+
+        worker_id_provider = MagicMock(return_value="hostname:12345")
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend_client,
+        ):
+            service = CallbackService(worker_id_provider=worker_id_provider)
+            callback = self._create_callback()
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+            assert result.status == "received"
+            payload = mock_backend_client.forward_callback.call_args.args[0]
+            assert payload["worker_id"] == "hostname:12345"
+            worker_id_provider.assert_called()
+
+    def test_process_callback_preserves_existing_worker_id(self) -> None:
+        """Test callback with existing worker_id is not overwritten."""
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "received"}
+        )
+
+        worker_id_provider = MagicMock(return_value="hostname:12345")
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend_client,
+        ):
+            service = CallbackService(worker_id_provider=worker_id_provider)
+            callback = AgentCallbackRequest(
+                session_id="test-session",
+                run_id="test-run",
+                worker_id="original-worker",
+                status="running",  # type: ignore
+                progress=50,
+            )
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+            assert result.status == "received"
+            payload = mock_backend_client.forward_callback.call_args.args[0]
+            assert payload["worker_id"] == "original-worker"
+
+    def test_process_callback_default_uses_shared_worker_id_helper(self) -> None:
+        """Default construction injects worker_id using shared get_worker_id helper."""
+        from app.services.worker_identity import get_worker_id
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "received"}
+        )
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend_client,
+        ):
+            # Construct without worker_id_provider - should default to get_worker_id
+            service = CallbackService()
+            callback = self._create_callback()
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+            assert result.status == "received"
+            payload = mock_backend_client.forward_callback.call_args.args[0]
+            # worker_id should be populated from the shared helper
+            assert payload["worker_id"] == get_worker_id()
+
 
 class TestExportAndForward(unittest.TestCase):
     """Test CallbackService._export_and_forward."""

@@ -57,6 +57,7 @@ class AgentCurrentState(BaseModel):
 class AgentCallbackRequest(BaseModel):
     session_id: str
     run_id: str | None = None
+    worker_id: str | None = None
     time: datetime
     status: CallbackStatus
     progress: int

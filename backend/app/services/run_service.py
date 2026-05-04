@@ -130,6 +130,9 @@ class RunService:
         self, db: Session, run_id: uuid.UUID, request: RunStartRequest
     ) -> RunResponse:
         worker_id = RunWorkerLeasePolicy.normalize_worker_id(request.worker_id)
+        lease_seconds = RunWorkerLeasePolicy.normalize_lease_seconds(
+            request.lease_seconds
+        )
         now = self._clock.now_utc()
 
         db_run = RunRepository.get_by_id(db, run_id)
@@ -146,7 +149,9 @@ class RunService:
             return RunResponse.model_validate(db_run)
 
         db_run.attempts += 1
-        self._run_lifecycle_service.mark_running(db, db_run)
+        self._run_lifecycle_service.mark_running(
+            db, db_run, lease_seconds=lease_seconds
+        )
         db.commit()
         db.refresh(db_run)
         return RunResponse.model_validate(db_run)

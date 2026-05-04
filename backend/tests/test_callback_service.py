@@ -293,6 +293,49 @@ class TestCallbackServiceShouldSkipActiveRunFallback(unittest.TestCase):
         self.assertTrue(result)
 
 
+class TestCallbackServiceIsStaleCallback(unittest.TestCase):
+    """Test _is_stale_callback method."""
+
+    def test_no_run_returns_false(self) -> None:
+        service = CallbackService()
+        callback = create_callback_request(worker_id="worker-1")
+        result = service._is_stale_callback(None, callback)
+        self.assertFalse(result)
+
+    def test_no_worker_id_in_callback_returns_false(self) -> None:
+        service = CallbackService()
+        db_run = MagicMock()
+        db_run.claimed_by = "worker-2"
+        callback = create_callback_request()
+        result = service._is_stale_callback(db_run, callback)
+        self.assertFalse(result)
+
+    def test_worker_id_with_no_claimed_by_returns_true(self) -> None:
+        """After lease expiry, claimed_by is cleared; late callback is stale."""
+        service = CallbackService()
+        db_run = MagicMock()
+        db_run.claimed_by = None
+        callback = create_callback_request(worker_id="worker-1")
+        result = service._is_stale_callback(db_run, callback)
+        self.assertTrue(result)
+
+    def test_matching_worker_id_returns_false(self) -> None:
+        service = CallbackService()
+        db_run = MagicMock()
+        db_run.claimed_by = "worker-1"
+        callback = create_callback_request(worker_id="worker-1")
+        result = service._is_stale_callback(db_run, callback)
+        self.assertFalse(result)
+
+    def test_mismatched_worker_id_returns_true(self) -> None:
+        service = CallbackService()
+        db_run = MagicMock()
+        db_run.claimed_by = "worker-2"
+        callback = create_callback_request(worker_id="worker-1")
+        result = service._is_stale_callback(db_run, callback)
+        self.assertTrue(result)
+
+
 class TestCallbackServiceShouldPreserveExistingReadyWorkspace(unittest.TestCase):
     """Test _should_preserve_existing_ready_workspace method."""
 

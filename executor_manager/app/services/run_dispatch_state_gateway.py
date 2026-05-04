@@ -10,7 +10,9 @@ class RunDispatchStateGateway(Protocol):
         server_name: str,
     ) -> None: ...
 
-    async def start_run(self, *, run_id: Any, worker_id: str) -> None: ...
+    async def start_run(
+        self, *, run_id: Any, worker_id: str, lease_seconds: int | None = None
+    ) -> None: ...
 
     async def fail_run(
         self,
@@ -40,8 +42,12 @@ class BackendRunDispatchStateGateway:
             event_source="executor_manager",
         )
 
-    async def start_run(self, *, run_id: Any, worker_id: str) -> None:
-        await self.backend_client.start_run(run_id=run_id, worker_id=worker_id)
+    async def start_run(
+        self, *, run_id: Any, worker_id: str, lease_seconds: int | None = None
+    ) -> None:
+        await self.backend_client.start_run(
+            run_id=run_id, worker_id=worker_id, lease_seconds=lease_seconds
+        )
 
     async def fail_run(
         self,

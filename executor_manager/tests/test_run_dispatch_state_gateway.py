@@ -43,9 +43,25 @@ async def test_backend_state_gateway_starts_and_fails_run() -> None:
     backend_client.start_run.assert_awaited_once_with(
         run_id="run-1",
         worker_id="worker-1",
+        lease_seconds=None,
     )
     backend_client.fail_run.assert_awaited_once_with(
         run_id="run-1",
         worker_id="worker-1",
         error_message="dispatch failed",
+    )
+
+
+@pytest.mark.asyncio
+async def test_backend_state_gateway_start_run_passes_lease_seconds() -> None:
+    backend_client = MagicMock()
+    backend_client.start_run = AsyncMock()
+    gateway = BackendRunDispatchStateGateway(backend_client)
+
+    await gateway.start_run(run_id="run-1", worker_id="worker-1", lease_seconds=3600)
+
+    backend_client.start_run.assert_awaited_once_with(
+        run_id="run-1",
+        worker_id="worker-1",
+        lease_seconds=3600,
     )

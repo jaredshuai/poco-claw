@@ -348,6 +348,26 @@ class CallbackService:
             usage_json=usage_data,
         )
 
+    def _is_stale_callback(
+        self, db_run: AgentRun | None, callback: AgentCallbackRequest
+    ) -> bool:
+        """Check if callback is from a different worker than the one that owns the run.
+
+        A callback is considered stale if:
+        - The callback has a worker_id but the run has no claimed_by (run was requeued
+          after lease expiry, so late callbacks from the old worker are stale)
+        - The callback has a worker_id that differs from the run's claimed_by
+        """
+        if db_run is None:
+            return False
+        if callback.worker_id is None:
+            # Backward compatibility: callbacks without worker_id are not stale
+            return False
+        if db_run.claimed_by is None:
+            # Run was requeued after lease expiry; late callback from old worker is stale
+            return True
+        return callback.worker_id != db_run.claimed_by
+
     def _should_skip_duplicate_result_message(
         self,
         db: Session,
@@ -532,6 +552,27 @@ class CallbackService:
                 db_session.workspace_export_status = callback.workspace_export_status
 
         if db_run is not None:
+            # Check for stale callback from a different worker
+            if self._is_stale_callback(db_run, callback):
+                logger.info(
+                    "stale_callback_worker_mismatch",
+                    extra={
+                        "session_id": str(db_session.id),
+                        "run_id": str(db_run.id),
+                        "callback_worker_id": callback.worker_id,
+                        "run_claimed_by": db_run.claimed_by,
+                        "callback_status": callback.status.value,
+                    },
+                )
+                # Skip run status/progress mutation for stale callbacks
+                # but still commit session-level changes like messages
+                db.commit()
+                return CallbackResponse(
+                    session_id=str(db_session.id),
+                    status=db_session.status,
+                    callback_status=callback.status,
+                )
+
             db_run.progress = int(callback.progress or 0)
             if callback.status == CallbackStatus.RUNNING:
                 self._run_lifecycle.mark_running(db, db_run)

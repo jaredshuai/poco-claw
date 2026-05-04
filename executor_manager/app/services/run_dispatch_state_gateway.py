@@ -2,14 +2,6 @@ from typing import Any, Protocol
 
 
 class RunDispatchStateGateway(Protocol):
-    async def record_mcp_staged(
-        self,
-        *,
-        run_id: str,
-        session_id: str,
-        server_name: str,
-    ) -> None: ...
-
     async def record_mcp_staged_servers(
         self,
         *,
@@ -34,21 +26,6 @@ class RunDispatchStateGateway(Protocol):
 class BackendRunDispatchStateGateway:
     def __init__(self, backend_client: Any) -> None:
         self.backend_client = backend_client
-
-    async def record_mcp_staged(
-        self,
-        *,
-        run_id: str,
-        session_id: str,
-        server_name: str,
-    ) -> None:
-        await self.backend_client.record_mcp_transition(
-            run_id=run_id,
-            session_id=session_id,
-            server_name=server_name,
-            to_state="staged",
-            event_source="executor_manager",
-        )
 
     async def record_mcp_staged_servers(
         self,

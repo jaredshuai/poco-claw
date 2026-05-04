@@ -6,27 +6,6 @@ from app.services.run_dispatch_state_gateway import BackendRunDispatchStateGatew
 
 
 @pytest.mark.asyncio
-async def test_backend_state_gateway_records_mcp_staged_transition() -> None:
-    backend_client = MagicMock()
-    backend_client.record_mcp_transition = AsyncMock()
-    gateway = BackendRunDispatchStateGateway(backend_client)
-
-    await gateway.record_mcp_staged(
-        run_id="run-1",
-        session_id="sess-1",
-        server_name="server-a",
-    )
-
-    backend_client.record_mcp_transition.assert_awaited_once_with(
-        run_id="run-1",
-        session_id="sess-1",
-        server_name="server-a",
-        to_state="staged",
-        event_source="executor_manager",
-    )
-
-
-@pytest.mark.asyncio
 async def test_backend_state_gateway_records_mcp_staged_servers_batch() -> None:
     backend_client = MagicMock()
     backend_client.record_mcp_transition = AsyncMock()

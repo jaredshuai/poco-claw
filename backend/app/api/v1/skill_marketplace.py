@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.skill_import import SkillImportDiscoverResponse
 from app.schemas.skill_marketplace import (
@@ -39,11 +40,11 @@ def get_import_service() -> SkillImportService:
     response_model=ResponseSchema[SkillsMpMarketplaceStatusResponse],
 )
 async def get_skills_marketplace_status(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_skillsmp_service()
-    result = service.get_marketplace_status(db, user_id=user_id)
+    result = service.get_marketplace_status(db, user_id=actor.user_id)
     return Response.success(data=result, message="SkillsMP marketplace status loaded")
 
 
@@ -56,13 +57,13 @@ async def search_skills_marketplace(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=12, ge=1, le=50),
     semantic: bool = Query(default=False),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_skillsmp_service()
     result = await service.search(
         db=db,
-        user_id=user_id,
+        user_id=actor.user_id,
         query=q,
         page=page,
         page_size=page_size,
@@ -79,13 +80,13 @@ async def search_skills_marketplace(
 )
 async def list_skills_marketplace_recommendations(
     limit: int = Query(default=9, ge=1, le=24),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_skillsmp_service()
     result = await service.list_recommendations(
         db=db,
-        user_id=user_id,
+        user_id=actor.user_id,
         limit=limit,
     )
     return Response.success(
@@ -100,7 +101,7 @@ async def list_skills_marketplace_recommendations(
 )
 def discover_skills_marketplace_import(
     request: SkillsMpImportDiscoverRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     service = get_skillsmp_service()
@@ -109,7 +110,7 @@ def discover_skills_marketplace_import(
     archive_source = service.build_import_source(request.item)
     result = importer.discover(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         file=None,
         github_url=github_url,
         archive_source_override=archive_source,

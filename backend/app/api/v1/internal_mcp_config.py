@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db, require_internal_token
+from app.core.deps import get_db, get_internal_actor
+from app.core.identity import Actor
 from app.schemas.mcp_config import McpConfigResolveRequest
 from app.schemas.response import Response, ResponseSchema
 from app.services.mcp_config_service import McpConfigService
@@ -18,12 +19,11 @@ service = McpConfigService()
 )
 async def resolve_mcp_config(
     request: McpConfigResolveRequest,
-    _: None = Depends(require_internal_token),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_internal_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Resolve effective MCP config for execution based on selected server ids."""
     resolved = service.resolve_user_mcp_config(
-        db=db, user_id=user_id, server_ids=request.server_ids
+        db=db, user_id=actor.user_id, server_ids=request.server_ids
     )
     return Response.success(data=resolved, message="MCP config resolved")

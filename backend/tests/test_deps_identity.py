@@ -3,7 +3,12 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.deps import DEFAULT_USER_ID, get_current_actor, get_current_user_id
+from app.core.deps import (
+    DEFAULT_USER_ID,
+    get_current_actor,
+    get_current_user_id,
+    get_internal_actor,
+)
 from app.core.errors.exceptions import AppException
 
 
@@ -207,3 +212,83 @@ def test_get_current_actor_internal_token_normalizes_tenant_id():
             x_tenant_id="  tenant-456  ",
         )
         assert actor.tenant_id == "tenant-456"
+
+
+# Tests for get_internal_actor
+
+
+def test_get_internal_actor_returns_actor_with_internal_token_auth_source():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        actor = get_internal_actor(
+            x_user_id="worker-user",
+            x_internal_token="internal-token",
+        )
+        assert actor.user_id == "worker-user"
+        assert actor.auth_source == "internal_token"
+        assert actor.tenant_id is None
+        assert actor.roles == ()
+        assert actor.scopes == ()
+
+
+def test_get_internal_actor_trims_user_id_whitespace():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        actor = get_internal_actor(
+            x_user_id="  worker-user  ",
+            x_internal_token="internal-token",
+        )
+        assert actor.user_id == "worker-user"
+
+
+def test_get_internal_actor_parses_roles_and_scopes():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        actor = get_internal_actor(
+            x_user_id="worker-user",
+            x_internal_token="internal-token",
+            x_tenant_id="  tenant-789  ",
+            x_user_roles="admin, editor",
+            x_user_scopes="read, write, delete",
+        )
+        assert actor.tenant_id == "tenant-789"
+        assert actor.roles == ("admin", "editor")
+        assert actor.scopes == ("read", "write", "delete")
+
+
+def test_get_internal_actor_rejects_missing_user_id():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            get_internal_actor(x_internal_token="internal-token")
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+        assert "User identity is required" in exc_info.value.message
+
+
+def test_get_internal_actor_rejects_missing_internal_token():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            get_internal_actor(x_user_id="worker-user")
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+
+
+def test_get_internal_actor_rejects_invalid_internal_token():
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with pytest.raises(AppException) as exc_info:
+            get_internal_actor(
+                x_user_id="worker-user",
+                x_internal_token="wrong-token",
+            )
+        assert exc_info.value.error_code.name == "FORBIDDEN"
+
+
+def test_get_internal_actor_rejects_trusted_user_id_token_without_internal_token():
+    """Proves get_internal_actor does not accept X-User-Id-Token as an alternative.
+
+    Unlike get_current_actor, get_internal_actor only validates via X-Internal-Token.
+    The function signature does not include x_user_id_token, so even a valid trusted
+    user header token cannot authenticate the request.
+    """
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        # get_internal_actor does not accept x_user_id_token parameter at all,
+        # proving it cannot use the proxy-token trust path.
+        # Passing only user_id without internal_token should fail.
+        with pytest.raises(AppException) as exc_info:
+            get_internal_actor(x_user_id="proxy-user")
+        assert exc_info.value.error_code.name == "FORBIDDEN"

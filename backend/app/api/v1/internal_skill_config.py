@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db, require_internal_token
+from app.core.deps import get_db, get_internal_actor
+from app.core.identity import Actor
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.skill_config import SkillConfigResolveRequest
 from app.services.skill_config_service import SkillConfigService
@@ -18,11 +19,10 @@ service = SkillConfigService()
 )
 async def resolve_skill_config(
     request: SkillConfigResolveRequest,
-    _: None = Depends(require_internal_token),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_internal_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     resolved = service.resolve_user_skill_files(
-        db=db, user_id=user_id, skill_ids=request.skill_ids
+        db=db, user_id=actor.user_id, skill_ids=request.skill_ids
     )
     return Response.success(data=resolved, message="Skill config resolved")

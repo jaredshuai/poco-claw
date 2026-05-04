@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db, require_internal_token
+from app.core.deps import get_db, get_internal_actor, require_internal_token
+from app.core.identity import Actor
 from app.schemas.env_var import (
     SystemEnvVarCreateRequest,
     SystemEnvVarResponse,
@@ -18,11 +19,10 @@ env_var_service = EnvVarService()
 
 @router.get("/env-vars/map", response_model=ResponseSchema[dict[str, str]])
 async def get_env_map(
-    _: None = Depends(require_internal_token),
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_internal_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    env_map = env_var_service.get_env_map(db, user_id=user_id)
+    env_map = env_var_service.get_env_map(db, user_id=actor.user_id)
     return Response.success(data=env_map, message="Env map retrieved")
 
 

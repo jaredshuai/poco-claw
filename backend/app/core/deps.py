@@ -144,6 +144,47 @@ def require_internal_token(
         )
 
 
+def get_internal_actor(
+    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+    x_internal_token: Annotated[str | None, Header(alias="X-Internal-Token")] = None,
+    x_tenant_id: Annotated[str | None, Header(alias="X-Tenant-Id")] = None,
+    x_user_roles: Annotated[str | None, Header(alias="X-User-Roles")] = None,
+    x_user_scopes: Annotated[str | None, Header(alias="X-User-Scopes")] = None,
+) -> Actor:
+    """FastAPI dependency for internal user-scoped endpoints.
+
+    Validates X-Internal-Token and requires a non-empty X-User-Id.
+    Does NOT accept X-User-Id-Token as an alternative trust path.
+    """
+    settings = get_settings()
+    internal_api_token = (settings.internal_api_token or "").strip()
+    if not internal_api_token:
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Internal API token is not configured",
+        )
+    if not _token_matches(x_internal_token, internal_api_token):
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="Invalid internal token",
+        )
+
+    user_id = (x_user_id or "").strip()
+    if not user_id:
+        raise AppException(
+            error_code=ErrorCode.FORBIDDEN,
+            message="User identity is required",
+        )
+
+    return Actor(
+        user_id=user_id,
+        tenant_id=_normalize_tenant_id(x_tenant_id),
+        roles=_parse_csv_header(x_user_roles),
+        scopes=_parse_csv_header(x_user_scopes),
+        auth_source="internal_token",
+    )
+
+
 def get_user_id_by_session_id(
     session_id: uuid.UUID,
     db: Session = Depends(get_db),

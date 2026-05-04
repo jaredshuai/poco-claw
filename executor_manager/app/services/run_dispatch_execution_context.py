@@ -10,6 +10,7 @@ class RunDispatchExecutionContext:
     callback_url: str
     callback_token: str
     task_lease_secret: str
+    running_lease_seconds: int
 
 
 class RunDispatchExecutionContextProvider(Protocol):
@@ -30,4 +31,7 @@ class SettingsRunDispatchExecutionContextProvider:
             callback_url=f"{callback_base_url}/api/v1/callback",
             callback_token=self.settings.callback_token,
             task_lease_secret=resolve_executor_task_lease_secret(self.settings),
+            running_lease_seconds=max(
+                1, int(getattr(self.settings, "task_timeout_seconds", 3600))
+            ),
         )

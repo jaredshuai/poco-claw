@@ -21,6 +21,7 @@ def _make_dispatch_service(
         callback_base_url="http://manager.local",
         callback_token="callback-token",
         executor_task_lease_secret="lease-secret",
+        task_timeout_seconds=3600,
     )
     backend_client = MagicMock()
     backend_client.resolve_slash_commands = AsyncMock(return_value={})
@@ -396,6 +397,7 @@ async def test_dispatch_claim_uses_injected_execution_context_provider() -> None
             callback_url="http://provider.local/callback",
             callback_token="provider-token",
             task_lease_secret="provider-lease-secret",
+            running_lease_seconds=5400,
         )
     )
     service = _make_dispatch_service(
@@ -417,6 +419,42 @@ async def test_dispatch_claim_uses_injected_execution_context_provider() -> None
     assert call_kwargs["callback_token"] == "provider-token"
     assert call_kwargs["task_lease_secret"] == "provider-lease-secret"
     assert call_kwargs["callback_base_url"] == "http://provider.local"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_uses_running_lease_from_execution_context() -> None:
+    execution_context_provider = MagicMock()
+    execution_context_provider.get_context = MagicMock(
+        return_value=RunDispatchExecutionContext(
+            callback_base_url="http://provider.local",
+            callback_url="http://provider.local/callback",
+            callback_token="provider-token",
+            task_lease_secret="provider-lease-secret",
+            running_lease_seconds=5400,
+        )
+    )
+    state_gateway = MagicMock()
+    state_gateway.record_mcp_staged_servers = AsyncMock()
+    state_gateway.start_run = AsyncMock()
+    state_gateway.fail_run = AsyncMock()
+    service = _make_dispatch_service(
+        execution_context_provider=execution_context_provider,
+        state_gateway=state_gateway,
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    state_gateway.start_run.assert_awaited_once_with(
+        run_id="run-123",
+        worker_id="worker-1",
+        lease_seconds=5400,
+    )
 
 
 def test_create_default_accepts_adapter_factories() -> None:

@@ -683,6 +683,7 @@ class TestTaskDispatcherDispatch:
                 callback_url="http://provider.local/callback",
                 callback_token="provider-token",
                 task_lease_secret="provider-lease-token",
+                running_lease_seconds=3600,
             )
         )
 

@@ -489,6 +489,8 @@ class RunDispatchService:
             "user_id": user_id,
         }
 
+        runtime_allocated = False
+
         try:
             resolved_config = await self.config_preparer.prepare_config(
                 user_id=user_id,
@@ -509,6 +511,7 @@ class RunDispatchService:
                 container_mode=container_mode,
                 container_id=container_id,
             )
+            runtime_allocated = True
             logger.info(
                 "timing",
                 extra={
@@ -599,12 +602,8 @@ class RunDispatchService:
                 logger.error(f"Failed to mark run {run_id} as failed: {fail_err}")
 
             try:
-                if self._runtime is not None:
-                    await self._runtime.cancel_runtime(session_id)
-                elif self._container_pool is not None:
-                    await ContainerPoolRunDispatchRuntime(
-                        self._container_pool
-                    ).cancel_runtime(session_id)
+                if runtime_allocated:
+                    await self.runtime.cancel_runtime(session_id)
             except Exception as cancel_err:
                 logger.error(
                     f"Failed to cancel task for session {session_id}: {cancel_err}"

@@ -733,6 +733,36 @@ async def test_dispatch_claim_fails_and_cancels_when_start_run_fails() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dispatch_claim_does_not_cancel_runtime_when_prepare_config_fails() -> (
+    None
+):
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock()
+    runtime.cancel_runtime = AsyncMock()
+    config_preparer = MagicMock()
+    config_preparer.prepare_config = AsyncMock(side_effect=RuntimeError("prep failed"))
+    state_gateway = MagicMock()
+    state_gateway.fail_run = AsyncMock()
+    service = _make_dispatch_service(
+        runtime=runtime,
+        config_preparer=config_preparer,
+        state_gateway=state_gateway,
+    )
+    claim = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    runtime.allocate_runtime.assert_not_awaited()
+    runtime.cancel_runtime.assert_not_awaited()
+    state_gateway.fail_run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_claim_starts_run_before_executor_execute_task() -> None:
     service = _make_dispatch_service()
     call_order: list[str] = []

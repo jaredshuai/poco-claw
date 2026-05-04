@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.deps import get_current_user_id
+from app.core.deps import get_current_actor
+from app.core.identity import Actor
 from app.schemas.audio import AudioTranscriptionResponse
 from app.schemas.response import Response, ResponseSchema
 from app.services.audio_transcription_service import AudioTranscriptionService
@@ -18,7 +19,7 @@ audio_transcription_service = AudioTranscriptionService()
 async def transcribe_audio(
     file: UploadFile = File(...),
     language: str | None = Form(default=None),
-    user_id: str = Depends(get_current_user_id),
+    _actor: Actor = Depends(get_current_actor),
 ) -> JSONResponse:
     result = await audio_transcription_service.transcribe(
         file=file,

@@ -355,6 +355,7 @@ class TestTaskDispatcherDispatch:
         settings.callback_token = "token-123"
         settings.executor_task_lease_secret = "lease-token"
         settings.task_timeout_seconds = 3600
+        settings.task_timeout_seconds = 3600
 
         mock_executor_client = MagicMock()
         mock_executor_client.execute_task = AsyncMock()

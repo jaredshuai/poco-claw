@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.slash_command import (
     SlashCommandCreateRequest,
@@ -21,10 +22,10 @@ config_service = SlashCommandConfigService()
 
 @router.get("", response_model=ResponseSchema[list[SlashCommandResponse]])
 async def list_slash_commands(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.list_commands(db, user_id=user_id)
+    result = service.list_commands(db, user_id=actor.user_id)
     return Response.success(data=result, message="Slash commands retrieved")
 
 
@@ -33,30 +34,30 @@ async def list_slash_commands(
     response_model=ResponseSchema[list[SlashCommandSuggestionResponse]],
 )
 async def list_slash_command_suggestions(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = config_service.list_suggestions(db, user_id=user_id)
+    result = config_service.list_suggestions(db, user_id=actor.user_id)
     return Response.success(data=result, message="Slash command suggestions retrieved")
 
 
 @router.get("/{command_id}", response_model=ResponseSchema[SlashCommandResponse])
 async def get_slash_command(
     command_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.get_command(db, user_id=user_id, command_id=command_id)
+    result = service.get_command(db, user_id=actor.user_id, command_id=command_id)
     return Response.success(data=result, message="Slash command retrieved")
 
 
 @router.post("", response_model=ResponseSchema[SlashCommandResponse])
 async def create_slash_command(
     request: SlashCommandCreateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.create_command(db, user_id=user_id, request=request)
+    result = service.create_command(db, user_id=actor.user_id, request=request)
     return Response.success(data=result, message="Slash command created")
 
 
@@ -64,12 +65,12 @@ async def create_slash_command(
 async def update_slash_command(
     command_id: int,
     request: SlashCommandUpdateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = service.update_command(
         db,
-        user_id=user_id,
+        user_id=actor.user_id,
         command_id=command_id,
         request=request,
     )
@@ -79,8 +80,8 @@ async def update_slash_command(
 @router.delete("/{command_id}", response_model=ResponseSchema[dict])
 async def delete_slash_command(
     command_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    service.delete_command(db, user_id=user_id, command_id=command_id)
+    service.delete_command(db, user_id=actor.user_id, command_id=command_id)
     return Response.success(data={"id": command_id}, message="Slash command deleted")

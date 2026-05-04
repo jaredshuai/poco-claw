@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user_id, get_db
+from app.core.deps import get_current_actor, get_db
+from app.core.identity import Actor
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.execution_settings import SkillManifestValidationResponse
 from app.schemas.skill import (
@@ -20,40 +21,40 @@ service = SkillService()
 
 @router.get("", response_model=ResponseSchema[list[SkillResponse]])
 async def list_skills(
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.list_skills(db, user_id=user_id)
+    result = service.list_skills(db, user_id=actor.user_id)
     return Response.success(data=result, message="Skills retrieved")
 
 
 @router.get("/{skill_id}", response_model=ResponseSchema[SkillResponse])
 async def get_skill(
     skill_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.get_skill(db, user_id, skill_id)
+    result = service.get_skill(db, actor.user_id, skill_id)
     return Response.success(data=result, message="Skill retrieved")
 
 
 @router.get("/{skill_id}/files", response_model=ResponseSchema[list[FileNode]])
 async def list_skill_files(
     skill_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.list_skill_files(db, user_id, skill_id)
+    result = service.list_skill_files(db, actor.user_id, skill_id)
     return Response.success(data=result, message="Skill files retrieved")
 
 
 @router.post("", response_model=ResponseSchema[SkillResponse])
 async def create_skill(
     request: SkillCreateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.create_skill(db, user_id, request)
+    result = service.create_skill(db, actor.user_id, request)
     return Response.success(data=result, message="Skill created")
 
 
@@ -61,20 +62,20 @@ async def create_skill(
 async def update_skill(
     skill_id: int,
     request: SkillUpdateRequest,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.update_skill(db, user_id, skill_id, request)
+    result = service.update_skill(db, actor.user_id, skill_id, request)
     return Response.success(data=result, message="Skill updated")
 
 
 @router.delete("/{skill_id}", response_model=ResponseSchema[dict])
 async def delete_skill(
     skill_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    service.delete_skill(db, user_id, skill_id)
+    service.delete_skill(db, actor.user_id, skill_id)
     return Response.success(data={"id": skill_id}, message="Skill deleted")
 
 
@@ -84,8 +85,8 @@ async def delete_skill(
 )
 async def validate_skill_manifest(
     skill_id: int,
-    user_id: str = Depends(get_current_user_id),
+    actor: Actor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    result = service.validate_manifest(db, user_id, skill_id)
+    result = service.validate_manifest(db, actor.user_id, skill_id)
     return Response.success(data=result, message="Skill manifest validated")

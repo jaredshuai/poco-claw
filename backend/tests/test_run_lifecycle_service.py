@@ -3,7 +3,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-from app.services.run_lifecycle_service import RunLifecycleService
+from app.services.run_lifecycle_service import (
+    FinalizeTerminalResult,
+    RunLifecycleService,
+)
 
 
 class FixedClock:
@@ -197,7 +200,29 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
 
         result = self.service.finalize_terminal(self.db, db_run, status="completed")
 
-        self.assertEqual(result, (None, None))
+        self.assertIsInstance(result, FinalizeTerminalResult)
+        self.assertIsNone(result.session)
+        self.assertIsNone(result.promoted_run)
+        self.assertFalse(result.transition_applied)
+
+    @patch("app.services.run_lifecycle_service.SessionRepository")
+    def test_already_terminal_returns_transition_not_applied(
+        self, mock_repo: MagicMock
+    ) -> None:
+        db_session = MagicMock()
+        mock_repo.get_by_id_for_update.return_value = db_session
+
+        db_run = MagicMock()
+        db_run.session_id = uuid.uuid4()
+        db_run.status = "completed"  # Already terminal
+        db_run.last_error = None
+
+        result = self.service.finalize_terminal(self.db, db_run, status="completed")
+
+        self.assertIsInstance(result, FinalizeTerminalResult)
+        self.assertEqual(result.session, db_session)
+        self.assertIsNone(result.promoted_run)
+        self.assertFalse(result.transition_applied)
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_completed_status(self, mock_repo: MagicMock) -> None:
@@ -211,8 +236,12 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
 
         self.queue_service.promote_next_if_available.return_value = None
 
-        self.service.finalize_terminal(self.db, db_run, status="completed")
+        result = self.service.finalize_terminal(self.db, db_run, status="completed")
 
+        self.assertIsInstance(result, FinalizeTerminalResult)
+        self.assertEqual(result.session, db_session)
+        self.assertIsNone(result.promoted_run)
+        self.assertTrue(result.transition_applied)
         self.assertEqual(db_run.status, "completed")
         self.assertEqual(db_run.progress, 100)
         self.assertEqual(db_run.finished_at, self.now)
@@ -227,10 +256,12 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         db_run.status = "running"
         db_run.finished_at = None
 
-        self.service.finalize_terminal(
+        result = self.service.finalize_terminal(
             self.db, db_run, status="failed", error_message="Error message"
         )
 
+        self.assertIsInstance(result, FinalizeTerminalResult)
+        self.assertTrue(result.transition_applied)
         self.assertEqual(db_run.status, "failed")
         self.assertEqual(db_run.last_error, "Error message")
         self.assertEqual(db_run.finished_at, self.now)
@@ -246,11 +277,32 @@ class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):
         db_run.status = "running"
         db_run.finished_at = None
 
-        self.service.finalize_terminal(self.db, db_run, status="canceled")
+        result = self.service.finalize_terminal(self.db, db_run, status="canceled")
 
+        self.assertIsInstance(result, FinalizeTerminalResult)
+        self.assertTrue(result.transition_applied)
         self.assertEqual(db_run.status, "canceled")
         self.assertEqual(db_run.finished_at, self.now)
         self.queue_service.cancel_active_items.assert_called_once()
+
+    @patch("app.services.run_lifecycle_service.SessionRepository")
+    def test_returns_promoted_run(self, mock_repo: MagicMock) -> None:
+        db_session = MagicMock()
+        mock_repo.get_by_id_for_update.return_value = db_session
+
+        db_run = MagicMock()
+        db_run.session_id = uuid.uuid4()
+        db_run.status = "running"
+        db_run.finished_at = None
+
+        promoted_run = MagicMock()
+        self.queue_service.promote_next_if_available.return_value = promoted_run
+
+        result = self.service.finalize_terminal(self.db, db_run, status="completed")
+
+        self.assertIsInstance(result, FinalizeTerminalResult)
+        self.assertTrue(result.transition_applied)
+        self.assertEqual(result.promoted_run, promoted_run)
 
 
 if __name__ == "__main__":

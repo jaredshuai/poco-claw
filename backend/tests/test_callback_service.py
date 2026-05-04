@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from app.schemas.callback import AgentCallbackRequest, CallbackStatus
 from app.services.callback_service import CallbackService
+from app.services.run_lifecycle_service import FinalizeTerminalResult
 
 
 class FixedClock:
@@ -1326,6 +1327,133 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
             db,
             session=db_session,
         )
+
+    def test_skips_enqueue_run_terminal_for_already_terminal_run(self) -> None:
+        """CallbackService skips enqueue_run_terminal for duplicate terminal callback."""
+        db = MagicMock()
+        im_event_service = MagicMock()
+        run_lifecycle_service = MagicMock()
+        # Simulate finalize_terminal returning transition_applied=False
+        run_lifecycle_service.finalize_terminal.return_value = FinalizeTerminalResult(
+            session=MagicMock(),
+            promoted_run=None,
+            transition_applied=False,
+        )
+        pending_skill_creation_service = MagicMock()
+        service = CallbackService(
+            im_event_service=im_event_service,
+            run_lifecycle_service=run_lifecycle_service,
+            pending_skill_creation_service=pending_skill_creation_service,
+        )
+        db_session = create_mock_db_session()
+        db_run = MagicMock()
+        db_run.id = uuid.uuid4()
+        db_run.status = "completed"  # Already terminal
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, db_run)
+
+            with patch("app.services.deliverable_detection_service.S3StorageService"):
+                callback = create_callback_request(status=CallbackStatus.COMPLETED)
+                service.process_agent_callback(db, callback)
+
+        # Should NOT enqueue terminal event for already-terminal run
+        im_event_service.enqueue_run_terminal.assert_not_called()
+
+    def test_runs_pending_skill_detection_for_already_terminal_run(self) -> None:
+        """CallbackService still runs pending skill detection for terminal callback on already-terminal run."""
+        db = MagicMock()
+        im_event_service = MagicMock()
+        run_lifecycle_service = MagicMock()
+        # Simulate finalize_terminal returning transition_applied=False
+        run_lifecycle_service.finalize_terminal.return_value = FinalizeTerminalResult(
+            session=MagicMock(),
+            promoted_run=None,
+            transition_applied=False,
+        )
+        pending_skill_creation_service = MagicMock()
+        service = CallbackService(
+            im_event_service=im_event_service,
+            run_lifecycle_service=run_lifecycle_service,
+            pending_skill_creation_service=pending_skill_creation_service,
+        )
+        db_session = create_mock_db_session()
+        db_run = MagicMock()
+        db_run.id = uuid.uuid4()
+        db_run.status = "completed"  # Already terminal
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, db_run)
+
+            with patch("app.services.deliverable_detection_service.S3StorageService"):
+                callback = create_callback_request(status=CallbackStatus.COMPLETED)
+                service.process_agent_callback(db, callback)
+
+        # Should still run pending skill detection
+        pending_skill_creation_service.detect_and_create_pending.assert_called_once_with(
+            db,
+            session=db_session,
+        )
+
+    def test_enqueues_run_terminal_when_transition_applied(self) -> None:
+        """CallbackService enqueues run_terminal when transition actually applied."""
+        db = MagicMock()
+        im_event_service = MagicMock()
+        run_lifecycle_service = MagicMock()
+        # Simulate finalize_terminal returning transition_applied=True
+        run_lifecycle_service.finalize_terminal.return_value = FinalizeTerminalResult(
+            session=MagicMock(),
+            promoted_run=None,
+            transition_applied=True,
+        )
+        pending_skill_creation_service = MagicMock()
+        service = CallbackService(
+            im_event_service=im_event_service,
+            run_lifecycle_service=run_lifecycle_service,
+            pending_skill_creation_service=pending_skill_creation_service,
+        )
+        db_session = create_mock_db_session()
+        db_run = MagicMock()
+        db_run.id = uuid.uuid4()
+        db_run.status = "running"
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, db_run)
+
+            with patch("app.services.deliverable_detection_service.S3StorageService"):
+                callback = create_callback_request(status=CallbackStatus.COMPLETED)
+                service.process_agent_callback(db, callback)
+
+        # Should enqueue terminal event for actual transition
+        im_event_service.enqueue_run_terminal.assert_called_once()
+
+    def test_no_run_fallback_enqueues_terminal(self) -> None:
+        """CallbackService enqueues run_terminal when no-run fallback applies terminal status."""
+        db = MagicMock()
+        im_event_service = MagicMock()
+        pending_skill_creation_service = MagicMock()
+        service = CallbackService(
+            im_event_service=im_event_service,
+            pending_skill_creation_service=pending_skill_creation_service,
+        )
+        db_session = create_mock_db_session()
+
+        with patch.object(service, "_resolve_session_and_run") as mock_resolve:
+            mock_resolve.return_value = (db_session, None)  # No run
+
+            with patch("app.services.callback_service.RunRepository") as run_repo:
+                run_repo.get_unfinished_by_session.return_value = (
+                    None  # No unfinished run
+                )
+                run_repo.get_blocking_by_session.return_value = MagicMock()
+                with patch(
+                    "app.services.deliverable_detection_service.S3StorageService"
+                ):
+                    callback = create_callback_request(status=CallbackStatus.COMPLETED)
+                    service.process_agent_callback(db, callback)
+
+        # Should enqueue terminal event when no-run fallback applies terminal session status
+        im_event_service.enqueue_run_terminal.assert_called_once()
 
 
 class TestExtractVisibleMessageText(unittest.TestCase):

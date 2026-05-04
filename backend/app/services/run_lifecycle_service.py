@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import timedelta
 
 from sqlalchemy.orm import Session
@@ -8,6 +9,22 @@ from app.repositories.scheduled_task_repository import ScheduledTaskRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.clock import Clock, SystemClock
 from app.services.session_queue_service import SessionQueueService
+
+
+@dataclass(frozen=True, slots=True)
+class FinalizeTerminalResult:
+    """Result of a finalize_terminal call.
+
+    Attributes:
+        session: The database session (db_session), or None if not found.
+        promoted_run: The run promoted from queue, if any.
+        transition_applied: True if a terminal transition was actually applied,
+            False if the run was already terminal or session not found.
+    """
+
+    session: AgentSession | None
+    promoted_run: AgentRun | None
+    transition_applied: bool
 
 
 class RunLifecycleService:
@@ -77,17 +94,25 @@ class RunLifecycleService:
         *,
         status: str,
         error_message: str | None = None,
-    ) -> tuple[AgentSession | None, AgentRun | None]:
+    ) -> FinalizeTerminalResult:
         db_session = SessionRepository.get_by_id_for_update(db, db_run.session_id)
         if not db_session:
-            return None, None
+            return FinalizeTerminalResult(
+                session=None,
+                promoted_run=None,
+                transition_applied=False,
+            )
 
         if db_run.status in self.TERMINAL_STATUSES:
             if status == "failed" and error_message and not db_run.last_error:
                 db_run.last_error = error_message
             self._sync_scheduled_task_last_status(db, db_run)
             db.flush()
-            return db_session, None
+            return FinalizeTerminalResult(
+                session=db_session,
+                promoted_run=None,
+                transition_applied=False,
+            )
 
         now = self._clock.now_utc()
         db_run.status = status
@@ -115,4 +140,8 @@ class RunLifecycleService:
 
         self._sync_scheduled_task_last_status(db, db_run)
         db.flush()
-        return db_session, promoted_run
+        return FinalizeTerminalResult(
+            session=db_session,
+            promoted_run=promoted_run,
+            transition_applied=True,
+        )

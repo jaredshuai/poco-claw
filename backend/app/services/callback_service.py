@@ -551,6 +551,8 @@ class CallbackService:
             if callback.workspace_export_status is not None:
                 db_session.workspace_export_status = callback.workspace_export_status
 
+        terminal_transition_applied = False
+
         if db_run is not None:
             # Check for stale callback from a different worker
             if self._is_stale_callback(db_run, callback):
@@ -573,27 +575,33 @@ class CallbackService:
                     callback_status=callback.status,
                 )
 
-            db_run.progress = int(callback.progress or 0)
             if callback.status == CallbackStatus.RUNNING:
+                db_run.progress = int(callback.progress or 0)
                 self._run_lifecycle.mark_running(db, db_run)
             elif callback.status == CallbackStatus.COMPLETED:
-                db_run.progress = 100
-                self._run_lifecycle.finalize_terminal(
+                result = self._run_lifecycle.finalize_terminal(
                     db,
                     db_run,
                     status=callback.status.value,
                 )
+                terminal_transition_applied = result.transition_applied
+                if terminal_transition_applied:
+                    db_run.progress = 100
             elif callback.status == CallbackStatus.FAILED:
-                self._run_lifecycle.finalize_terminal(
+                result = self._run_lifecycle.finalize_terminal(
                     db,
                     db_run,
                     status=callback.status.value,
                     error_message=callback.error_message,
                 )
+                terminal_transition_applied = result.transition_applied
+            else:
+                db_run.progress = int(callback.progress or 0)
         elif callback.status in {CallbackStatus.COMPLETED, CallbackStatus.FAILED}:
             unfinished_run = RunRepository.get_unfinished_by_session(db, db_session.id)
             if unfinished_run is None:
                 db_session.status = callback.status.value
+                terminal_transition_applied = True
 
         if callback.status == CallbackStatus.COMPLETED:
             blocking_run = RunRepository.get_blocking_by_session(
@@ -636,22 +644,23 @@ class CallbackService:
                 )
 
         if callback.status in {CallbackStatus.COMPLETED, CallbackStatus.FAILED}:
-            try:
-                self._im_events.enqueue_run_terminal(
-                    db,
-                    db_session=db_session,
-                    db_run=db_run,
-                    callback=callback,
-                )
-            except Exception:
-                logger.exception(
-                    "im_event_enqueue_failed",
-                    extra={
-                        "event_type": "run.terminal",
-                        "session_id": str(db_session.id),
-                        "run_id": str(db_run.id) if db_run is not None else None,
-                    },
-                )
+            if terminal_transition_applied:
+                try:
+                    self._im_events.enqueue_run_terminal(
+                        db,
+                        db_session=db_session,
+                        db_run=db_run,
+                        callback=callback,
+                    )
+                except Exception:
+                    logger.exception(
+                        "im_event_enqueue_failed",
+                        extra={
+                            "event_type": "run.terminal",
+                            "session_id": str(db_session.id),
+                            "run_id": str(db_run.id) if db_run is not None else None,
+                        },
+                    )
             self._pending_skill_creation.detect_and_create_pending(
                 db,
                 session=db_session,

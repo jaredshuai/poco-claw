@@ -2,6 +2,7 @@ from app.core.database import Base, TimestampMixin
 
 from app.models.agent_message import AgentMessage
 from app.models.agent_run import AgentRun
+from app.models.agent_run_lifecycle_event import AgentRunLifecycleEvent
 from app.models.agent_run_mcp_connection import AgentRunMcpConnection
 from app.models.agent_run_mcp_connection_event import AgentRunMcpConnectionEvent
 from app.models.permission_audit_event import PermissionAuditEvent
@@ -47,6 +48,7 @@ __all__ = [
     "ActiveSession",
     "AgentMessage",
     "AgentRun",
+    "AgentRunLifecycleEvent",
     "AgentRunMcpConnection",
     "AgentRunMcpConnectionEvent",
     "PermissionAuditEvent",

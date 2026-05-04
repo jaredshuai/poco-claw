@@ -21,6 +21,7 @@ from app.services.deliverable_detection_service import DeliverableDetectionServi
 from app.services.mcp_connection_service import McpConnectionService
 from app.services.clock import Clock, SystemClock
 from app.services.run_lifecycle_service import RunLifecycleService
+from app.services.run_lifecycle_event_service import RunLifecycleEventService
 from app.services.im import ImEventService
 from app.services.pending_skill_creation_service import PendingSkillCreationService
 from app.services.session_queue_service import SessionQueueService
@@ -37,6 +38,7 @@ class CallbackService:
         self,
         clock: Clock | None = None,
         run_lifecycle_service: RunLifecycleService | None = None,
+        run_lifecycle_event_service: RunLifecycleEventService | None = None,
         session_queue_service: SessionQueueService | None = None,
         session_service: SessionService | None = None,
         pending_skill_creation_service: PendingSkillCreationService | None = None,
@@ -46,6 +48,9 @@ class CallbackService:
     ) -> None:
         self._clock = clock or SystemClock()
         self._run_lifecycle = run_lifecycle_service or RunLifecycleService()
+        self._run_lifecycle_events = (
+            run_lifecycle_event_service or RunLifecycleEventService()
+        )
         self._session_queue = session_queue_service or SessionQueueService()
         self._session_service = session_service or SessionService()
         self._pending_skill_creation = (
@@ -566,6 +571,21 @@ class CallbackService:
                         "callback_status": callback.status.value,
                     },
                 )
+                # Record audit event for stale callback
+                self._run_lifecycle_events.record_event(
+                    db,
+                    run_id=db_run.id,
+                    session_id=db_session.id,
+                    event_type="stale_callback_ignored",
+                    event_source="callback_service",
+                    from_status=db_run.status,
+                    to_status=callback.status.value,
+                    worker_id=callback.worker_id,
+                    claimed_by=db_run.claimed_by,
+                    context={
+                        "callback_status": callback.status.value,
+                    },
+                )
                 # Skip run status/progress mutation for stale callbacks
                 # but still commit session-level changes like messages
                 db.commit()
@@ -587,6 +607,20 @@ class CallbackService:
                 terminal_transition_applied = result.transition_applied
                 if terminal_transition_applied:
                     db_run.progress = 100
+                else:
+                    # Record audit event for duplicate terminal callback
+                    self._run_lifecycle_events.record_event(
+                        db,
+                        run_id=db_run.id,
+                        session_id=db_session.id,
+                        event_type="duplicate_terminal_ignored",
+                        event_source="callback_service",
+                        from_status=db_run.status,
+                        to_status=callback.status.value,
+                        context={
+                            "callback_status": callback.status.value,
+                        },
+                    )
             elif callback.status == CallbackStatus.FAILED:
                 result = self._run_lifecycle.finalize_terminal(
                     db,
@@ -595,6 +629,21 @@ class CallbackService:
                     error_message=callback.error_message,
                 )
                 terminal_transition_applied = result.transition_applied
+                if not terminal_transition_applied:
+                    # Record audit event for duplicate terminal callback
+                    self._run_lifecycle_events.record_event(
+                        db,
+                        run_id=db_run.id,
+                        session_id=db_session.id,
+                        event_type="duplicate_terminal_ignored",
+                        event_source="callback_service",
+                        from_status=db_run.status,
+                        to_status=callback.status.value,
+                        context={
+                            "callback_status": callback.status.value,
+                            "error_message": callback.error_message,
+                        },
+                    )
             else:
                 db_run.progress = int(callback.progress or 0)
         elif callback.status in {CallbackStatus.COMPLETED, CallbackStatus.FAILED}:

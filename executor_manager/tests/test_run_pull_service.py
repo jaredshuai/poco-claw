@@ -133,6 +133,62 @@ class TestRunPullServiceDependencies(unittest.TestCase):
             "RunPullBackendClientPort",
         ]
 
+    def test_run_pull_service_settings_is_named_protocol_not_any(self) -> None:
+        """Regression test: RunPullServiceSettings should be a named Protocol, not Any."""
+        from typing import Protocol, get_type_hints
+
+        from app.services.run_pull_service import RunPullServiceSettings
+
+        # RunPullServiceSettings should be a Protocol class
+        assert issubclass(RunPullServiceSettings, Protocol)
+
+        # It should have the expected attributes
+        hints = get_type_hints(RunPullServiceSettings)
+        assert "max_concurrent_tasks" in hints
+        assert "task_claim_lease_seconds" in hints
+
+    def test_run_pull_service_init_settings_annotation_not_any(self) -> None:
+        """Regression test: RunPullService.__init__.settings should not be Any."""
+        import inspect
+        from typing import Any
+
+        sig = inspect.signature(RunPullService.__init__)
+        settings_param = sig.parameters["settings"]
+        settings_annotation = settings_param.annotation
+
+        assert settings_annotation is not Any
+        hint_str = str(settings_annotation)
+        assert "Any" not in hint_str
+        assert "RunPullServiceSettings" in hint_str
+
+    def test_build_run_pull_dispatch_service_settings_annotation_not_any(self) -> None:
+        """Regression test: build_run_pull_dispatch_service.settings should not be Any."""
+        import inspect
+        from typing import Any
+
+        from app.services.run_pull_service import build_run_pull_dispatch_service
+
+        sig = inspect.signature(build_run_pull_dispatch_service)
+        settings_param = sig.parameters["settings"]
+        settings_annotation = settings_param.annotation
+
+        # The annotation should not be Any
+        assert settings_annotation is not Any
+        hint_str = str(settings_annotation)
+        assert "RunPullServiceSettings" in hint_str
+
+    def test_dispatch_service_factory_settings_annotation_not_any(self) -> None:
+        """Regression test: dispatch_service_factory callback settings arg should not be Any."""
+        import inspect
+
+        sig = inspect.signature(RunPullService.__init__)
+        factory_param = sig.parameters["dispatch_service_factory"]
+        factory_annotation = factory_param.annotation
+
+        hint_str = str(factory_annotation)
+        assert "Any" not in hint_str
+        assert "RunPullServiceSettings" in hint_str
+
     def test_constructor_rejects_dispatch_adapter_dependencies(self) -> None:
         """Dispatch adapters belong behind RunDispatchService, not RunPullService."""
         settings = MagicMock(

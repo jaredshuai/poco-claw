@@ -3,7 +3,7 @@ import logging
 import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
@@ -11,6 +11,7 @@ from app.services.clock import Clock, SystemClock
 from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_service import RunDispatchBackendClientPort
 from app.services.run_dispatch_service import RunDispatchService
+from app.services.run_dispatch_service import RunDispatchServiceSettings
 from app.services.run_pull_queue_gateway import (
     BackendRunPullQueueGateway,
     RunPullQueueBackendClient,
@@ -21,6 +22,16 @@ from app.services.worker_identity import get_worker_id
 logger = logging.getLogger(__name__)
 
 __all__ = ["RunPullService", "RunPullDispatchService", "RunPullBackendClientPort"]
+
+
+class RunPullServiceSettings(RunDispatchServiceSettings, Protocol):
+    """Settings port required by RunPullService.
+
+    Combines dispatch service settings with pull-service-specific attributes.
+    """
+
+    max_concurrent_tasks: int
+    task_claim_lease_seconds: int
 
 
 class RunPullDispatchService(Protocol):
@@ -51,7 +62,7 @@ def build_run_pull_backend_client() -> RunPullBackendClientPort:
 
 
 def build_run_pull_dispatch_service(
-    settings: Any, backend_client: RunPullBackendClientPort
+    settings: RunPullServiceSettings, backend_client: RunPullBackendClientPort
 ) -> RunPullDispatchService:
     return RunDispatchService.create_default(
         settings=settings,
@@ -71,7 +82,7 @@ class RunPullService:
     def __init__(
         self,
         *,
-        settings: Any | None = None,
+        settings: RunPullServiceSettings | None = None,
         backend_client: RunPullBackendClientPort | None = None,
         backend_client_factory: Callable[[], RunPullBackendClientPort] | None = None,
         queue_gateway: RunPullQueueGateway | None = None,
@@ -79,12 +90,16 @@ class RunPullService:
         | None = None,
         dispatch_service: RunPullDispatchService | None = None,
         dispatch_service_factory: Callable[
-            [Any, RunPullBackendClientPort], RunPullDispatchService
+            [RunPullServiceSettings, RunPullBackendClientPort], RunPullDispatchService
         ]
         | None = None,
         clock: Clock | None = None,
     ) -> None:
-        self.settings = settings if settings is not None else get_settings()
+        self.settings = (
+            settings
+            if settings is not None
+            else cast(RunPullServiceSettings, get_settings())
+        )
         self._backend_client = backend_client
         self._backend_client_factory = (
             backend_client_factory or build_run_pull_backend_client

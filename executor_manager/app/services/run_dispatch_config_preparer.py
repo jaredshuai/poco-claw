@@ -16,6 +16,61 @@ class RunDispatchConfigPreparer(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class BackendClientPort(Protocol):
+    async def resolve_slash_commands(
+        self, *, user_id: str, skill_names: list[str]
+    ) -> list[dict[str, Any]]: ...
+
+    async def get_claude_md(self, *, user_id: str) -> dict[str, Any]: ...
+
+
+class ConfigResolverPort(Protocol):
+    async def resolve(
+        self,
+        user_id: str,
+        config_snapshot: dict[str, Any],
+        *,
+        session_id: str,
+        run_id: str,
+    ) -> dict[str, Any]: ...
+
+
+class SkillStagerPort(Protocol):
+    def stage_skills(
+        self, *, user_id: str, session_id: str, skills: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+
+class PluginStagerPort(Protocol):
+    def stage_plugins(
+        self, *, user_id: str, session_id: str, plugins: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+
+class AttachmentStagerPort(Protocol):
+    def stage_inputs(
+        self, *, user_id: str, session_id: str, inputs: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]: ...
+
+
+class ClaudeMdStagerPort(Protocol):
+    def stage(
+        self, *, user_id: str, session_id: str, enabled: bool, content: str
+    ) -> dict[str, Any]: ...
+
+
+class SlashCommandStagerPort(Protocol):
+    def stage_commands(
+        self, *, user_id: str, session_id: str, commands: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]: ...
+
+
+class SubagentStagerPort(Protocol):
+    def stage_raw_agents(
+        self, *, user_id: str, session_id: str, raw_agents: dict[str, Any]
+    ) -> list[dict[str, Any]]: ...
+
+
 def _extract_enabled_skill_names(skills: object) -> list[str]:
     if not isinstance(skills, dict):
         return []
@@ -37,14 +92,14 @@ class StagingRunDispatchConfigPreparer:
     def __init__(
         self,
         *,
-        backend_client: Any,
-        config_resolver: Any,
-        skill_stager: Any,
-        plugin_stager: Any,
-        attachment_stager: Any,
-        claude_md_stager: Any,
-        slash_command_stager: Any,
-        subagent_stager: Any,
+        backend_client: BackendClientPort,
+        config_resolver: ConfigResolverPort,
+        skill_stager: SkillStagerPort,
+        plugin_stager: PluginStagerPort,
+        attachment_stager: AttachmentStagerPort,
+        claude_md_stager: ClaudeMdStagerPort,
+        slash_command_stager: SlashCommandStagerPort,
+        subagent_stager: SubagentStagerPort,
     ) -> None:
         self.backend_client = backend_client
         self.config_resolver = config_resolver

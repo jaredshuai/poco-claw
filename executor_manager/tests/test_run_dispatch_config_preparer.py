@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -74,3 +75,32 @@ async def test_prepare_config_resolves_and_stages_executor_assets() -> None:
         session_id="sess-1",
         raw_agents={"agent-a": {"content": "agent"}},
     )
+
+
+def test_constructor_annotations_use_protocols_not_any() -> None:
+    """Assert constructor dependency parameters use Protocol types, not Any."""
+    type_hints = StagingRunDispatchConfigPreparer.__init__.__annotations__
+
+    dependency_params = [
+        "backend_client",
+        "config_resolver",
+        "skill_stager",
+        "plugin_stager",
+        "attachment_stager",
+        "claude_md_stager",
+        "slash_command_stager",
+        "subagent_stager",
+    ]
+
+    for param_name in dependency_params:
+        assert param_name in type_hints, f"Missing annotation for {param_name}"
+        annotation = type_hints[param_name]
+        # Ensure annotation is not Any or Any-derived
+        assert annotation is not Any, f"{param_name} should not be annotated with Any"
+        # Ensure the annotation has a Protocol-like name (not raw Any)
+        assert hasattr(annotation, "__name__"), (
+            f"{param_name} annotation should be a named Protocol"
+        )
+        assert "Port" in annotation.__name__, (
+            f"{param_name} should use a Protocol port type"
+        )

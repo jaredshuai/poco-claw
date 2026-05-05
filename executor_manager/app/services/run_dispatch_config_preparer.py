@@ -18,10 +18,13 @@ class RunDispatchConfigPreparer(Protocol):
 
 class BackendClientPort(Protocol):
     async def resolve_slash_commands(
-        self, *, user_id: str, skill_names: list[str]
-    ) -> list[dict[str, Any]]: ...
+        self,
+        user_id: str,
+        names: list[str] | None = None,
+        skill_names: list[str] | None = None,
+    ) -> dict[str, str]: ...
 
-    async def get_claude_md(self, *, user_id: str) -> dict[str, Any]: ...
+    async def get_claude_md(self, user_id: str) -> dict[str, Any]: ...
 
 
 class ConfigResolverPort(Protocol):
@@ -61,14 +64,14 @@ class ClaudeMdStagerPort(Protocol):
 
 class SlashCommandStagerPort(Protocol):
     def stage_commands(
-        self, *, user_id: str, session_id: str, commands: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]: ...
+        self, *, user_id: str, session_id: str, commands: dict[str, str]
+    ) -> dict[str, str]: ...
 
 
 class SubagentStagerPort(Protocol):
     def stage_raw_agents(
-        self, *, user_id: str, session_id: str, raw_agents: dict[str, Any]
-    ) -> list[dict[str, Any]]: ...
+        self, *, user_id: str, session_id: str, raw_agents: dict[str, str]
+    ) -> dict[str, str]: ...
 
 
 def _extract_enabled_skill_names(skills: object) -> list[str]:

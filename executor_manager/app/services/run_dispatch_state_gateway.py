@@ -36,19 +36,17 @@ class RunDispatchStateBackendClient(Protocol):
 
     async def start_run(
         self,
-        *,
         run_id: Any,
         worker_id: str,
         lease_seconds: int | None = None,
-    ) -> None: ...
+    ) -> Any: ...
 
     async def fail_run(
         self,
-        *,
         run_id: Any,
         worker_id: str,
-        error_message: str,
-    ) -> None: ...
+        error_message: str | None = None,
+    ) -> Any: ...
 
 
 class BackendRunDispatchStateGateway:

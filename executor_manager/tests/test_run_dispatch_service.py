@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from unittest.mock import patch
+import typing
 
 import pytest
 
@@ -809,3 +810,49 @@ async def test_dispatch_claim_passes_dedicated_task_lease_secret() -> None:
     call_kwargs = service.executor_client.execute_task.call_args.kwargs
     assert call_kwargs["callback_token"] == "callback-token"
     assert call_kwargs["task_lease_secret"] == "lease-secret"
+
+
+def test_constructor_uses_port_types_not_any() -> None:
+    """Assert RunDispatchService constructor annotations use Port protocol names."""
+    sig = typing.get_type_hints(RunDispatchService.__init__)
+
+    port_params = [
+        "backend_client",
+        "config_resolver",
+        "skill_stager",
+        "plugin_stager",
+        "attachment_stager",
+        "claude_md_stager",
+        "slash_command_stager",
+        "subagent_stager",
+    ]
+
+    for param in port_params:
+        annotation = sig.get(param)
+        assert annotation is not None, f"{param} should have annotation"
+        annotation_str = str(annotation)
+        assert "Any" not in annotation_str, f"{param} should not use Any"
+        assert "Port" in annotation_str, f"{param} should use Port protocol name"
+
+
+def test_create_default_uses_port_types_not_any() -> None:
+    """Assert create_default parameter annotations use Port protocol names."""
+    sig = typing.get_type_hints(RunDispatchService.create_default)
+
+    port_params = [
+        "backend_client",
+        "config_resolver",
+        "skill_stager",
+        "plugin_stager",
+        "attachment_stager",
+        "claude_md_stager",
+        "slash_command_stager",
+        "subagent_stager",
+    ]
+
+    for param in port_params:
+        annotation = sig.get(param)
+        assert annotation is not None, f"{param} should have annotation"
+        annotation_str = str(annotation)
+        assert "Any" not in annotation_str, f"{param} should not use Any"
+        assert "Port" in annotation_str, f"{param} should use Port protocol name"

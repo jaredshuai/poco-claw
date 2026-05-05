@@ -1,20 +1,29 @@
 import logging
 import time
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, Protocol
 
 from app.core.settings import get_settings
 from app.scheduler.task_dispatcher import TaskDispatcher
 from app.services.attachment_stager import AttachmentStager
 from app.services.backend_client import BackendClient
 from app.services.claude_md_stager import ClaudeMdStager
+from app.services.config_resolver import ConfigBackendClient
 from app.services.config_resolver import ConfigResolver
 from app.services.executor_client import ExecutorClient
 from app.services.plugin_stager import PluginStager
 from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_config_preparer import (
+    AttachmentStagerPort,
+    BackendClientPort,
+    ClaudeMdStagerPort,
+    ConfigResolverPort,
+    PluginStagerPort,
     RunDispatchConfigPreparer,
+    SlashCommandStagerPort,
+    SkillStagerPort,
     StagingRunDispatchConfigPreparer,
+    SubagentStagerPort,
 )
 from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
@@ -31,6 +40,7 @@ from app.services.run_dispatch_runtime import (
 )
 from app.services.run_dispatch_state_gateway import (
     BackendRunDispatchStateGateway,
+    RunDispatchStateBackendClient,
     RunDispatchStateGateway,
 )
 from app.services.skill_stager import SkillStager
@@ -40,7 +50,16 @@ from app.services.sub_agent_stager import SubAgentStager
 logger = logging.getLogger(__name__)
 
 
-def build_run_dispatch_backend_client() -> BackendClient:
+class RunDispatchBackendClientPort(
+    BackendClientPort,
+    ConfigBackendClient,
+    RunDispatchStateBackendClient,
+    Protocol,
+):
+    pass
+
+
+def build_run_dispatch_backend_client() -> RunDispatchBackendClientPort:
     return BackendClient()
 
 
@@ -49,7 +68,7 @@ def build_run_dispatch_executor_client() -> ExecutorClient:
 
 
 def build_run_dispatch_config_resolver(
-    backend_client: Any, settings: Any
+    backend_client: RunDispatchBackendClientPort, settings: Any
 ) -> ConfigResolver:
     return ConfigResolver(backend_client, settings=settings)
 
@@ -89,30 +108,35 @@ class RunDispatchService:
         self,
         *,
         settings: Any,
-        backend_client: Any | None = None,
+        backend_client: RunDispatchBackendClientPort | None = None,
         executor_client: Any | None = None,
-        config_resolver: Any | None = None,
-        skill_stager: Any | None = None,
-        plugin_stager: Any | None = None,
-        attachment_stager: Any | None = None,
-        claude_md_stager: Any | None = None,
-        slash_command_stager: Any | None = None,
-        subagent_stager: Any | None = None,
+        config_resolver: ConfigResolverPort | None = None,
+        skill_stager: SkillStagerPort | None = None,
+        plugin_stager: PluginStagerPort | None = None,
+        attachment_stager: AttachmentStagerPort | None = None,
+        claude_md_stager: ClaudeMdStagerPort | None = None,
+        slash_command_stager: SlashCommandStagerPort | None = None,
+        subagent_stager: SubagentStagerPort | None = None,
         container_pool: RunDispatchContainerPool | None = None,
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
-        backend_client_factory: Callable[[], Any] | None = None,
+        backend_client_factory: Callable[[], RunDispatchBackendClientPort]
+        | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
-        config_resolver_factory: Callable[[Any, Any], Any] | None = None,
-        skill_stager_factory: Callable[[], Any] | None = None,
-        plugin_stager_factory: Callable[[], Any] | None = None,
-        attachment_stager_factory: Callable[[], Any] | None = None,
-        claude_md_stager_factory: Callable[[], Any] | None = None,
-        slash_command_stager_factory: Callable[[], Any] | None = None,
-        subagent_stager_factory: Callable[[], Any] | None = None,
+        config_resolver_factory: Callable[
+            [RunDispatchBackendClientPort, Any], ConfigResolverPort
+        ]
+        | None = None,
+        skill_stager_factory: Callable[[], SkillStagerPort] | None = None,
+        plugin_stager_factory: Callable[[], PluginStagerPort] | None = None,
+        attachment_stager_factory: Callable[[], AttachmentStagerPort] | None = None,
+        claude_md_stager_factory: Callable[[], ClaudeMdStagerPort] | None = None,
+        slash_command_stager_factory: Callable[[], SlashCommandStagerPort]
+        | None = None,
+        subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
@@ -177,13 +201,13 @@ class RunDispatchService:
         )
 
     @property
-    def backend_client(self) -> Any:
+    def backend_client(self) -> RunDispatchBackendClientPort:
         if self._backend_client is None:
             self._backend_client = self._backend_client_factory()
         return self._backend_client
 
     @backend_client.setter
-    def backend_client(self, value: Any) -> None:
+    def backend_client(self, value: RunDispatchBackendClientPort) -> None:
         self._backend_client = value
 
     @property
@@ -293,7 +317,7 @@ class RunDispatchService:
         self._execution_context_provider = value
 
     @property
-    def config_resolver(self) -> Any:
+    def config_resolver(self) -> ConfigResolverPort:
         if self._config_resolver is None:
             self._config_resolver = self._config_resolver_factory(
                 self.backend_client,
@@ -302,67 +326,67 @@ class RunDispatchService:
         return self._config_resolver
 
     @config_resolver.setter
-    def config_resolver(self, value: Any) -> None:
+    def config_resolver(self, value: ConfigResolverPort) -> None:
         self._config_resolver = value
 
     @property
-    def skill_stager(self) -> Any:
+    def skill_stager(self) -> SkillStagerPort:
         if self._skill_stager is None:
             self._skill_stager = self._skill_stager_factory()
         return self._skill_stager
 
     @skill_stager.setter
-    def skill_stager(self, value: Any) -> None:
+    def skill_stager(self, value: SkillStagerPort) -> None:
         self._skill_stager = value
 
     @property
-    def plugin_stager(self) -> Any:
+    def plugin_stager(self) -> PluginStagerPort:
         if self._plugin_stager is None:
             self._plugin_stager = self._plugin_stager_factory()
         return self._plugin_stager
 
     @plugin_stager.setter
-    def plugin_stager(self, value: Any) -> None:
+    def plugin_stager(self, value: PluginStagerPort) -> None:
         self._plugin_stager = value
 
     @property
-    def attachment_stager(self) -> Any:
+    def attachment_stager(self) -> AttachmentStagerPort:
         if self._attachment_stager is None:
             self._attachment_stager = self._attachment_stager_factory()
         return self._attachment_stager
 
     @attachment_stager.setter
-    def attachment_stager(self, value: Any) -> None:
+    def attachment_stager(self, value: AttachmentStagerPort) -> None:
         self._attachment_stager = value
 
     @property
-    def claude_md_stager(self) -> Any:
+    def claude_md_stager(self) -> ClaudeMdStagerPort:
         if self._claude_md_stager is None:
             self._claude_md_stager = self._claude_md_stager_factory()
         return self._claude_md_stager
 
     @claude_md_stager.setter
-    def claude_md_stager(self, value: Any) -> None:
+    def claude_md_stager(self, value: ClaudeMdStagerPort) -> None:
         self._claude_md_stager = value
 
     @property
-    def slash_command_stager(self) -> Any:
+    def slash_command_stager(self) -> SlashCommandStagerPort:
         if self._slash_command_stager is None:
             self._slash_command_stager = self._slash_command_stager_factory()
         return self._slash_command_stager
 
     @slash_command_stager.setter
-    def slash_command_stager(self, value: Any) -> None:
+    def slash_command_stager(self, value: SlashCommandStagerPort) -> None:
         self._slash_command_stager = value
 
     @property
-    def subagent_stager(self) -> Any:
+    def subagent_stager(self) -> SubagentStagerPort:
         if self._subagent_stager is None:
             self._subagent_stager = self._subagent_stager_factory()
         return self._subagent_stager
 
     @subagent_stager.setter
-    def subagent_stager(self, value: Any) -> None:
+    def subagent_stager(self, value: SubagentStagerPort) -> None:
         self._subagent_stager = value
 
     @classmethod
@@ -370,30 +394,35 @@ class RunDispatchService:
         cls,
         *,
         settings: Any | None = None,
-        backend_client: Any | None = None,
+        backend_client: RunDispatchBackendClientPort | None = None,
         executor_client: Any | None = None,
         container_pool: RunDispatchContainerPool | None = None,
-        config_resolver: Any | None = None,
-        skill_stager: Any | None = None,
-        plugin_stager: Any | None = None,
-        attachment_stager: Any | None = None,
-        claude_md_stager: Any | None = None,
-        slash_command_stager: Any | None = None,
-        subagent_stager: Any | None = None,
+        config_resolver: ConfigResolverPort | None = None,
+        skill_stager: SkillStagerPort | None = None,
+        plugin_stager: PluginStagerPort | None = None,
+        attachment_stager: AttachmentStagerPort | None = None,
+        claude_md_stager: ClaudeMdStagerPort | None = None,
+        slash_command_stager: SlashCommandStagerPort | None = None,
+        subagent_stager: SubagentStagerPort | None = None,
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
-        backend_client_factory: Callable[[], Any] | None = None,
+        backend_client_factory: Callable[[], RunDispatchBackendClientPort]
+        | None = None,
         executor_client_factory: Callable[[], Any] | None = None,
-        config_resolver_factory: Callable[[Any, Any], Any] | None = None,
-        skill_stager_factory: Callable[[], Any] | None = None,
-        plugin_stager_factory: Callable[[], Any] | None = None,
-        attachment_stager_factory: Callable[[], Any] | None = None,
-        claude_md_stager_factory: Callable[[], Any] | None = None,
-        slash_command_stager_factory: Callable[[], Any] | None = None,
-        subagent_stager_factory: Callable[[], Any] | None = None,
+        config_resolver_factory: Callable[
+            [RunDispatchBackendClientPort, Any], ConfigResolverPort
+        ]
+        | None = None,
+        skill_stager_factory: Callable[[], SkillStagerPort] | None = None,
+        plugin_stager_factory: Callable[[], PluginStagerPort] | None = None,
+        attachment_stager_factory: Callable[[], AttachmentStagerPort] | None = None,
+        claude_md_stager_factory: Callable[[], ClaudeMdStagerPort] | None = None,
+        slash_command_stager_factory: Callable[[], SlashCommandStagerPort]
+        | None = None,
+        subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,

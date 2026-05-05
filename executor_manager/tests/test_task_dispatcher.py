@@ -1608,5 +1608,143 @@ class TestTaskDispatcherDispatch:
                                                 mock_executor_client.execute_task.assert_called_once()
 
 
+class TestTaskDispatchDependenciesPortAnnotations:
+    """Test that TaskDispatchDependencies uses port types instead of Any."""
+
+    def test_backend_client_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        # Strip Optional wrapper to get the inner type
+        backend_hint = hints.get("backend_client")
+        assert backend_hint is not None
+        # Check it's the port type, not Any
+        assert "TaskDispatchBackendClientPort" in str(backend_hint)
+
+    def test_config_resolver_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        config_resolver_hint = hints.get("config_resolver")
+        assert config_resolver_hint is not None
+        assert "ConfigResolverPort" in str(config_resolver_hint)
+
+    def test_skill_stager_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        skill_stager_hint = hints.get("skill_stager")
+        assert skill_stager_hint is not None
+        assert "SkillStagerPort" in str(skill_stager_hint)
+
+    def test_plugin_stager_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        plugin_stager_hint = hints.get("plugin_stager")
+        assert plugin_stager_hint is not None
+        assert "PluginStagerPort" in str(plugin_stager_hint)
+
+    def test_attachment_stager_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        attachment_stager_hint = hints.get("attachment_stager")
+        assert attachment_stager_hint is not None
+        assert "AttachmentStagerPort" in str(attachment_stager_hint)
+
+    def test_claude_md_stager_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        claude_md_stager_hint = hints.get("claude_md_stager")
+        assert claude_md_stager_hint is not None
+        assert "ClaudeMdStagerPort" in str(claude_md_stager_hint)
+
+    def test_slash_command_stager_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        slash_command_stager_hint = hints.get("slash_command_stager")
+        assert slash_command_stager_hint is not None
+        assert "SlashCommandStagerPort" in str(slash_command_stager_hint)
+
+    def test_subagent_stager_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        subagent_stager_hint = hints.get("subagent_stager")
+        assert subagent_stager_hint is not None
+        assert "SubagentStagerPort" in str(subagent_stager_hint)
+
+
+class TestBuildTaskDispatchDependenciesPortAnnotations:
+    """Test that build_task_dispatch_dependencies factory uses port types."""
+
+    def test_backend_client_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        backend_factory_hint = hints.get("backend_client_factory")
+        assert backend_factory_hint is not None
+        assert "TaskDispatchBackendClientPort" in str(backend_factory_hint)
+
+    def test_config_resolver_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        config_resolver_factory_hint = hints.get("config_resolver_factory")
+        assert config_resolver_factory_hint is not None
+        assert "ConfigResolverPort" in str(config_resolver_factory_hint)
+
+    def test_skill_stager_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        skill_stager_factory_hint = hints.get("skill_stager_factory")
+        assert skill_stager_factory_hint is not None
+        assert "SkillStagerPort" in str(skill_stager_factory_hint)
+
+    def test_plugin_stager_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        plugin_stager_factory_hint = hints.get("plugin_stager_factory")
+        assert plugin_stager_factory_hint is not None
+        assert "PluginStagerPort" in str(plugin_stager_factory_hint)
+
+    def test_attachment_stager_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        attachment_stager_factory_hint = hints.get("attachment_stager_factory")
+        assert attachment_stager_factory_hint is not None
+        assert "AttachmentStagerPort" in str(attachment_stager_factory_hint)
+
+    def test_claude_md_stager_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        claude_md_stager_factory_hint = hints.get("claude_md_stager_factory")
+        assert claude_md_stager_factory_hint is not None
+        assert "ClaudeMdStagerPort" in str(claude_md_stager_factory_hint)
+
+    def test_slash_command_stager_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        slash_command_stager_factory_hint = hints.get("slash_command_stager_factory")
+        assert slash_command_stager_factory_hint is not None
+        assert "SlashCommandStagerPort" in str(slash_command_stager_factory_hint)
+
+    def test_subagent_stager_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        subagent_stager_factory_hint = hints.get("subagent_stager_factory")
+        assert subagent_stager_factory_hint is not None
+        assert "SubagentStagerPort" in str(subagent_stager_factory_hint)
+
+
 if __name__ == "__main__":
     unittest.main()

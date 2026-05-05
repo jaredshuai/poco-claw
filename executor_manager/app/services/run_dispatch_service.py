@@ -26,6 +26,7 @@ from app.services.run_dispatch_execution_context import (
 )
 from app.services.run_dispatch_runtime import (
     ContainerPoolRunDispatchRuntime,
+    RunDispatchContainerPool,
     RunDispatchRuntime,
 )
 from app.services.run_dispatch_state_gateway import (
@@ -77,7 +78,7 @@ def build_run_dispatch_subagent_stager() -> SubAgentStager:
     return SubAgentStager()
 
 
-def build_run_dispatch_container_pool() -> Any:
+def build_run_dispatch_container_pool() -> RunDispatchContainerPool:
     return TaskDispatcher.get_container_pool()
 
 
@@ -97,7 +98,7 @@ class RunDispatchService:
         claude_md_stager: Any | None = None,
         slash_command_stager: Any | None = None,
         subagent_stager: Any | None = None,
-        container_pool: Any | None = None,
+        container_pool: RunDispatchContainerPool | None = None,
         runtime: RunDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
@@ -112,7 +113,7 @@ class RunDispatchService:
         claude_md_stager_factory: Callable[[], Any] | None = None,
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
-        container_pool_factory: Callable[[], Any] | None = None,
+        container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
@@ -196,13 +197,13 @@ class RunDispatchService:
         self._executor_client = value
 
     @property
-    def container_pool(self) -> Any:
+    def container_pool(self) -> RunDispatchContainerPool:
         if self._container_pool is None:
             self._container_pool = self._container_pool_factory()
         return self._container_pool
 
     @container_pool.setter
-    def container_pool(self, value: Any) -> None:
+    def container_pool(self, value: RunDispatchContainerPool) -> None:
         self._container_pool = value
 
     @property
@@ -371,7 +372,7 @@ class RunDispatchService:
         settings: Any | None = None,
         backend_client: Any | None = None,
         executor_client: Any | None = None,
-        container_pool: Any | None = None,
+        container_pool: RunDispatchContainerPool | None = None,
         config_resolver: Any | None = None,
         skill_stager: Any | None = None,
         plugin_stager: Any | None = None,
@@ -393,7 +394,7 @@ class RunDispatchService:
         claude_md_stager_factory: Callable[[], Any] | None = None,
         slash_command_stager_factory: Callable[[], Any] | None = None,
         subagent_stager_factory: Callable[[], Any] | None = None,
-        container_pool_factory: Callable[[], Any] | None = None,
+        container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,

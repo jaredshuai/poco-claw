@@ -1,4 +1,18 @@
-from typing import Any, Protocol
+from typing import Protocol
+
+
+class RunDispatchContainerPool(Protocol):
+    async def get_or_create_container(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        browser_enabled: bool,
+        container_mode: str,
+        container_id: str | None,
+    ) -> tuple[str, str | None]: ...
+
+    async def cancel_task(self, session_id: str) -> None: ...
 
 
 class RunDispatchRuntime(Protocol):
@@ -16,7 +30,7 @@ class RunDispatchRuntime(Protocol):
 
 
 class ContainerPoolRunDispatchRuntime:
-    def __init__(self, container_pool: Any) -> None:
+    def __init__(self, container_pool: RunDispatchContainerPool) -> None:
         self.container_pool = container_pool
 
     async def allocate_runtime(

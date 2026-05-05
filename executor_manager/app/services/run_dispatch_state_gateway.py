@@ -23,8 +23,36 @@ class RunDispatchStateGateway(Protocol):
     ) -> None: ...
 
 
+class RunDispatchStateBackendClient(Protocol):
+    async def record_mcp_transition(
+        self,
+        *,
+        run_id: str,
+        session_id: str,
+        server_name: str,
+        to_state: str,
+        event_source: str,
+    ) -> None: ...
+
+    async def start_run(
+        self,
+        *,
+        run_id: Any,
+        worker_id: str,
+        lease_seconds: int | None = None,
+    ) -> None: ...
+
+    async def fail_run(
+        self,
+        *,
+        run_id: Any,
+        worker_id: str,
+        error_message: str,
+    ) -> None: ...
+
+
 class BackendRunDispatchStateGateway:
-    def __init__(self, backend_client: Any) -> None:
+    def __init__(self, backend_client: RunDispatchStateBackendClient) -> None:
         self.backend_client = backend_client
 
     async def record_mcp_staged_servers(

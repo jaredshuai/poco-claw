@@ -1,4 +1,8 @@
-from typing import Any, Protocol
+from typing import Protocol
+
+
+class BackendClientPort(Protocol):
+    async def update_session_status(self, session_id: str, status: str) -> None: ...
 
 
 class TaskDispatchStateGateway(Protocol):
@@ -8,7 +12,7 @@ class TaskDispatchStateGateway(Protocol):
 
 
 class BackendTaskDispatchStateGateway:
-    def __init__(self, backend_client: Any) -> None:
+    def __init__(self, backend_client: BackendClientPort) -> None:
         self.backend_client = backend_client
 
     async def mark_running(self, *, session_id: str) -> None:

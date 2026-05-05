@@ -573,6 +573,60 @@ class TestTaskDispatcherDispatch:
             mock_runtime.cancel_task.assert_not_awaited()
             mock_executor_client.execute_task.assert_awaited_once()
 
+    async def test_dispatch_does_not_cancel_runtime_when_config_prepare_fails(
+        self,
+    ) -> None:
+        settings = MagicMock()
+        settings.callback_base_url = "http://callback"
+        settings.callback_token = "token-123"
+        settings.executor_task_lease_secret = "lease-token"
+
+        mock_executor_client = MagicMock()
+        mock_executor_client.execute_task = AsyncMock()
+
+        mock_backend_client = MagicMock()
+        mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+        mock_backend_client.update_session_status = AsyncMock()
+
+        mock_config_preparer = MagicMock()
+        mock_config_preparer.prepare_config = AsyncMock(
+            side_effect=RuntimeError("prepare failed")
+        )
+
+        mock_state_gateway = MagicMock()
+        mock_state_gateway.mark_running = AsyncMock()
+        mock_state_gateway.mark_failed = AsyncMock()
+
+        mock_runtime = MagicMock()
+        mock_runtime.resolve_executor_target = AsyncMock(
+            return_value=("http://executor:8080", "container-123")
+        )
+        mock_runtime.cancel_task = AsyncMock()
+
+        dependencies = TaskDispatchDependencies(
+            executor_client=mock_executor_client,
+            backend_client=mock_backend_client,
+            config_preparer=mock_config_preparer,
+            state_gateway=mock_state_gateway,
+            runtime=mock_runtime,
+        )
+
+        with pytest.raises(RuntimeError, match="prepare failed"):
+            await TaskDispatcher.dispatch(
+                task_id="task-123",
+                session_id="session-456",
+                prompt="Hello",
+                config={"user_id": "user-789"},
+                dependencies=dependencies,
+                settings=settings,
+            )
+
+        mock_runtime.resolve_executor_target.assert_not_awaited()
+        mock_runtime.cancel_task.assert_not_awaited()
+        mock_state_gateway.mark_failed.assert_awaited_once_with(
+            session_id="session-456"
+        )
+
     async def test_dispatch_uses_injected_settings_boundary(self) -> None:
         """Test dispatch can receive settings without reading global settings."""
         settings = MagicMock()

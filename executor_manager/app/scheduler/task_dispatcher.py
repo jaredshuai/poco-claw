@@ -524,6 +524,7 @@ class TaskDispatcher:
         container_id = config.get("container_id")
 
         executor_url = None
+        runtime_resolved = False
         request_id_token = set_request_id(
             request_id or get_request_id() or generate_request_id()
         )
@@ -562,6 +563,7 @@ class TaskDispatcher:
                 container_mode=container_mode,
                 container_id=container_id,
             )
+            runtime_resolved = True
             logger.info(
                 "timing",
                 extra={
@@ -629,7 +631,8 @@ class TaskDispatcher:
         except Exception as e:
             logger.error(f"Failed to dispatch task {task_id}: {e}")
             await state_gateway.mark_failed(session_id=session_id)
-            await runtime.cancel_task(session_id)
+            if runtime_resolved:
+                await runtime.cancel_task(session_id)
             raise
         finally:
             reset_request_id(request_id_token)

@@ -9,16 +9,18 @@ from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
 from app.services.clock import Clock, SystemClock
 from app.services.run_dispatch_claim import RunDispatchClaim
+from app.services.run_dispatch_service import RunDispatchBackendClientPort
 from app.services.run_dispatch_service import RunDispatchService
 from app.services.run_pull_queue_gateway import (
     BackendRunPullQueueGateway,
+    RunPullQueueBackendClient,
     RunPullQueueGateway,
 )
 from app.services.worker_identity import get_worker_id
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RunPullService", "RunPullDispatchService"]
+__all__ = ["RunPullService", "RunPullDispatchService", "RunPullBackendClientPort"]
 
 
 class RunPullDispatchService(Protocol):
@@ -34,12 +36,22 @@ class RunPullDispatchService(Protocol):
         ...
 
 
-def build_run_pull_backend_client() -> Any:
+class RunPullBackendClientPort(
+    RunPullQueueBackendClient,
+    RunDispatchBackendClientPort,
+    Protocol,
+):
+    """Combined backend client port for RunPullService dependencies."""
+
+    pass
+
+
+def build_run_pull_backend_client() -> RunPullBackendClientPort:
     return BackendClient()
 
 
 def build_run_pull_dispatch_service(
-    settings: Any, backend_client: Any
+    settings: Any, backend_client: RunPullBackendClientPort
 ) -> RunPullDispatchService:
     return RunDispatchService.create_default(
         settings=settings,
@@ -47,7 +59,9 @@ def build_run_pull_dispatch_service(
     )
 
 
-def build_run_pull_queue_gateway(backend_client: Any) -> RunPullQueueGateway:
+def build_run_pull_queue_gateway(
+    backend_client: RunPullBackendClientPort,
+) -> RunPullQueueGateway:
     return BackendRunPullQueueGateway(backend_client)
 
 
@@ -58,12 +72,15 @@ class RunPullService:
         self,
         *,
         settings: Any | None = None,
-        backend_client: Any | None = None,
-        backend_client_factory: Callable[[], Any] | None = None,
+        backend_client: RunPullBackendClientPort | None = None,
+        backend_client_factory: Callable[[], RunPullBackendClientPort] | None = None,
         queue_gateway: RunPullQueueGateway | None = None,
-        queue_gateway_factory: Callable[[Any], RunPullQueueGateway] | None = None,
+        queue_gateway_factory: Callable[[RunPullBackendClientPort], RunPullQueueGateway]
+        | None = None,
         dispatch_service: RunPullDispatchService | None = None,
-        dispatch_service_factory: Callable[[Any, Any], RunPullDispatchService]
+        dispatch_service_factory: Callable[
+            [Any, RunPullBackendClientPort], RunPullDispatchService
+        ]
         | None = None,
         clock: Clock | None = None,
     ) -> None:
@@ -92,7 +109,7 @@ class RunPullService:
         self._inflight_run_ids: set[str] = set()
         self._inflight_lock = asyncio.Lock()
 
-    def _get_backend_client(self) -> Any:
+    def _get_backend_client(self) -> RunPullBackendClientPort:
         if self._backend_client is None:
             self._backend_client = self._backend_client_factory()
         return self._backend_client

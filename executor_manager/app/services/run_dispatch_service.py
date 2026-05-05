@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable, Mapping
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from app.core.settings import get_settings
 from app.scheduler.task_dispatcher import TaskDispatcher
@@ -32,6 +32,7 @@ from app.services.run_dispatch_executor_gateway import (
     RunDispatchExecutorGateway,
 )
 from app.services.run_dispatch_execution_context import (
+    RunDispatchExecutionContextSettings,
     RunDispatchExecutionContextProvider,
     SettingsRunDispatchExecutionContextProvider,
 )
@@ -50,6 +51,16 @@ from app.services.slash_command_stager import SlashCommandStager
 from app.services.sub_agent_stager import SubAgentStager
 
 logger = logging.getLogger(__name__)
+
+
+class RunDispatchServiceSettings(
+    ConfigResolverSettings,
+    RunDispatchExecutionContextSettings,
+    Protocol,
+):
+    """Settings port required by RunDispatchService."""
+
+    pass
 
 
 class RunDispatchBackendClientPort(
@@ -109,7 +120,7 @@ class RunDispatchService:
     def __init__(
         self,
         *,
-        settings: Any,
+        settings: RunDispatchServiceSettings,
         backend_client: RunDispatchBackendClientPort | None = None,
         executor_client: RunDispatchExecutorClientPort | None = None,
         config_resolver: ConfigResolverPort | None = None,
@@ -396,7 +407,7 @@ class RunDispatchService:
     def create_default(
         cls,
         *,
-        settings: Any | None = None,
+        settings: RunDispatchServiceSettings | None = None,
         backend_client: RunDispatchBackendClientPort | None = None,
         executor_client: RunDispatchExecutorClientPort | None = None,
         container_pool: RunDispatchContainerPool | None = None,
@@ -438,7 +449,11 @@ class RunDispatchService:
         ]
         | None = None,
     ) -> "RunDispatchService":
-        settings = settings if settings is not None else get_settings()
+        resolved_settings: RunDispatchServiceSettings = (
+            settings
+            if settings is not None
+            else cast(RunDispatchServiceSettings, get_settings())
+        )
         backend_factory = backend_client_factory or build_run_dispatch_backend_client
         executor_factory = executor_client_factory or build_run_dispatch_executor_client
         config_factory = config_resolver_factory or build_run_dispatch_config_resolver
@@ -456,7 +471,7 @@ class RunDispatchService:
         subagent_factory = subagent_stager_factory or build_run_dispatch_subagent_stager
         container_factory = container_pool_factory or build_run_dispatch_container_pool
         return cls(
-            settings=settings,
+            settings=resolved_settings,
             backend_client=backend_client,
             backend_client_factory=backend_factory,
             executor_client=executor_client,

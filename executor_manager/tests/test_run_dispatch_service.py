@@ -914,3 +914,33 @@ def test_config_resolver_factory_uses_config_resolver_settings_not_any() -> None
         assert "ConfigResolverSettings" in annotation_str, (
             f"{method_name} config_resolver_factory should use ConfigResolverSettings"
         )
+
+
+def test_init_settings_uses_named_protocol_not_any() -> None:
+    """Assert __init__ settings parameter uses RunDispatchServiceSettings, not Any."""
+    sig = typing.get_type_hints(RunDispatchService.__init__)
+
+    annotation = sig.get("settings")
+    assert annotation is not None, "__init__ settings should have annotation"
+    annotation_str = str(annotation)
+    assert "Any" not in annotation_str, (
+        "__init__ settings should not use Any annotation"
+    )
+    assert "RunDispatchServiceSettings" in annotation_str, (
+        "__init__ settings should use RunDispatchServiceSettings protocol"
+    )
+
+
+def test_create_default_settings_uses_named_protocol_not_any() -> None:
+    """Assert create_default settings parameter uses RunDispatchServiceSettings, not Any."""
+    sig = typing.get_type_hints(RunDispatchService.create_default)
+
+    annotation = sig.get("settings")
+    assert annotation is not None, "create_default settings should have annotation"
+    annotation_str = str(annotation)
+    assert "Any" not in annotation_str, (
+        "create_default settings should not use Any annotation"
+    )
+    assert "RunDispatchServiceSettings" in annotation_str, (
+        "create_default settings should use RunDispatchServiceSettings protocol"
+    )

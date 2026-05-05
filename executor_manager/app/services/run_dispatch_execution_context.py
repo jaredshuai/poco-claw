@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
 from app.core.settings import resolve_executor_task_lease_secret
 
@@ -17,8 +17,15 @@ class RunDispatchExecutionContextProvider(Protocol):
     def get_context(self) -> RunDispatchExecutionContext: ...
 
 
+class RunDispatchExecutionContextSettings(Protocol):
+    """Protocol for settings required by RunDispatchExecutionContextProvider."""
+
+    callback_base_url: str | None
+    callback_token: str
+
+
 class SettingsRunDispatchExecutionContextProvider:
-    def __init__(self, settings: Any) -> None:
+    def __init__(self, settings: RunDispatchExecutionContextSettings) -> None:
         self.settings = settings
 
     def get_context(self) -> RunDispatchExecutionContext:

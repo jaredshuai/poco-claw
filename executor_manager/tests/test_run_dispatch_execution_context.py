@@ -1,8 +1,10 @@
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from app.services.run_dispatch_execution_context import (
+    RunDispatchExecutionContextSettings,
     SettingsRunDispatchExecutionContextProvider,
 )
 
@@ -49,3 +51,17 @@ def test_settings_execution_context_provider_defaults_running_lease_seconds() ->
     context = provider.get_context()
 
     assert context.running_lease_seconds == 3600
+
+
+def test_constructor_settings_annotation_is_named_protocol_not_any() -> None:
+    """SettingsRunDispatchExecutionContextProvider.__init__ settings must be typed as a named Protocol, not Any."""
+    import inspect
+
+    sig = inspect.signature(SettingsRunDispatchExecutionContextProvider.__init__)
+    param = sig.parameters["settings"]
+    annotation = param.annotation
+
+    assert annotation is not Any, "settings annotation must not be Any"
+    assert annotation is RunDispatchExecutionContextSettings, (
+        "settings annotation must be RunDispatchExecutionContextSettings"
+    )

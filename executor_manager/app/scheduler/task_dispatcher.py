@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from app.core.settings import get_settings
 from app.core.observability.request_context import (
@@ -42,6 +42,7 @@ from app.services.run_dispatch_config_preparer import (
 )
 from app.services.run_dispatch_execution_context import (
     RunDispatchExecutionContextProvider,
+    RunDispatchExecutionContextSettings,
     SettingsRunDispatchExecutionContextProvider,
 )
 from app.services.slash_command_stager import SlashCommandStager
@@ -383,7 +384,9 @@ class TaskDispatchDependencies:
             )
         if self._execution_context_provider is None:
             self._execution_context_provider = (
-                SettingsRunDispatchExecutionContextProvider(self._settings)
+                SettingsRunDispatchExecutionContextProvider(
+                    cast(RunDispatchExecutionContextSettings, self._settings)
+                )
             )
         return self._execution_context_provider
 

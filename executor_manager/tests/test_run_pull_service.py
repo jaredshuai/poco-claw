@@ -189,6 +189,30 @@ class TestRunPullServiceDependencies(unittest.TestCase):
         assert "Any" not in hint_str
         assert "RunPullServiceSettings" in hint_str
 
+    def test_dispatch_claim_parameter_is_run_dispatch_claim_only(self) -> None:
+        """Regression test: dispatch_claim's claim parameter should be RunDispatchClaim only."""
+        import inspect
+        from typing import Any
+
+        from app.services.run_pull_service import RunPullDispatchService
+
+        # Get the dispatch_claim method signature
+        sig = inspect.signature(RunPullDispatchService.dispatch_claim)
+        claim_param = sig.parameters["claim"]
+        claim_annotation = claim_param.annotation
+
+        # The annotation should not be Any
+        assert claim_annotation is not Any
+        hint_str = str(claim_annotation)
+
+        # Should not include raw payload types
+        assert "Any" not in hint_str
+        assert "Mapping" not in hint_str
+        assert "dict" not in hint_str
+
+        # Should be RunDispatchClaim
+        assert "RunDispatchClaim" in hint_str
+
     def test_constructor_rejects_dispatch_adapter_dependencies(self) -> None:
         """Dispatch adapters belong behind RunDispatchService, not RunPullService."""
         settings = MagicMock(

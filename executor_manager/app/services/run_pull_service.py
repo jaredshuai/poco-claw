@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
@@ -39,7 +39,7 @@ class RunPullDispatchService(Protocol):
 
     async def dispatch_claim(
         self,
-        claim: RunDispatchClaim | Mapping[str, Any],
+        claim: RunDispatchClaim,
         *,
         worker_id: str,
     ) -> None:

@@ -10,6 +10,27 @@ from app.services.run_dispatch_execution_context import RunDispatchExecutionCont
 from app.services.run_dispatch_service import RunDispatchService
 
 
+def _make_claim(
+    *,
+    run_id: str = "run-123",
+    session_id: str = "sess-123",
+    user_id: str = "user-123",
+    prompt: str = "do work",
+    config_snapshot: dict | None = None,
+    sdk_session_id: str | None = None,
+    permission_mode: str = "default",
+) -> RunDispatchClaim:
+    return RunDispatchClaim(
+        run_id=run_id,
+        session_id=session_id,
+        user_id=user_id,
+        prompt=prompt,
+        config_snapshot=config_snapshot or {},
+        sdk_session_id=sdk_session_id,
+        permission_mode=permission_mode,
+    )
+
+
 def _make_dispatch_service(
     *,
     runtime: object | None = None,
@@ -105,16 +126,13 @@ async def test_dispatch_claim_delegates_runtime_allocation_to_injected_runtime()
     service.container_pool.get_or_create_container.side_effect = AssertionError(
         "container pool should stay behind runtime port"
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {
+    claim = _make_claim(
+        config_snapshot={
             "container_mode": "persistent",
             "container_id": "existing-container",
             "browser_enabled": True,
         },
-    }
+    )
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -144,12 +162,7 @@ async def test_dispatch_claim_cancels_injected_runtime_when_start_run_fails() ->
     service.container_pool.cancel_task.side_effect = AssertionError(
         "runtime port should own cancellation"
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -179,12 +192,7 @@ async def test_dispatch_claim_delegates_config_preparation_to_injected_port() ->
     service.skill_stager.stage_skills.side_effect = AssertionError(
         "skill stager should stay behind config preparer port"
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {"container_mode": "persistent"},
-    }
+    claim = _make_claim(config_snapshot={"container_mode": "persistent"})
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -237,12 +245,7 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
     service.backend_client.fail_run.side_effect = AssertionError(
         "run failure should stay behind state gateway"
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -287,12 +290,7 @@ async def test_dispatch_claim_does_not_call_per_server_mcp_staged() -> None:
         config_preparer=config_preparer,
         state_gateway=state_gateway,
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -334,17 +332,7 @@ async def test_dispatch_claim_delegates_executor_call_to_injected_gateway() -> N
     service.executor_client.execute_task.side_effect = AssertionError(
         "executor client should stay behind executor gateway"
     )
-    claim = {
-        "run": {
-            "run_id": "run-123",
-            "session_id": "sess-123",
-            "permission_mode": "acceptEdits",
-        },
-        "user_id": "user-123",
-        "prompt": "do work",
-        "sdk_session_id": "sdk-123",
-        "config_snapshot": {},
-    }
+    claim = _make_claim(sdk_session_id="sdk-123", permission_mode="acceptEdits")
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -408,12 +396,7 @@ async def test_dispatch_claim_uses_injected_execution_context_provider() -> None
         execution_context_provider=execution_context_provider
     )
     service.settings.callback_base_url = ""
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -445,12 +428,7 @@ async def test_dispatch_claim_uses_running_lease_from_execution_context() -> Non
         execution_context_provider=execution_context_provider,
         state_gateway=state_gateway,
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -718,12 +696,7 @@ def test_create_default_accepts_lazy_runtime_factory() -> None:
 async def test_dispatch_claim_fails_and_cancels_when_start_run_fails() -> None:
     service = _make_dispatch_service()
     service.backend_client.start_run.side_effect = RuntimeError("start failed")
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -752,12 +725,7 @@ async def test_dispatch_claim_does_not_cancel_runtime_when_prepare_config_fails(
         config_preparer=config_preparer,
         state_gateway=state_gateway,
     )
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -782,12 +750,7 @@ async def test_dispatch_claim_starts_run_before_executor_execute_task() -> None:
 
     service.backend_client.start_run.side_effect = start_run
     service.executor_client.execute_task.side_effect = execute_task
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -797,12 +760,7 @@ async def test_dispatch_claim_starts_run_before_executor_execute_task() -> None:
 @pytest.mark.asyncio
 async def test_dispatch_claim_passes_dedicated_task_lease_secret() -> None:
     service = _make_dispatch_service()
-    claim = {
-        "run": {"run_id": "run-123", "session_id": "sess-123"},
-        "user_id": "user-123",
-        "prompt": "do work",
-        "config_snapshot": {},
-    }
+    claim = _make_claim()
 
     await service.dispatch_claim(claim, worker_id="worker-1")
 
@@ -944,3 +902,79 @@ def test_create_default_settings_uses_named_protocol_not_any() -> None:
     assert "RunDispatchServiceSettings" in annotation_str, (
         "create_default settings should use RunDispatchServiceSettings protocol"
     )
+
+
+def test_dispatch_claim_parameter_uses_run_dispatch_claim_not_raw_types() -> None:
+    """Assert dispatch_claim claim parameter uses RunDispatchClaim, not Any/Mapping/dict."""
+    sig = typing.get_type_hints(RunDispatchService.dispatch_claim)
+
+    annotation = sig.get("claim")
+    assert annotation is not None, "dispatch_claim claim should have annotation"
+    annotation_str = str(annotation)
+    assert "Any" not in annotation_str, (
+        "dispatch_claim claim should not use Any annotation"
+    )
+    assert "Mapping" not in annotation_str, (
+        "dispatch_claim claim should not use Mapping annotation"
+    )
+    assert "dict" not in annotation_str, (
+        "dispatch_claim claim should not use dict annotation"
+    )
+    assert "RunDispatchClaim" in annotation_str, (
+        "dispatch_claim claim should use RunDispatchClaim"
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_rejects_raw_mapping_payload_before_ports_called() -> None:
+    """Assert raw mapping payloads raise TypeError before any ports are called."""
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        side_effect=AssertionError("runtime should not be called for raw payload")
+    )
+    config_preparer = MagicMock()
+    config_preparer.prepare_config = AsyncMock(
+        side_effect=AssertionError(
+            "config_preparer should not be called for raw payload"
+        )
+    )
+    state_gateway = MagicMock()
+    state_gateway.start_run = AsyncMock(
+        side_effect=AssertionError("state_gateway should not be called for raw payload")
+    )
+    executor_gateway = MagicMock()
+    executor_gateway.execute_run = AsyncMock(
+        side_effect=AssertionError(
+            "executor_gateway should not be called for raw payload"
+        )
+    )
+    service = _make_dispatch_service(
+        runtime=runtime,
+        config_preparer=config_preparer,
+        state_gateway=state_gateway,
+        executor_gateway=executor_gateway,
+    )
+    raw_payload = {
+        "run": {"run_id": "run-123", "session_id": "sess-123"},
+        "user_id": "user-123",
+        "prompt": "do work",
+        "config_snapshot": {},
+    }
+
+    with pytest.raises(TypeError, match="RunDispatchClaim"):
+        await service.dispatch_claim(raw_payload, worker_id="worker-1")  # type: ignore[arg-type]
+
+    runtime.allocate_runtime.assert_not_awaited()
+    config_preparer.prepare_config.assert_not_awaited()
+    state_gateway.start_run.assert_not_awaited()
+    executor_gateway.execute_run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_rejects_dict_payload_with_type_error() -> None:
+    """Assert dict payloads raise TypeError, not other exceptions."""
+    service = _make_dispatch_service()
+    raw_payload = {"run": {"run_id": "run-123"}, "user_id": "user-123"}
+
+    with pytest.raises(TypeError, match="dispatch_claim requires RunDispatchClaim"):
+        await service.dispatch_claim(raw_payload, worker_id="worker-1")  # type: ignore[arg-type]

@@ -1,7 +1,7 @@
 import logging
 import time
-from collections.abc import Callable, Mapping
-from typing import Any, Protocol, cast
+from collections.abc import Callable
+from typing import Protocol, cast
 
 from app.core.settings import get_settings
 from app.scheduler.task_dispatcher import TaskDispatcher
@@ -506,30 +506,26 @@ class RunDispatchService:
 
     async def dispatch_claim(
         self,
-        claim: RunDispatchClaim | Mapping[str, Any],
+        claim: RunDispatchClaim,
         *,
         worker_id: str,
     ) -> None:
-        dispatch_started = time.perf_counter()
-        dispatch_claim = (
-            claim
-            if isinstance(claim, RunDispatchClaim)
-            else RunDispatchClaim.from_payload(claim)
-        )
-        if dispatch_claim is None:
-            logger.error(f"Invalid claim payload: {claim}")
-            return
+        if not isinstance(claim, RunDispatchClaim):
+            raise TypeError(
+                f"dispatch_claim requires RunDispatchClaim, got {type(claim).__name__}"
+            )
 
-        run_id = dispatch_claim.run_id
-        run_id_str = dispatch_claim.run_id_str
-        session_id = dispatch_claim.session_id
-        user_id = dispatch_claim.user_id
-        prompt = dispatch_claim.prompt
-        config_snapshot = dispatch_claim.config_snapshot
-        sdk_session_id = dispatch_claim.sdk_session_id
-        permission_mode = dispatch_claim.permission_mode
-        container_mode = dispatch_claim.container_mode
-        container_id = dispatch_claim.container_id
+        dispatch_started = time.perf_counter()
+        run_id = claim.run_id
+        run_id_str = claim.run_id_str
+        session_id = claim.session_id
+        user_id = claim.user_id
+        prompt = claim.prompt
+        config_snapshot = claim.config_snapshot
+        sdk_session_id = claim.sdk_session_id
+        permission_mode = claim.permission_mode
+        container_mode = claim.container_mode
+        container_id = claim.container_id
 
         execution_context = self.execution_context_provider.get_context()
         ctx = {

@@ -157,7 +157,7 @@ class TaskDispatchDependencies:
         slash_command_stager_factory: Callable[[], SlashCommandStagerPort]
         | None = None,
         subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
-        runtime_factory: Callable[[], Any] | None = None,
+        runtime_factory: Callable[[], TaskDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
         | None = None,
@@ -457,7 +457,7 @@ def build_task_dispatch_dependencies(
     claude_md_stager_factory: Callable[[], ClaudeMdStagerPort] | None = None,
     slash_command_stager_factory: Callable[[], SlashCommandStagerPort] | None = None,
     subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
-    runtime_factory: Callable[[], Any] | None = None,
+    runtime_factory: Callable[[], TaskDispatchRuntime] | None = None,
     config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
     executor_gateway_factory: Callable[[], RunDispatchExecutorGateway] | None = None,
     state_gateway_factory: Callable[[], TaskDispatchStateGateway] | None = None,

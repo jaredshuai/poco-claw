@@ -1685,6 +1685,15 @@ class TestTaskDispatchDependenciesPortAnnotations:
         assert subagent_stager_hint is not None
         assert "SubagentStagerPort" in str(subagent_stager_hint)
 
+    def test_runtime_factory_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        runtime_factory_hint = hints.get("runtime_factory")
+        assert runtime_factory_hint is not None
+        assert "TaskDispatchRuntime" in str(runtime_factory_hint)
+        assert "Any" not in str(runtime_factory_hint)
+
 
 class TestBuildTaskDispatchDependenciesPortAnnotations:
     """Test that build_task_dispatch_dependencies factory uses port types."""
@@ -1760,6 +1769,15 @@ class TestBuildTaskDispatchDependenciesPortAnnotations:
         subagent_stager_factory_hint = hints.get("subagent_stager_factory")
         assert subagent_stager_factory_hint is not None
         assert "SubagentStagerPort" in str(subagent_stager_factory_hint)
+
+    def test_runtime_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        runtime_factory_hint = hints.get("runtime_factory")
+        assert runtime_factory_hint is not None
+        assert "TaskDispatchRuntime" in str(runtime_factory_hint)
+        assert "Any" not in str(runtime_factory_hint)
 
 
 if __name__ == "__main__":

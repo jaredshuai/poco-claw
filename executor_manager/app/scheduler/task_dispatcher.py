@@ -25,6 +25,7 @@ from app.services.plugin_stager import PluginStager
 from app.services.attachment_stager import AttachmentStager
 from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
+    RunDispatchExecutorClientPort,
     RunDispatchExecutorGateway,
 )
 from app.services.run_dispatch_config_preparer import (
@@ -127,7 +128,7 @@ class TaskDispatchDependencies:
         self,
         *,
         settings: Any | None = None,
-        executor_client: Any | None = None,
+        executor_client: RunDispatchExecutorClientPort | None = None,
         backend_client: TaskDispatchBackendClientPort | None = None,
         config_resolver: ConfigResolverPort | None = None,
         skill_stager: SkillStagerPort | None = None,
@@ -141,7 +142,8 @@ class TaskDispatchDependencies:
         executor_gateway: RunDispatchExecutorGateway | None = None,
         state_gateway: TaskDispatchStateGateway | None = None,
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
-        executor_client_factory: Callable[[], Any] | None = None,
+        executor_client_factory: Callable[[], RunDispatchExecutorClientPort]
+        | None = None,
         backend_client_factory: Callable[[], TaskDispatchBackendClientPort]
         | None = None,
         config_resolver_factory: Callable[
@@ -214,13 +216,13 @@ class TaskDispatchDependencies:
         self._execution_context_provider_factory = execution_context_provider_factory
 
     @property
-    def executor_client(self) -> Any:
+    def executor_client(self) -> RunDispatchExecutorClientPort:
         if self._executor_client is None:
             self._executor_client = self._executor_client_factory()
         return self._executor_client
 
     @executor_client.setter
-    def executor_client(self, value: Any) -> None:
+    def executor_client(self, value: RunDispatchExecutorClientPort) -> None:
         self._executor_client = value
 
     @property
@@ -397,7 +399,7 @@ def build_task_dispatch_backend_client() -> TaskDispatchBackendClientPort:
     return BackendClient()
 
 
-def build_task_dispatch_executor_client() -> ExecutorClient:
+def build_task_dispatch_executor_client() -> RunDispatchExecutorClientPort:
     return ExecutorClient()
 
 
@@ -443,7 +445,7 @@ def build_task_dispatch_container_pool() -> ContainerPoolCapability:
 def build_task_dispatch_dependencies(
     *,
     settings: Any | None = None,
-    executor_client_factory: Callable[[], Any] | None = None,
+    executor_client_factory: Callable[[], RunDispatchExecutorClientPort] | None = None,
     backend_client_factory: Callable[[], TaskDispatchBackendClientPort] | None = None,
     config_resolver_factory: Callable[
         [TaskDispatchBackendClientPort, Any | None], ConfigResolverPort

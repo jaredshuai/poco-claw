@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, MagicMock
+import typing
 
 import pytest
 
@@ -44,4 +45,17 @@ async def test_executor_client_gateway_executes_run_through_executor_client() ->
         callback_base_url="http://manager.local",
         sdk_session_id="sdk-session-0",
         permission_mode="acceptEdits",
+    )
+
+
+def test_executor_client_gateway_constructor_uses_port_type() -> None:
+    """Assert ExecutorClientRunDispatchGateway.__init__ executor_client annotation is the named Protocol."""
+    sig = typing.get_type_hints(ExecutorClientRunDispatchGateway.__init__)
+
+    executor_client_hint = sig.get("executor_client")
+    assert executor_client_hint is not None
+    hint_str = str(executor_client_hint)
+    assert "Any" not in hint_str, "executor_client should not use Any"
+    assert "RunDispatchExecutorClientPort" in hint_str, (
+        "executor_client should use RunDispatchExecutorClientPort"
     )

@@ -27,6 +27,7 @@ from app.services.run_dispatch_config_preparer import (
 )
 from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
+    RunDispatchExecutorClientPort,
     RunDispatchExecutorGateway,
 )
 from app.services.run_dispatch_execution_context import (
@@ -63,7 +64,7 @@ def build_run_dispatch_backend_client() -> RunDispatchBackendClientPort:
     return BackendClient()
 
 
-def build_run_dispatch_executor_client() -> ExecutorClient:
+def build_run_dispatch_executor_client() -> RunDispatchExecutorClientPort:
     return ExecutorClient()
 
 
@@ -109,7 +110,7 @@ class RunDispatchService:
         *,
         settings: Any,
         backend_client: RunDispatchBackendClientPort | None = None,
-        executor_client: Any | None = None,
+        executor_client: RunDispatchExecutorClientPort | None = None,
         config_resolver: ConfigResolverPort | None = None,
         skill_stager: SkillStagerPort | None = None,
         plugin_stager: PluginStagerPort | None = None,
@@ -125,7 +126,8 @@ class RunDispatchService:
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         backend_client_factory: Callable[[], RunDispatchBackendClientPort]
         | None = None,
-        executor_client_factory: Callable[[], Any] | None = None,
+        executor_client_factory: Callable[[], RunDispatchExecutorClientPort]
+        | None = None,
         config_resolver_factory: Callable[
             [RunDispatchBackendClientPort, Any], ConfigResolverPort
         ]
@@ -211,13 +213,13 @@ class RunDispatchService:
         self._backend_client = value
 
     @property
-    def executor_client(self) -> Any:
+    def executor_client(self) -> RunDispatchExecutorClientPort:
         if self._executor_client is None:
             self._executor_client = self._executor_client_factory()
         return self._executor_client
 
     @executor_client.setter
-    def executor_client(self, value: Any) -> None:
+    def executor_client(self, value: RunDispatchExecutorClientPort) -> None:
         self._executor_client = value
 
     @property
@@ -395,7 +397,7 @@ class RunDispatchService:
         *,
         settings: Any | None = None,
         backend_client: RunDispatchBackendClientPort | None = None,
-        executor_client: Any | None = None,
+        executor_client: RunDispatchExecutorClientPort | None = None,
         container_pool: RunDispatchContainerPool | None = None,
         config_resolver: ConfigResolverPort | None = None,
         skill_stager: SkillStagerPort | None = None,
@@ -411,7 +413,8 @@ class RunDispatchService:
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         backend_client_factory: Callable[[], RunDispatchBackendClientPort]
         | None = None,
-        executor_client_factory: Callable[[], Any] | None = None,
+        executor_client_factory: Callable[[], RunDispatchExecutorClientPort]
+        | None = None,
         config_resolver_factory: Callable[
             [RunDispatchBackendClientPort, Any], ConfigResolverPort
         ]

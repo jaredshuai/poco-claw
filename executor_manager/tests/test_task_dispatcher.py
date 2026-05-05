@@ -1611,6 +1611,14 @@ class TestTaskDispatcherDispatch:
 class TestTaskDispatchDependenciesPortAnnotations:
     """Test that TaskDispatchDependencies uses port types instead of Any."""
 
+    def test_executor_client_constructor_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(TaskDispatchDependencies.__init__)
+        executor_client_hint = hints.get("executor_client")
+        assert executor_client_hint is not None
+        assert "RunDispatchExecutorClientPort" in str(executor_client_hint)
+
     def test_backend_client_constructor_uses_port_type(self) -> None:
         from typing import get_type_hints
 
@@ -1680,6 +1688,14 @@ class TestTaskDispatchDependenciesPortAnnotations:
 
 class TestBuildTaskDispatchDependenciesPortAnnotations:
     """Test that build_task_dispatch_dependencies factory uses port types."""
+
+    def test_executor_client_factory_uses_port_type(self) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(build_task_dispatch_dependencies)
+        executor_factory_hint = hints.get("executor_client_factory")
+        assert executor_factory_hint is not None
+        assert "RunDispatchExecutorClientPort" in str(executor_factory_hint)
 
     def test_backend_client_factory_uses_port_type(self) -> None:
         from typing import get_type_hints

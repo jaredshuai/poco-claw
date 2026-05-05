@@ -818,6 +818,7 @@ def test_constructor_uses_port_types_not_any() -> None:
 
     port_params = [
         "backend_client",
+        "executor_client",
         "config_resolver",
         "skill_stager",
         "plugin_stager",
@@ -833,6 +834,23 @@ def test_constructor_uses_port_types_not_any() -> None:
         annotation_str = str(annotation)
         assert "Any" not in annotation_str, f"{param} should not use Any"
         assert "Port" in annotation_str, f"{param} should use Port protocol name"
+
+
+def test_constructor_factory_uses_port_types_not_any() -> None:
+    """Assert RunDispatchService constructor factory annotations use Port protocol names."""
+    sig = typing.get_type_hints(RunDispatchService.__init__)
+
+    factory_params = [
+        ("backend_client_factory", "RunDispatchBackendClientPort"),
+        ("executor_client_factory", "RunDispatchExecutorClientPort"),
+    ]
+
+    for param, port_name in factory_params:
+        annotation = sig.get(param)
+        assert annotation is not None, f"{param} should have annotation"
+        annotation_str = str(annotation)
+        assert "Any" not in annotation_str, f"{param} should not use Any"
+        assert port_name in annotation_str, f"{param} should use {port_name}"
 
 
 def test_create_default_uses_port_types_not_any() -> None:
@@ -841,6 +859,7 @@ def test_create_default_uses_port_types_not_any() -> None:
 
     port_params = [
         "backend_client",
+        "executor_client",
         "config_resolver",
         "skill_stager",
         "plugin_stager",
@@ -856,3 +875,20 @@ def test_create_default_uses_port_types_not_any() -> None:
         annotation_str = str(annotation)
         assert "Any" not in annotation_str, f"{param} should not use Any"
         assert "Port" in annotation_str, f"{param} should use Port protocol name"
+
+
+def test_create_default_factory_uses_port_types_not_any() -> None:
+    """Assert create_default factory parameter annotations use Port protocol names."""
+    sig = typing.get_type_hints(RunDispatchService.create_default)
+
+    factory_params = [
+        ("backend_client_factory", "RunDispatchBackendClientPort"),
+        ("executor_client_factory", "RunDispatchExecutorClientPort"),
+    ]
+
+    for param, port_name in factory_params:
+        annotation = sig.get(param)
+        assert annotation is not None, f"{param} should have annotation"
+        annotation_str = str(annotation)
+        assert "Any" not in annotation_str, f"{param} should not use Any"
+        assert port_name in annotation_str, f"{param} should use {port_name}"

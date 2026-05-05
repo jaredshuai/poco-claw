@@ -44,6 +44,28 @@ from app.services.task_dispatch_state_gateway import (
 logger = logging.getLogger(__name__)
 
 
+class ContainerPoolCapability(Protocol):
+    """Minimal protocol for container-pool capability used by TaskDispatcher."""
+
+    async def get_or_create_container(
+        self,
+        session_id: str,
+        user_id: str,
+        *,
+        browser_enabled: bool = False,
+        container_mode: str = "ephemeral",
+        container_id: str | None = None,
+    ) -> tuple[str, str]: ...
+
+    async def cancel_task(self, session_id: str) -> None: ...
+
+    async def delete_container(self, container_id: str) -> None: ...
+
+    def get_container_stats(self) -> Any: ...
+
+    async def on_task_complete(self, session_id: str) -> None: ...
+
+
 class TaskDispatchRuntime(Protocol):
     async def resolve_executor_target(
         self,
@@ -389,7 +411,7 @@ def build_task_dispatch_runtime() -> TaskDispatchRuntime:
     return TaskDispatcherRuntime()
 
 
-def build_task_dispatch_container_pool() -> ContainerPool:
+def build_task_dispatch_container_pool() -> ContainerPoolCapability:
     return ContainerPool()
 
 
@@ -450,13 +472,13 @@ def build_task_dispatch_dependencies(
 class TaskDispatcher:
     """Task dispatcher with container pool integration."""
 
-    container_pool: ContainerPool | None = None
-    container_pool_factory: Callable[[], ContainerPool] = (
+    container_pool: ContainerPoolCapability | None = None
+    container_pool_factory: Callable[[], ContainerPoolCapability] = (
         build_task_dispatch_container_pool
     )
 
     @classmethod
-    def get_container_pool(cls) -> ContainerPool:
+    def get_container_pool(cls) -> ContainerPoolCapability:
         """Get container pool instance (lazy load)."""
         if cls.container_pool is None:
             cls.container_pool = cls.container_pool_factory()

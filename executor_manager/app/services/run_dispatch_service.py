@@ -10,6 +10,7 @@ from app.services.backend_client import BackendClient
 from app.services.claude_md_stager import ClaudeMdStager
 from app.services.config_resolver import ConfigBackendClient
 from app.services.config_resolver import ConfigResolver
+from app.services.config_resolver import ConfigResolverSettings
 from app.services.executor_client import ExecutorClient
 from app.services.plugin_stager import PluginStager
 from app.services.run_dispatch_claim import RunDispatchClaim
@@ -69,7 +70,7 @@ def build_run_dispatch_executor_client() -> RunDispatchExecutorClientPort:
 
 
 def build_run_dispatch_config_resolver(
-    backend_client: RunDispatchBackendClientPort, settings: Any
+    backend_client: RunDispatchBackendClientPort, settings: ConfigResolverSettings
 ) -> ConfigResolver:
     return ConfigResolver(backend_client, settings=settings)
 
@@ -129,7 +130,7 @@ class RunDispatchService:
         executor_client_factory: Callable[[], RunDispatchExecutorClientPort]
         | None = None,
         config_resolver_factory: Callable[
-            [RunDispatchBackendClientPort, Any], ConfigResolverPort
+            [RunDispatchBackendClientPort, ConfigResolverSettings], ConfigResolverPort
         ]
         | None = None,
         skill_stager_factory: Callable[[], SkillStagerPort] | None = None,
@@ -416,7 +417,7 @@ class RunDispatchService:
         executor_client_factory: Callable[[], RunDispatchExecutorClientPort]
         | None = None,
         config_resolver_factory: Callable[
-            [RunDispatchBackendClientPort, Any], ConfigResolverPort
+            [RunDispatchBackendClientPort, ConfigResolverSettings], ConfigResolverPort
         ]
         | None = None,
         skill_stager_factory: Callable[[], SkillStagerPort] | None = None,

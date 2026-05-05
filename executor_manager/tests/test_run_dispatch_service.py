@@ -892,3 +892,25 @@ def test_create_default_factory_uses_port_types_not_any() -> None:
         annotation_str = str(annotation)
         assert "Any" not in annotation_str, f"{param} should not use Any"
         assert port_name in annotation_str, f"{param} should use {port_name}"
+
+
+def test_config_resolver_factory_uses_config_resolver_settings_not_any() -> None:
+    """Assert config_resolver_factory settings parameter uses ConfigResolverSettings."""
+    init_sig = typing.get_type_hints(RunDispatchService.__init__)
+    create_default_sig = typing.get_type_hints(RunDispatchService.create_default)
+
+    for sig, method_name in [
+        (init_sig, "__init__"),
+        (create_default_sig, "create_default"),
+    ]:
+        annotation = sig.get("config_resolver_factory")
+        assert annotation is not None, (
+            f"{method_name} config_resolver_factory should have annotation"
+        )
+        annotation_str = str(annotation)
+        assert "Any" not in annotation_str, (
+            f"{method_name} config_resolver_factory should not use Any for settings"
+        )
+        assert "ConfigResolverSettings" in annotation_str, (
+            f"{method_name} config_resolver_factory should use ConfigResolverSettings"
+        )

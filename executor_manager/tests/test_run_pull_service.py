@@ -127,7 +127,7 @@ class TestRunPullServiceDependencies(unittest.TestCase):
     """Test RunPullService dependency injection."""
 
     def test_public_exports_stay_at_pull_boundary(self) -> None:
-        assert run_pull_module.__all__ == ["RunPullService"]
+        assert run_pull_module.__all__ == ["RunPullService", "RunPullDispatchService"]
 
     def test_constructor_rejects_dispatch_adapter_dependencies(self) -> None:
         """Dispatch adapters belong behind RunDispatchService, not RunPullService."""

@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Protocol
 
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
@@ -18,14 +18,29 @@ from app.services.worker_identity import get_worker_id
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RunPullService"]
+__all__ = ["RunPullService", "RunPullDispatchService"]
+
+
+class RunPullDispatchService(Protocol):
+    """Minimal protocol for dispatch service dependency used by RunPullService."""
+
+    async def dispatch_claim(
+        self,
+        claim: RunDispatchClaim | Mapping[str, Any],
+        *,
+        worker_id: str,
+    ) -> None:
+        """Dispatch a claimed run for execution."""
+        ...
 
 
 def build_run_pull_backend_client() -> Any:
     return BackendClient()
 
 
-def build_run_pull_dispatch_service(settings: Any, backend_client: Any) -> Any:
+def build_run_pull_dispatch_service(
+    settings: Any, backend_client: Any
+) -> RunPullDispatchService:
     return RunDispatchService.create_default(
         settings=settings,
         backend_client=backend_client,
@@ -47,8 +62,9 @@ class RunPullService:
         backend_client_factory: Callable[[], Any] | None = None,
         queue_gateway: RunPullQueueGateway | None = None,
         queue_gateway_factory: Callable[[Any], RunPullQueueGateway] | None = None,
-        dispatch_service: Any | None = None,
-        dispatch_service_factory: Callable[[Any, Any], Any] | None = None,
+        dispatch_service: RunPullDispatchService | None = None,
+        dispatch_service_factory: Callable[[Any, Any], RunPullDispatchService]
+        | None = None,
         clock: Clock | None = None,
     ) -> None:
         self.settings = settings if settings is not None else get_settings()
@@ -94,7 +110,7 @@ class RunPullService:
         self._queue_gateway = value
 
     @property
-    def dispatch_service(self) -> Any:
+    def dispatch_service(self) -> RunPullDispatchService:
         if self._dispatch_service is None:
             self._dispatch_service = self._dispatch_service_factory(
                 self.settings,
@@ -103,7 +119,7 @@ class RunPullService:
         return self._dispatch_service
 
     @dispatch_service.setter
-    def dispatch_service(self, value: Any) -> None:
+    def dispatch_service(self, value: RunPullDispatchService) -> None:
         self._dispatch_service = value
 
     def _get_window_lock(self, window_id: str) -> asyncio.Lock:

@@ -1,4 +1,4 @@
-from typing import Any, Protocol
+from typing import Protocol
 
 
 class RunDispatchStateGateway(Protocol):
@@ -11,13 +11,13 @@ class RunDispatchStateGateway(Protocol):
     ) -> None: ...
 
     async def start_run(
-        self, *, run_id: Any, worker_id: str, lease_seconds: int | None = None
+        self, *, run_id: object, worker_id: str, lease_seconds: int | None = None
     ) -> None: ...
 
     async def fail_run(
         self,
         *,
-        run_id: Any,
+        run_id: object,
         worker_id: str,
         error_message: str,
     ) -> None: ...
@@ -36,17 +36,17 @@ class RunDispatchStateBackendClient(Protocol):
 
     async def start_run(
         self,
-        run_id: Any,
+        run_id: object,
         worker_id: str,
         lease_seconds: int | None = None,
-    ) -> Any: ...
+    ) -> object: ...
 
     async def fail_run(
         self,
-        run_id: Any,
+        run_id: object,
         worker_id: str,
         error_message: str | None = None,
-    ) -> Any: ...
+    ) -> object: ...
 
 
 class BackendRunDispatchStateGateway:
@@ -73,7 +73,7 @@ class BackendRunDispatchStateGateway:
                 pass
 
     async def start_run(
-        self, *, run_id: Any, worker_id: str, lease_seconds: int | None = None
+        self, *, run_id: object, worker_id: str, lease_seconds: int | None = None
     ) -> None:
         await self.backend_client.start_run(
             run_id=run_id, worker_id=worker_id, lease_seconds=lease_seconds
@@ -82,7 +82,7 @@ class BackendRunDispatchStateGateway:
     async def fail_run(
         self,
         *,
-        run_id: Any,
+        run_id: object,
         worker_id: str,
         error_message: str,
     ) -> None:

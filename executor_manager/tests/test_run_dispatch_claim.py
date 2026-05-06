@@ -1,6 +1,14 @@
 from app.services.run_dispatch_claim import RunDispatchClaim
 
 
+def test_run_dispatch_claim_run_id_annotation_is_object() -> None:
+    """Regression: run_id should be typed as object, not Any."""
+    import typing
+
+    hints = typing.get_type_hints(RunDispatchClaim)
+    assert hints["run_id"] is object
+
+
 def test_run_dispatch_claim_parses_backend_payload() -> None:
     claim = RunDispatchClaim.from_payload(
         {

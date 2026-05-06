@@ -163,7 +163,7 @@ class BackendClient:
         return data.get("data")
 
     async def start_run(
-        self, run_id: str, worker_id: str, lease_seconds: int | None = None
+        self, run_id: object, worker_id: str, lease_seconds: int | None = None
     ) -> dict:
         """Mark run as running."""
         payload: dict = {"worker_id": worker_id}
@@ -180,7 +180,7 @@ class BackendClient:
         return data["data"]
 
     async def fail_run(
-        self, run_id: str, worker_id: str, error_message: str | None = None
+        self, run_id: object, worker_id: str, error_message: str | None = None
     ) -> dict:
         """Mark run as failed."""
         response = await self._request(

@@ -5,7 +5,7 @@ from typing import Any, Self
 
 @dataclass(frozen=True)
 class RunDispatchClaim:
-    run_id: Any
+    run_id: object
     session_id: str
     user_id: str
     prompt: str

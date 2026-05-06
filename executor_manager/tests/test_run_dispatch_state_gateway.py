@@ -1,8 +1,49 @@
 from unittest.mock import AsyncMock, MagicMock
+import typing
 
 import pytest
 
-from app.services.run_dispatch_state_gateway import BackendRunDispatchStateGateway
+from app.services.run_dispatch_state_gateway import (
+    BackendRunDispatchStateGateway,
+    RunDispatchStateGateway,
+    RunDispatchStateBackendClient,
+)
+
+
+def test_run_dispatch_state_gateway_start_run_run_id_annotation_is_object() -> None:
+    """Regression: start_run run_id should be typed as object, not Any."""
+    hints = typing.get_type_hints(
+        RunDispatchStateGateway.start_run,
+        globalns=globals(),
+        localns=locals(),
+    )
+    assert hints["run_id"] is object
+
+
+def test_run_dispatch_state_gateway_fail_run_run_id_annotation_is_object() -> None:
+    """Regression: fail_run run_id should be typed as object, not Any."""
+    hints = typing.get_type_hints(
+        RunDispatchStateGateway.fail_run,
+        globalns=globals(),
+        localns=locals(),
+    )
+    assert hints["run_id"] is object
+
+
+def test_backend_client_start_fail_run_id_annotation_is_object() -> None:
+    """Regression: backend client start_run/fail_run run_id should be object, not Any."""
+    start_hints = typing.get_type_hints(
+        RunDispatchStateBackendClient.start_run,
+        globalns=globals(),
+        localns=locals(),
+    )
+    fail_hints = typing.get_type_hints(
+        RunDispatchStateBackendClient.fail_run,
+        globalns=globals(),
+        localns=locals(),
+    )
+    assert start_hints["run_id"] is object
+    assert fail_hints["run_id"] is object
 
 
 @pytest.mark.asyncio
@@ -105,3 +146,44 @@ async def test_backend_state_gateway_start_run_passes_lease_seconds() -> None:
         worker_id="worker-1",
         lease_seconds=3600,
     )
+
+
+@pytest.mark.asyncio
+async def test_backend_state_gateway_passes_integer_run_id_unchanged() -> None:
+    """Integer run IDs from backend payloads should be passed through unchanged."""
+    backend_client = MagicMock()
+    backend_client.start_run = AsyncMock()
+    backend_client.fail_run = AsyncMock()
+    gateway = BackendRunDispatchStateGateway(backend_client)
+
+    await gateway.start_run(run_id=1, worker_id="worker-1")
+    await gateway.fail_run(run_id=1, worker_id="worker-1", error_message="failed")
+
+    backend_client.start_run.assert_awaited_once_with(
+        run_id=1,
+        worker_id="worker-1",
+        lease_seconds=None,
+    )
+    backend_client.fail_run.assert_awaited_once_with(
+        run_id=1,
+        worker_id="worker-1",
+        error_message="failed",
+    )
+
+
+def test_backend_run_dispatch_state_gateway_start_fail_run_id_annotation_is_object() -> (
+    None
+):
+    """Regression: BackendRunDispatchStateGateway start/fail run_id should be object, not Any."""
+    start_hints = typing.get_type_hints(
+        BackendRunDispatchStateGateway.start_run,
+        globalns=globals(),
+        localns=locals(),
+    )
+    fail_hints = typing.get_type_hints(
+        BackendRunDispatchStateGateway.fail_run,
+        globalns=globals(),
+        localns=locals(),
+    )
+    assert start_hints["run_id"] is object
+    assert fail_hints["run_id"] is object

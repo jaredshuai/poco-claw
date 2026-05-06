@@ -5,6 +5,8 @@ import pytest
 
 from app.services.run_dispatch_executor_gateway import (
     ExecutorClientRunDispatchGateway,
+    RunDispatchExecutorClientPort,
+    RunDispatchExecutorGateway,
 )
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
@@ -59,3 +61,33 @@ def test_executor_client_gateway_constructor_uses_port_type() -> None:
     assert "RunDispatchExecutorClientPort" in hint_str, (
         "executor_client should use RunDispatchExecutorClientPort"
     )
+
+
+def test_run_dispatch_executor_gateway_protocol_requires_str_run_id() -> None:
+    """Assert RunDispatchExecutorGateway.execute_run requires run_id: str (not str | None)."""
+    sig = typing.get_type_hints(RunDispatchExecutorGateway.execute_run)
+    run_id_hint = sig.get("run_id")
+    assert run_id_hint is not None
+    hint_str = str(run_id_hint)
+    assert "str" in hint_str
+    assert "None" not in hint_str, "run_id should be str, not str | None"
+
+
+def test_executor_client_run_dispatch_gateway_requires_str_run_id() -> None:
+    """Assert ExecutorClientRunDispatchGateway.execute_run requires run_id: str (not str | None)."""
+    sig = typing.get_type_hints(ExecutorClientRunDispatchGateway.execute_run)
+    run_id_hint = sig.get("run_id")
+    assert run_id_hint is not None
+    hint_str = str(run_id_hint)
+    assert "str" in hint_str
+    assert "None" not in hint_str, "run_id should be str, not str | None"
+
+
+def test_run_dispatch_executor_client_port_allows_optional_run_id() -> None:
+    """Assert RunDispatchExecutorClientPort.execute_task still allows run_id: str | None."""
+    sig = typing.get_type_hints(RunDispatchExecutorClientPort.execute_task)
+    run_id_hint = sig.get("run_id")
+    assert run_id_hint is not None
+    hint_str = str(run_id_hint)
+    assert "str" in hint_str
+    assert "None" in hint_str, "run_id should allow None for legacy compatibility"

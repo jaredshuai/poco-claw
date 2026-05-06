@@ -1,3 +1,4 @@
+import typing
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -5,6 +6,7 @@ import pytest
 
 import app.scheduler.task_dispatcher as task_dispatcher_module
 from app.scheduler.task_dispatcher import (
+    LegacyTaskDispatchExecutorGateway,
     TaskDispatchDependencies,
     TaskDispatcher,
     build_task_dispatch_dependencies,
@@ -1778,6 +1780,102 @@ class TestBuildTaskDispatchDependenciesPortAnnotations:
         assert runtime_factory_hint is not None
         assert "TaskDispatchRuntime" in str(runtime_factory_hint)
         assert "Any" not in str(runtime_factory_hint)
+
+
+def test_task_dispatch_dependencies_executor_gateway_uses_legacy_port() -> None:
+    """Assert TaskDispatchDependencies.executor_gateway uses LegacyTaskDispatchExecutorGateway, not RunDispatchExecutorGateway."""
+    hints = typing.get_type_hints(TaskDispatchDependencies.__init__)
+    executor_gateway_hint = hints.get("executor_gateway")
+    assert executor_gateway_hint is not None
+    hint_str = str(executor_gateway_hint)
+    assert "LegacyTaskDispatchExecutorGateway" in hint_str
+    assert "RunDispatchExecutorGateway" not in hint_str or "Legacy" in hint_str
+
+
+def test_build_task_dispatch_dependencies_executor_gateway_factory_uses_legacy_port() -> (
+    None
+):
+    """Assert build_task_dispatch_dependencies executor_gateway_factory uses LegacyTaskDispatchExecutorGateway."""
+    hints = typing.get_type_hints(build_task_dispatch_dependencies)
+    executor_gateway_factory_hint = hints.get("executor_gateway_factory")
+    assert executor_gateway_factory_hint is not None
+    hint_str = str(executor_gateway_factory_hint)
+    assert "LegacyTaskDispatchExecutorGateway" in hint_str
+    assert "RunDispatchExecutorGateway" not in hint_str or "Legacy" in hint_str
+
+
+def test_legacy_task_dispatch_executor_gateway_allows_optional_run_id() -> None:
+    """Assert LegacyTaskDispatchExecutorGateway.execute_run allows run_id: str | None."""
+    from app.scheduler import task_dispatcher
+    from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
+
+    globalns = {
+        "RunDispatchExecutionContext": RunDispatchExecutionContext,
+    }
+    hints = typing.get_type_hints(
+        LegacyTaskDispatchExecutorGateway.execute_run,
+        globalns=globalns,
+        localns=vars(task_dispatcher),
+    )
+    run_id_hint = hints.get("run_id")
+    assert run_id_hint is not None
+    hint_str = str(run_id_hint)
+    assert "str" in hint_str
+    assert "None" in hint_str, "Legacy gateway should allow run_id=None"
+
+
+@pytest.mark.asyncio
+async def test_task_dispatcher_passes_none_run_id_to_executor_gateway() -> None:
+    """Assert legacy TaskDispatcher.dispatch passes run_id=None to executor gateway."""
+    settings = MagicMock()
+    settings.callback_base_url = "http://callback"
+    settings.callback_token = "token-123"
+    settings.executor_task_lease_secret = "lease-token"
+
+    mock_executor_gateway = MagicMock()
+    mock_executor_gateway.execute_run = AsyncMock()
+
+    mock_backend_client = MagicMock()
+    mock_backend_client.resolve_slash_commands = AsyncMock(return_value={})
+    mock_backend_client.update_session_status = AsyncMock()
+
+    mock_config_preparer = MagicMock()
+    mock_config_preparer.prepare_config = AsyncMock(
+        return_value={"skill_files": {}, "plugin_files": {}, "input_files": []}
+    )
+
+    mock_state_gateway = MagicMock()
+    mock_state_gateway.mark_running = AsyncMock()
+    mock_state_gateway.mark_failed = AsyncMock()
+
+    mock_runtime = MagicMock()
+    mock_runtime.resolve_executor_target = AsyncMock(
+        return_value=("http://executor:8080", "container-123")
+    )
+    mock_runtime.cancel_task = AsyncMock()
+
+    dependencies = TaskDispatchDependencies(
+        backend_client=mock_backend_client,
+        config_preparer=mock_config_preparer,
+        state_gateway=mock_state_gateway,
+        runtime=mock_runtime,
+        executor_gateway=mock_executor_gateway,
+    )
+
+    await TaskDispatcher.dispatch(
+        task_id="task-123",
+        session_id="session-456",
+        prompt="Hello",
+        config={"user_id": "user-789"},
+        dependencies=dependencies,
+        settings=settings,
+    )
+
+    mock_executor_gateway.execute_run.assert_awaited_once()
+    call_kwargs = mock_executor_gateway.execute_run.call_args.kwargs
+    assert call_kwargs["run_id"] is None, (
+        "Legacy TaskDispatcher should pass run_id=None"
+    )
 
 
 if __name__ == "__main__":

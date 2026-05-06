@@ -24,9 +24,7 @@ from app.services.skill_stager import SkillStager
 from app.services.plugin_stager import PluginStager
 from app.services.attachment_stager import AttachmentStager
 from app.services.run_dispatch_executor_gateway import (
-    ExecutorClientRunDispatchGateway,
     RunDispatchExecutorClientPort,
-    RunDispatchExecutorGateway,
 )
 from app.services.run_dispatch_config_preparer import (
     AttachmentStagerPort,
@@ -41,6 +39,7 @@ from app.services.run_dispatch_config_preparer import (
     SubagentStagerPort,
 )
 from app.services.run_dispatch_execution_context import (
+    RunDispatchExecutionContext,
     RunDispatchExecutionContextProvider,
     RunDispatchExecutionContextSettings,
     SettingsRunDispatchExecutionContextProvider,
@@ -61,6 +60,56 @@ class TaskDispatchBackendClientPort(
     Protocol,
 ):
     pass
+
+
+class LegacyTaskDispatchExecutorGateway(Protocol):
+    """Legacy executor gateway port for TaskDispatcher that accepts optional run_id."""
+
+    async def execute_run(
+        self,
+        *,
+        executor_url: str,
+        session_id: str,
+        run_id: str | None,
+        prompt: str,
+        execution_context: RunDispatchExecutionContext,
+        config: dict[str, Any],
+        sdk_session_id: str | None,
+        permission_mode: str,
+    ) -> str: ...
+
+
+class ExecutorClientLegacyTaskDispatchGateway:
+    """Adapter that adapts RunDispatchExecutorClientPort to LegacyTaskDispatchExecutorGateway."""
+
+    def __init__(self, executor_client: RunDispatchExecutorClientPort) -> None:
+        self.executor_client = executor_client
+
+    async def execute_run(
+        self,
+        *,
+        executor_url: str,
+        session_id: str,
+        run_id: str | None,
+        prompt: str,
+        execution_context: RunDispatchExecutionContext,
+        config: dict[str, Any],
+        sdk_session_id: str | None,
+        permission_mode: str,
+    ) -> str:
+        return await self.executor_client.execute_task(
+            executor_url=executor_url,
+            session_id=session_id,
+            run_id=run_id,
+            prompt=prompt,
+            callback_url=execution_context.callback_url,
+            callback_token=execution_context.callback_token,
+            task_lease_secret=execution_context.task_lease_secret,
+            config=config,
+            callback_base_url=execution_context.callback_base_url,
+            sdk_session_id=sdk_session_id,
+            permission_mode=permission_mode,
+        )
 
 
 logger = logging.getLogger(__name__)
@@ -140,7 +189,7 @@ class TaskDispatchDependencies:
         subagent_stager: SubagentStagerPort | None = None,
         runtime: TaskDispatchRuntime | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
-        executor_gateway: RunDispatchExecutorGateway | None = None,
+        executor_gateway: LegacyTaskDispatchExecutorGateway | None = None,
         state_gateway: TaskDispatchStateGateway | None = None,
         execution_context_provider: RunDispatchExecutionContextProvider | None = None,
         executor_client_factory: Callable[[], RunDispatchExecutorClientPort]
@@ -160,7 +209,7 @@ class TaskDispatchDependencies:
         subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         runtime_factory: Callable[[], TaskDispatchRuntime] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
-        executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
+        executor_gateway_factory: Callable[[], LegacyTaskDispatchExecutorGateway]
         | None = None,
         state_gateway_factory: Callable[[], TaskDispatchStateGateway] | None = None,
         execution_context_provider_factory: Callable[
@@ -341,20 +390,20 @@ class TaskDispatchDependencies:
         self._config_preparer = value
 
     @property
-    def executor_gateway(self) -> RunDispatchExecutorGateway:
+    def executor_gateway(self) -> LegacyTaskDispatchExecutorGateway:
         if (
             self._executor_gateway is None
             and self._executor_gateway_factory is not None
         ):
             self._executor_gateway = self._executor_gateway_factory()
         if self._executor_gateway is None:
-            self._executor_gateway = ExecutorClientRunDispatchGateway(
+            self._executor_gateway = ExecutorClientLegacyTaskDispatchGateway(
                 self.executor_client
             )
         return self._executor_gateway
 
     @executor_gateway.setter
-    def executor_gateway(self, value: RunDispatchExecutorGateway) -> None:
+    def executor_gateway(self, value: LegacyTaskDispatchExecutorGateway) -> None:
         self._executor_gateway = value
 
     @property
@@ -462,7 +511,8 @@ def build_task_dispatch_dependencies(
     subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
     runtime_factory: Callable[[], TaskDispatchRuntime] | None = None,
     config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
-    executor_gateway_factory: Callable[[], RunDispatchExecutorGateway] | None = None,
+    executor_gateway_factory: Callable[[], LegacyTaskDispatchExecutorGateway]
+    | None = None,
     state_gateway_factory: Callable[[], TaskDispatchStateGateway] | None = None,
     execution_context_provider_factory: Callable[
         [], RunDispatchExecutionContextProvider

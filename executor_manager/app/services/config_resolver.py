@@ -43,7 +43,7 @@ class ConfigBackendClient(Protocol):
 
     async def resolve_subagents(
         self, user_id: str, subagent_ids: list[int] | None
-    ) -> dict: ...
+    ) -> dict[str, object]: ...
 
     async def update_run_metadata(self, run_id: str, metadata: dict) -> None: ...
 
@@ -610,7 +610,7 @@ class ConfigResolver:
 
     async def _resolve_effective_subagents(
         self, user_id: str, config_snapshot: dict
-    ) -> dict:
+    ) -> dict[str, object]:
         subagent_ids: list[int] | None
         if "subagent_ids" not in config_snapshot:
             subagent_ids = None

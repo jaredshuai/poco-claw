@@ -265,7 +265,7 @@ class BackendClient:
 
     async def resolve_subagents(
         self, user_id: str, subagent_ids: list[int] | None
-    ) -> dict:
+    ) -> dict[str, object]:
         """Resolve enabled subagents for execution based on selected ids.
 
         When `subagent_ids` is None, backend uses the user's enabled subagents

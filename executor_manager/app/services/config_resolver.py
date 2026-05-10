@@ -35,7 +35,7 @@ class ConfigBackendClient(Protocol):
 
     async def resolve_skill_config(
         self, user_id: str, skill_ids: list[int]
-    ) -> dict: ...
+    ) -> dict[str, object]: ...
 
     async def resolve_plugin_config(
         self, user_id: str, plugin_ids: list[int]
@@ -574,7 +574,7 @@ class ConfigResolver:
 
     async def _resolve_effective_skill_files(
         self, user_id: str, config_snapshot: dict
-    ) -> dict:
+    ) -> dict[str, object]:
         """Resolve skills for execution.
 
         Priority:

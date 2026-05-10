@@ -215,7 +215,9 @@ class BackendClient:
         data = response.json()
         return data.get("data", {}) or {}
 
-    async def resolve_skill_config(self, user_id: str, skill_ids: list[int]) -> dict:
+    async def resolve_skill_config(
+        self, user_id: str, skill_ids: list[int]
+    ) -> dict[str, object]:
         """Resolve effective skill config for execution based on selected skill ids."""
         response = await self._request(
             "POST",

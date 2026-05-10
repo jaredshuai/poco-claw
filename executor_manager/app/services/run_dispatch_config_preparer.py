@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Any, Protocol
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -12,7 +13,7 @@ class RunDispatchConfigPreparer(Protocol):
         user_id: str,
         session_id: str,
         run_id: str,
-        config_snapshot: dict[str, Any],
+        config_snapshot: dict[str, object],
     ) -> dict[str, Any]: ...
 
 
@@ -31,7 +32,7 @@ class ConfigResolverPort(Protocol):
     async def resolve(
         self,
         user_id: str,
-        config_snapshot: dict[str, Any],
+        config_snapshot: dict[str, object],
         *,
         session_id: str,
         run_id: str,
@@ -119,7 +120,7 @@ class StagingRunDispatchConfigPreparer:
         user_id: str,
         session_id: str,
         run_id: str,
-        config_snapshot: dict[str, Any],
+        config_snapshot: dict[str, object],
     ) -> dict[str, Any]:
         ctx = {
             "run_id": run_id,

@@ -1,9 +1,13 @@
-from typing import Any
+from typing import Any, get_origin, get_args
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.run_dispatch_config_preparer import StagingRunDispatchConfigPreparer
+from app.services.run_dispatch_config_preparer import (
+    StagingRunDispatchConfigPreparer,
+    RunDispatchConfigPreparer,
+    ConfigResolverPort,
+)
 
 
 @pytest.mark.asyncio
@@ -104,3 +108,59 @@ def test_constructor_annotations_use_protocols_not_any() -> None:
         assert "Port" in annotation.__name__, (
             f"{param_name} should use a Protocol port type"
         )
+
+
+def test_run_dispatch_config_preparer_prepare_config_param_is_dict_str_object() -> None:
+    """Regression: prepare_config config_snapshot is dict[str, object], not dict[str, Any]."""
+    hints = RunDispatchConfigPreparer.prepare_config.__type_params__
+    # Protocol methods don't have __type_params__, need to inspect via get_type_hints on the Protocol
+    import typing
+
+    hints = typing.get_type_hints(RunDispatchConfigPreparer.prepare_config)
+    config_param = hints.get("config_snapshot")
+    assert config_param is not None, "config_snapshot parameter not found"
+
+    origin = get_origin(config_param)
+    assert origin is dict, f"Expected dict, got {origin}"
+
+    args = get_args(config_param)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_config_resolver_port_resolve_param_is_dict_str_object() -> None:
+    """Regression: ConfigResolverPort.resolve config_snapshot is dict[str, object]."""
+    import typing
+
+    hints = typing.get_type_hints(ConfigResolverPort.resolve)
+    config_param = hints.get("config_snapshot")
+    assert config_param is not None, "config_snapshot parameter not found"
+
+    origin = get_origin(config_param)
+    assert origin is dict, f"Expected dict, got {origin}"
+
+    args = get_args(config_param)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_staging_preparer_prepare_config_param_is_dict_str_object() -> None:
+    """Regression: StagingRunDispatchConfigPreparer.prepare_config config_snapshot is dict[str, object]."""
+    import typing
+
+    hints = typing.get_type_hints(StagingRunDispatchConfigPreparer.prepare_config)
+    config_param = hints.get("config_snapshot")
+    assert config_param is not None, "config_snapshot parameter not found"
+
+    origin = get_origin(config_param)
+    assert origin is dict, f"Expected dict, got {origin}"
+
+    args = get_args(config_param)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"

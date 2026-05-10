@@ -2,11 +2,9 @@ import hashlib
 import hmac
 import json
 from collections.abc import Callable
-from typing import Any
 
 import httpx
 
-from app.core.settings import get_settings
 from app.core.observability.request_context import (
     generate_request_id,
     generate_trace_id,
@@ -51,10 +49,8 @@ class ExecutorClient:
         self,
         *,
         clock: Clock | None = None,
-        settings: Any | None = None,
         task_client_factory: Callable[[], httpx.AsyncClient] | None = None,
     ) -> None:
-        self.settings = settings if settings is not None else get_settings()
         self.clock = clock or SystemClock()
         self.task_client_factory = task_client_factory or build_executor_task_client
 

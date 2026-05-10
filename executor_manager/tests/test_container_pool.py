@@ -1,7 +1,15 @@
-from types import SimpleNamespace
+from collections.abc import Callable
+from types import SimpleNamespace, UnionType
+from typing import get_type_hints, get_origin, get_args, Union
 from unittest.mock import MagicMock, patch
 
-from app.services.container_pool import ContainerPool
+from app.services.container_pool import (
+    ContainerPool,
+    DockerClientProtocol,
+    DockerContainersAPI,
+    DockerImagesAPI,
+    build_container_docker_client,
+)
 
 
 def test_init_with_defaults_defers_runtime_adapter_construction() -> None:
@@ -126,3 +134,182 @@ def test_wait_for_service_ready_uses_injected_health_client_factory() -> None:
 
     health_client_factory.assert_called_once_with()
     client.get.assert_called_once_with("http://executor/health")
+
+
+def test_build_container_docker_client_return_annotation_uses_docker_client_protocol() -> (
+    None
+):
+    """Verify build_container_docker_client return annotation uses DockerClientProtocol."""
+    hints = get_type_hints(build_container_docker_client, include_extras=True)
+    return_hint = hints.get("return")
+    assert return_hint is not None
+    # Handle PEP 604 union (X | Y) and Optional[X]
+    origin = get_origin(return_hint)
+    if origin is Union or isinstance(return_hint, UnionType):
+        # PEP 604: X | Y, or Union[X, Y]
+        args = get_args(return_hint)
+        # Get the non-None type
+        non_none_types = [t for t in args if t is not type(None)]
+        if len(non_none_types) == 1:
+            actual_type = non_none_types[0]
+        else:
+            actual_type = return_hint
+    elif hasattr(return_hint, "__args__"):
+        # Optional[X] case
+        args = return_hint.__args__
+        non_none_types = [t for t in args if t is not type(None)]
+        if len(non_none_types) == 1:
+            actual_type = non_none_types[0]
+        else:
+            actual_type = return_hint
+    else:
+        actual_type = return_hint
+    assert actual_type is DockerClientProtocol, (
+        f"Expected DockerClientProtocol, got {actual_type}"
+    )
+
+
+def test_container_pool_init_docker_client_annotation_uses_docker_client_protocol() -> (
+    None
+):
+    """Verify ContainerPool.__init__ docker_client annotation uses DockerClientProtocol."""
+    hints = get_type_hints(ContainerPool.__init__, include_extras=True)
+    docker_client_hint = hints.get("docker_client")
+    assert docker_client_hint is not None
+    # docker_client: DockerClientProtocol | None
+    # Check if it's a Union/Optional (PEP 604 or Optional)
+    origin = get_origin(docker_client_hint)
+    if origin is Union or isinstance(docker_client_hint, UnionType):
+        # PEP 604: X | Y, or Union[X, Y]
+        args = get_args(docker_client_hint)
+        non_none_types = [t for t in args if t is not type(None)]
+        assert len(non_none_types) == 1
+        actual_type = non_none_types[0]
+    elif hasattr(docker_client_hint, "__args__"):
+        # Optional[X] case
+        args = docker_client_hint.__args__
+        non_none_types = [t for t in args if t is not type(None)]
+        if len(non_none_types) == 1:
+            actual_type = non_none_types[0]
+        else:
+            actual_type = docker_client_hint
+    else:
+        actual_type = docker_client_hint
+    assert actual_type is DockerClientProtocol, (
+        f"Expected DockerClientProtocol, got {actual_type}"
+    )
+
+
+def test_container_pool_init_docker_client_factory_annotation_contains_docker_client_protocol() -> (
+    None
+):
+    """Verify ContainerPool.__init__ docker_client_factory annotation contains DockerClientProtocol."""
+    hints = get_type_hints(ContainerPool.__init__, include_extras=True)
+    factory_hint = hints.get("docker_client_factory")
+    assert factory_hint is not None
+    # docker_client_factory: Callable[[], DockerClientProtocol] | None
+    # Check return annotation of the callable
+    origin = get_origin(factory_hint)
+    if origin is Union or isinstance(factory_hint, UnionType):
+        # PEP 604: X | Y, or Union[X, Y]
+        args = get_args(factory_hint)
+        non_none_types = [t for t in args if t is not type(None)]
+        assert len(non_none_types) == 1
+        callable_type = non_none_types[0]
+    elif hasattr(factory_hint, "__args__"):
+        # Optional[X] case
+        args = factory_hint.__args__
+        non_none_types = [t for t in args if t is not type(None)]
+        if len(non_none_types) == 1:
+            callable_type = non_none_types[0]
+        else:
+            callable_type = factory_hint
+    else:
+        callable_type = factory_hint
+
+    # Get the return type from Callable[[...], ReturnType]
+    callable_origin = get_origin(callable_type)
+    if callable_origin is Callable:
+        callable_args = get_args(callable_type)
+        if callable_args:
+            return_type = callable_args[-1]
+        else:
+            return_type = None
+    elif hasattr(callable_type, "__args__"):
+        # Fallback to __args__
+        callable_args = callable_type.__args__
+        if callable_args:
+            return_type = callable_args[-1]
+        else:
+            return_type = None
+    else:
+        # Maybe it's a ParamSpec generic, check __origin__
+        return_type = getattr(callable_type, "return_type", None)
+        if return_type is None and hasattr(callable_type, "__origin__"):
+            # For Callable, the return is in __args__
+            return_type = getattr(callable_type, "__args__", None)
+            if return_type:
+                return_type = return_type[-1]
+
+    assert return_type is not None
+    assert return_type is DockerClientProtocol, (
+        f"Expected DockerClientProtocol, got {return_type}"
+    )
+
+
+def test_container_pool_docker_client_property_annotation_uses_docker_client_protocol() -> (
+    None
+):
+    """Verify ContainerPool.docker_client property return annotation uses DockerClientProtocol."""
+    # Get the property descriptor
+    docker_client_prop = getattr(ContainerPool, "docker_client")
+    assert hasattr(docker_client_prop, "fget"), "docker_client should be a property"
+    getter = docker_client_prop.fget
+    assert getter is not None
+    hints = get_type_hints(getter, include_extras=True)
+    return_hint = hints.get("return")
+    assert return_hint is not None
+    assert return_hint is DockerClientProtocol, (
+        f"Expected DockerClientProtocol, got {return_hint}"
+    )
+
+
+def test_container_pool_docker_client_setter_value_annotation_uses_docker_client_protocol() -> (
+    None
+):
+    """Verify ContainerPool.docker_client setter value annotation uses DockerClientProtocol."""
+    docker_client_prop = getattr(ContainerPool, "docker_client")
+    assert hasattr(docker_client_prop, "fset"), "docker_client should have a setter"
+    setter = docker_client_prop.fset
+    assert setter is not None
+    hints = get_type_hints(setter, include_extras=True)
+    # The setter takes 'value' as first param after self
+    value_hint = hints.get("value")
+    assert value_hint is not None
+    assert value_hint is DockerClientProtocol, (
+        f"Expected DockerClientProtocol, got {value_hint}"
+    )
+
+
+def test_docker_containers_api_protocol_declares_required_members() -> None:
+    """Verify DockerContainersAPI protocol declares required members."""
+    # Check protocol has these method signatures defined
+    annotations = getattr(DockerContainersAPI, "__annotations__", {})
+    assert "get" in annotations or hasattr(DockerContainersAPI, "get")
+    assert "run" in annotations or hasattr(DockerContainersAPI, "run")
+    assert "list" in annotations or hasattr(DockerContainersAPI, "list")
+
+
+def test_docker_images_api_protocol_declares_required_members() -> None:
+    """Verify DockerImagesAPI protocol declares required members."""
+    annotations = getattr(DockerImagesAPI, "__annotations__", {})
+    assert "get" in annotations or hasattr(DockerImagesAPI, "get")
+
+
+def test_docker_client_protocol_declares_required_members() -> None:
+    """Verify DockerClientProtocol protocol declares required members."""
+    annotations = getattr(DockerClientProtocol, "__annotations__", {})
+    for member in ("containers", "images"):
+        assert member in annotations or hasattr(DockerClientProtocol, member), (
+            f"DockerClientProtocol missing member: {member}"
+        )

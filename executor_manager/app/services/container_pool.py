@@ -24,14 +24,33 @@ class ContainerHealthClient(Protocol):
     def get(self, url: str) -> httpx.Response: ...
 
 
+class DockerContainersAPI(Protocol):
+    def get(self, name: str) -> Any: ...
+    def run(self, **kwargs: Any) -> Any: ...
+    def list(
+        self, all: bool = False, filters: dict[str, Any] | None = None
+    ) -> list[Any]: ...
+
+
+class DockerImagesAPI(Protocol):
+    def get(self, name: str) -> Any: ...
+
+
+class DockerClientProtocol(Protocol):
+    @property
+    def containers(self) -> DockerContainersAPI: ...
+    @property
+    def images(self) -> DockerImagesAPI: ...
+
+
 def build_container_health_client() -> AbstractContextManager[ContainerHealthClient]:
     return cast(
         AbstractContextManager[ContainerHealthClient], httpx.Client(timeout=2.0)
     )
 
 
-def build_container_docker_client() -> Any:
-    return docker.from_env()
+def build_container_docker_client() -> DockerClientProtocol:
+    return cast(DockerClientProtocol, docker.from_env())
 
 
 def build_container_workspace_manager() -> WorkspaceManager:
@@ -44,8 +63,8 @@ class ContainerPool:
     def __init__(
         self,
         *,
-        docker_client: Any | None = None,
-        docker_client_factory: Callable[[], Any] | None = None,
+        docker_client: DockerClientProtocol | None = None,
+        docker_client_factory: Callable[[], DockerClientProtocol] | None = None,
         settings: Settings | None = None,
         workspace_manager: WorkspaceManager | None = None,
         workspace_manager_factory: Callable[[], WorkspaceManager] | None = None,
@@ -54,7 +73,7 @@ class ContainerPool:
         ]
         | None = None,
     ):
-        self._docker_client = docker_client
+        self._docker_client: DockerClientProtocol | None = docker_client
         self._docker_client_factory = (
             docker_client_factory or build_container_docker_client
         )
@@ -73,13 +92,13 @@ class ContainerPool:
         self.session_to_container: dict[str, str] = {}
 
     @property
-    def docker_client(self) -> Any:
+    def docker_client(self) -> DockerClientProtocol:
         if self._docker_client is None:
             self._docker_client = self._docker_client_factory()
         return self._docker_client
 
     @docker_client.setter
-    def docker_client(self, value: Any) -> None:
+    def docker_client(self, value: DockerClientProtocol) -> None:
         self._docker_client = value
 
     @property

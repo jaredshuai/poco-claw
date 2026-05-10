@@ -1,12 +1,29 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Protocol
 
 import tomllib
 from apscheduler.triggers.cron import CronTrigger
 from pydantic import BaseModel, Field, field_validator, model_validator
 from zoneinfo import ZoneInfo
+
+
+class PullScheduleSettings(Protocol):
+    """Protocol describing the settings required for pull schedule configuration."""
+
+    task_pull_enabled: bool
+    task_pull_interval_seconds: int
+    task_pull_immediate_enabled: bool
+    task_pull_immediate_interval_seconds: int | None
+    task_pull_scheduled_enabled: bool
+    task_pull_scheduled_interval_seconds: int | None
+    task_pull_nightly_enabled: bool
+    task_pull_nightly_start_hour: int
+    task_pull_nightly_start_minute: int
+    task_pull_nightly_timezone: str
+    task_pull_nightly_window_minutes: int
+    task_pull_nightly_poll_interval_seconds: int
 
 
 class IntervalPullRule(BaseModel):
@@ -155,17 +172,20 @@ def load_pull_schedule_config(path: str | None) -> PullScheduleConfig | None:
     return PullScheduleConfig.model_validate(data)
 
 
-def default_pull_schedule_config_from_settings(settings: Any) -> PullScheduleConfig:
-    default_interval = max(1, int(getattr(settings, "task_pull_interval_seconds", 2)))
+def default_pull_schedule_config_from_settings(
+    settings: PullScheduleSettings,
+) -> PullScheduleConfig:
+    default_interval = max(1, int(settings.task_pull_interval_seconds))
 
     rules: list[PullRule] = []
 
-    if bool(getattr(settings, "task_pull_immediate_enabled", True)):
+    if bool(settings.task_pull_immediate_enabled):
         seconds = max(
             1,
             int(
-                getattr(settings, "task_pull_immediate_interval_seconds", None)
-                or default_interval
+                settings.task_pull_immediate_interval_seconds
+                if settings.task_pull_immediate_interval_seconds
+                else default_interval
             ),
         )
         rules.append(
@@ -178,12 +198,13 @@ def default_pull_schedule_config_from_settings(settings: Any) -> PullScheduleCon
             )
         )
 
-    if bool(getattr(settings, "task_pull_scheduled_enabled", True)):
+    if bool(settings.task_pull_scheduled_enabled):
         seconds = max(
             1,
             int(
-                getattr(settings, "task_pull_scheduled_interval_seconds", None)
-                or default_interval
+                settings.task_pull_scheduled_interval_seconds
+                if settings.task_pull_scheduled_interval_seconds
+                else default_interval
             ),
         )
         rules.append(
@@ -196,28 +217,22 @@ def default_pull_schedule_config_from_settings(settings: Any) -> PullScheduleCon
             )
         )
 
-    if bool(getattr(settings, "task_pull_nightly_enabled", True)):
+    if bool(settings.task_pull_nightly_enabled):
         rules.append(
             WindowPullRule(
                 id="nightly",
                 enabled=True,
                 schedule_modes=["nightly"],
                 cron={
-                    "hour": int(getattr(settings, "task_pull_nightly_start_hour", 2)),
-                    "minute": int(
-                        getattr(settings, "task_pull_nightly_start_minute", 0)
-                    ),
+                    "hour": int(settings.task_pull_nightly_start_hour),
+                    "minute": int(settings.task_pull_nightly_start_minute),
                 },
-                timezone=str(getattr(settings, "task_pull_nightly_timezone", "UTC")),
-                window_minutes=int(
-                    getattr(settings, "task_pull_nightly_window_minutes", 360)
-                ),
+                timezone=str(settings.task_pull_nightly_timezone),
+                window_minutes=int(settings.task_pull_nightly_window_minutes),
                 poll_interval_seconds=int(
-                    getattr(settings, "task_pull_nightly_poll_interval_seconds", 2)
+                    settings.task_pull_nightly_poll_interval_seconds
                 ),
             )
         )
 
-    return PullScheduleConfig(
-        enabled=bool(getattr(settings, "task_pull_enabled", True)), rules=rules
-    )
+    return PullScheduleConfig(enabled=bool(settings.task_pull_enabled), rules=rules)

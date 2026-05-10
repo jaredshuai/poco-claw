@@ -5,9 +5,42 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from typing import Any, Protocol, get_type_hints
 
 import pytest
+
+
+def _make_settings(
+    *,
+    task_pull_enabled: bool = True,
+    task_pull_interval_seconds: int = 2,
+    task_pull_immediate_enabled: bool = True,
+    task_pull_immediate_interval_seconds: int | None = None,
+    task_pull_scheduled_enabled: bool = True,
+    task_pull_scheduled_interval_seconds: int | None = None,
+    task_pull_nightly_enabled: bool = False,
+    task_pull_nightly_start_hour: int = 2,
+    task_pull_nightly_start_minute: int = 0,
+    task_pull_nightly_timezone: str = "UTC",
+    task_pull_nightly_window_minutes: int = 360,
+    task_pull_nightly_poll_interval_seconds: int = 2,
+) -> SimpleNamespace:
+    """Build a SimpleNamespace that satisfies PullScheduleSettings."""
+    return SimpleNamespace(
+        task_pull_enabled=task_pull_enabled,
+        task_pull_interval_seconds=task_pull_interval_seconds,
+        task_pull_immediate_enabled=task_pull_immediate_enabled,
+        task_pull_immediate_interval_seconds=task_pull_immediate_interval_seconds,
+        task_pull_scheduled_enabled=task_pull_scheduled_enabled,
+        task_pull_scheduled_interval_seconds=task_pull_scheduled_interval_seconds,
+        task_pull_nightly_enabled=task_pull_nightly_enabled,
+        task_pull_nightly_start_hour=task_pull_nightly_start_hour,
+        task_pull_nightly_start_minute=task_pull_nightly_start_minute,
+        task_pull_nightly_timezone=task_pull_nightly_timezone,
+        task_pull_nightly_window_minutes=task_pull_nightly_window_minutes,
+        task_pull_nightly_poll_interval_seconds=task_pull_nightly_poll_interval_seconds,
+    )
 
 
 class TestIntervalPullRule(unittest.TestCase):
@@ -399,14 +432,15 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
             default_pull_schedule_config_from_settings,
         )
 
-        mock_settings = MagicMock()
-        mock_settings.task_pull_enabled = True
-        mock_settings.task_pull_interval_seconds = 2
-        mock_settings.task_pull_immediate_enabled = True
-        mock_settings.task_pull_scheduled_enabled = True
-        mock_settings.task_pull_nightly_enabled = False
+        settings = _make_settings(
+            task_pull_enabled=True,
+            task_pull_interval_seconds=2,
+            task_pull_immediate_enabled=True,
+            task_pull_scheduled_enabled=True,
+            task_pull_nightly_enabled=False,
+        )
 
-        result = default_pull_schedule_config_from_settings(mock_settings)
+        result = default_pull_schedule_config_from_settings(settings)
 
         assert result.enabled is True
         # Should have immediate and scheduled rules (2 total)
@@ -418,19 +452,20 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
             default_pull_schedule_config_from_settings,
         )
 
-        mock_settings = MagicMock()
-        mock_settings.task_pull_enabled = True
-        mock_settings.task_pull_interval_seconds = 2
-        mock_settings.task_pull_immediate_enabled = True
-        mock_settings.task_pull_scheduled_enabled = True
-        mock_settings.task_pull_nightly_enabled = True
-        mock_settings.task_pull_nightly_start_hour = 2
-        mock_settings.task_pull_nightly_start_minute = 0
-        mock_settings.task_pull_nightly_timezone = "UTC"
-        mock_settings.task_pull_nightly_window_minutes = 360
-        mock_settings.task_pull_nightly_poll_interval_seconds = 2
+        settings = _make_settings(
+            task_pull_enabled=True,
+            task_pull_interval_seconds=2,
+            task_pull_immediate_enabled=True,
+            task_pull_scheduled_enabled=True,
+            task_pull_nightly_enabled=True,
+            task_pull_nightly_start_hour=2,
+            task_pull_nightly_start_minute=0,
+            task_pull_nightly_timezone="UTC",
+            task_pull_nightly_window_minutes=360,
+            task_pull_nightly_poll_interval_seconds=2,
+        )
 
-        result = default_pull_schedule_config_from_settings(mock_settings)
+        result = default_pull_schedule_config_from_settings(settings)
 
         # Should have immediate, scheduled, and nightly rules (3 total)
         assert len(result.rules) == 3
@@ -442,14 +477,15 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
             default_pull_schedule_config_from_settings,
         )
 
-        mock_settings = MagicMock()
-        mock_settings.task_pull_enabled = False
-        mock_settings.task_pull_interval_seconds = 2
-        mock_settings.task_pull_immediate_enabled = True
-        mock_settings.task_pull_scheduled_enabled = True
-        mock_settings.task_pull_nightly_enabled = False
+        settings = _make_settings(
+            task_pull_enabled=False,
+            task_pull_interval_seconds=2,
+            task_pull_immediate_enabled=True,
+            task_pull_scheduled_enabled=True,
+            task_pull_nightly_enabled=False,
+        )
 
-        result = default_pull_schedule_config_from_settings(mock_settings)
+        result = default_pull_schedule_config_from_settings(settings)
 
         assert result.enabled is False
 
@@ -459,15 +495,16 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
             default_pull_schedule_config_from_settings,
         )
 
-        mock_settings = MagicMock()
-        mock_settings.task_pull_enabled = True
-        mock_settings.task_pull_interval_seconds = 0  # Should be clamped
-        mock_settings.task_pull_immediate_enabled = True
-        mock_settings.task_pull_immediate_interval_seconds = None
-        mock_settings.task_pull_scheduled_enabled = False
-        mock_settings.task_pull_nightly_enabled = False
+        settings = _make_settings(
+            task_pull_enabled=True,
+            task_pull_interval_seconds=0,  # Should be clamped
+            task_pull_immediate_enabled=True,
+            task_pull_immediate_interval_seconds=None,
+            task_pull_scheduled_enabled=False,
+            task_pull_nightly_enabled=False,
+        )
 
-        result = default_pull_schedule_config_from_settings(mock_settings)
+        result = default_pull_schedule_config_from_settings(settings)
 
         immediate_rule = next(r for r in result.rules if r.id == "immediate")
         assert immediate_rule.seconds == 1
@@ -478,16 +515,17 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
             default_pull_schedule_config_from_settings,
         )
 
-        mock_settings = MagicMock()
-        mock_settings.task_pull_enabled = True
-        mock_settings.task_pull_interval_seconds = 10
-        mock_settings.task_pull_immediate_enabled = True
-        mock_settings.task_pull_immediate_interval_seconds = 5
-        mock_settings.task_pull_scheduled_enabled = True
-        mock_settings.task_pull_scheduled_interval_seconds = 15
-        mock_settings.task_pull_nightly_enabled = False
+        settings = _make_settings(
+            task_pull_enabled=True,
+            task_pull_interval_seconds=10,
+            task_pull_immediate_enabled=True,
+            task_pull_immediate_interval_seconds=5,
+            task_pull_scheduled_enabled=True,
+            task_pull_scheduled_interval_seconds=15,
+            task_pull_nightly_enabled=False,
+        )
 
-        result = default_pull_schedule_config_from_settings(mock_settings)
+        result = default_pull_schedule_config_from_settings(settings)
 
         immediate_rule = next(r for r in result.rules if r.id == "immediate")
         scheduled_rule = next(r for r in result.rules if r.id == "scheduled")
@@ -501,17 +539,75 @@ class TestDefaultPullScheduleConfigFromSettings(unittest.TestCase):
             default_pull_schedule_config_from_settings,
         )
 
-        mock_settings = MagicMock()
-        mock_settings.task_pull_enabled = True
-        mock_settings.task_pull_interval_seconds = 2
-        mock_settings.task_pull_immediate_enabled = False
-        mock_settings.task_pull_scheduled_enabled = False
-        mock_settings.task_pull_nightly_enabled = False
+        settings = _make_settings(
+            task_pull_enabled=True,
+            task_pull_interval_seconds=2,
+            task_pull_immediate_enabled=False,
+            task_pull_scheduled_enabled=False,
+            task_pull_nightly_enabled=False,
+        )
 
-        result = default_pull_schedule_config_from_settings(mock_settings)
+        result = default_pull_schedule_config_from_settings(settings)
 
         assert result.enabled is True
         assert result.rules == []
+
+
+class TestPullScheduleSettingsProtocol(unittest.TestCase):
+    """Test annotation contract for PullScheduleSettings protocol."""
+
+    def test_function_annotation_is_protocol_not_any(self) -> None:
+        """Prove default_pull_schedule_config_from_settings uses PullScheduleSettings, not Any."""
+        from app.scheduler.pull_schedule_config import (
+            PullScheduleSettings,
+            default_pull_schedule_config_from_settings,
+        )
+
+        hints = get_type_hints(default_pull_schedule_config_from_settings)
+        settings_type = hints.get("settings")
+
+        # The annotation should be PullScheduleSettings, not Any
+        assert settings_type is not None
+        assert settings_type is not type(None)
+        assert settings_type is not Any
+        # Protocol subclasses have __protocol_attrs__ or similar markers
+        assert hasattr(settings_type, "__protocol_attrs__") or issubclass(
+            settings_type, Protocol
+        )
+        # Specifically, it should be PullScheduleSettings itself
+        assert settings_type is PullScheduleSettings
+
+    def test_protocol_declares_required_fields(self) -> None:
+        """Prove the protocol declares all required fields with correct types."""
+        from app.scheduler.pull_schedule_config import PullScheduleSettings
+
+        # Expected fields and their annotations
+        expected_fields = {
+            "task_pull_enabled",
+            "task_pull_interval_seconds",
+            "task_pull_immediate_enabled",
+            "task_pull_immediate_interval_seconds",
+            "task_pull_scheduled_enabled",
+            "task_pull_scheduled_interval_seconds",
+            "task_pull_nightly_enabled",
+            "task_pull_nightly_start_hour",
+            "task_pull_nightly_start_minute",
+            "task_pull_nightly_timezone",
+            "task_pull_nightly_window_minutes",
+            "task_pull_nightly_poll_interval_seconds",
+        }
+
+        # Protocol fields are accessible via __annotations__
+        annotations = PullScheduleSettings.__annotations__
+
+        for field_name in expected_fields:
+            assert field_name in annotations, f"Missing protocol field: {field_name}"
+            # None of the annotations should be Any
+            field_type = annotations[field_name]
+            assert field_type is not Any, f"Field {field_name} should not be Any"
+
+        # No extra fields
+        assert set(annotations.keys()) == expected_fields
 
 
 if __name__ == "__main__":

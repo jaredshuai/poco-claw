@@ -376,7 +376,7 @@ class BackendClient:
             return {}
         return {str(k): str(v) for k, v in resolved.items() if isinstance(v, str)}
 
-    async def get_claude_md(self, user_id: str) -> dict:
+    async def get_claude_md(self, user_id: str) -> dict[str, object]:
         """Fetch user-level CLAUDE.md settings for execution staging."""
         response = await self._request(
             "GET",

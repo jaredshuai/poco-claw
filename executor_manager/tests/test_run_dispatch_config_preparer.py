@@ -164,3 +164,22 @@ def test_staging_preparer_prepare_config_param_is_dict_str_object() -> None:
     key_type, value_type = args
     assert key_type is str, f"Expected str key, got {key_type}"
     assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_backend_client_port_get_claude_md_return_is_dict_str_object() -> None:
+    """Regression: BackendClientPort.get_claude_md returns dict[str, object], not dict[str, Any]."""
+    import typing
+    from app.services.run_dispatch_config_preparer import BackendClientPort
+
+    hints = typing.get_type_hints(BackendClientPort.get_claude_md)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"

@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+from typing import get_origin, get_args
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -929,6 +930,25 @@ class TestBackendClientGetClaudeMd:
                 result = await client.get_claude_md("user-123")
 
             assert result == {}
+
+
+def test_backend_client_get_claude_md_return_is_dict_str_object() -> None:
+    """Regression: BackendClient.get_claude_md returns dict[str, object], not bare dict."""
+    import typing
+    from app.services.backend_client import BackendClient
+
+    hints = typing.get_type_hints(BackendClient.get_claude_md)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
 
 
 @pytest.mark.asyncio

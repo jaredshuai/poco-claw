@@ -1,17 +1,22 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def resolve_executor_task_lease_secret(settings: object) -> str:
-    dedicated_secret = str(
-        getattr(settings, "executor_task_lease_secret", "") or ""
-    ).strip()
+class ExecutorTaskLeaseSecretSettings(Protocol):
+    callback_token: str
+    executor_task_lease_secret: str
+
+
+def resolve_executor_task_lease_secret(
+    settings: ExecutorTaskLeaseSecretSettings,
+) -> str:
+    dedicated_secret = str(settings.executor_task_lease_secret or "").strip()
     if dedicated_secret:
         return dedicated_secret
-    return str(getattr(settings, "callback_token", "") or "").strip()
+    return str(settings.callback_token or "").strip()
 
 
 class Settings(BaseSettings):

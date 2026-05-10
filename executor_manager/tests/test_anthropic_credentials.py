@@ -1,12 +1,17 @@
 import os
+import typing
 import unittest
 from types import SimpleNamespace
+from typing import Protocol
 from unittest.mock import patch
 
 from pydantic import ValidationError
 
 from app.core.settings import Settings
-from app.core.settings import resolve_executor_task_lease_secret
+from app.core.settings import (
+    ExecutorTaskLeaseSecretSettings,
+    resolve_executor_task_lease_secret,
+)
 from app.services.config_resolver import ConfigResolver
 from app.services.container_pool import ContainerPool
 
@@ -201,6 +206,38 @@ class ConfigResolverProviderOverrideTests(unittest.TestCase):
         self.assertEqual(
             overrides["ANTHROPIC_BASE_URL"],
             "http://gateway.example.com",
+        )
+
+
+class ResolveExecutorTaskLeaseSecretAnnotationTests(unittest.TestCase):
+    """Prove resolve_executor_task_lease_secret uses the named Protocol."""
+
+    def test_annotation_is_named_protocol_not_object(self) -> None:
+        hints = typing.get_type_hints(resolve_executor_task_lease_secret)
+        settings_type = hints["settings"]
+        self.assertIs(settings_type, ExecutorTaskLeaseSecretSettings)
+        self.assertIsNot(settings_type, object)
+        self.assertIsNot(settings_type, typing.Any)
+
+    def test_protocol_declares_callback_token(self) -> None:
+        self.assertIn("callback_token", ExecutorTaskLeaseSecretSettings.__annotations__)
+
+    def test_protocol_declares_executor_task_lease_secret(self) -> None:
+        self.assertIn(
+            "executor_task_lease_secret",
+            ExecutorTaskLeaseSecretSettings.__annotations__,
+        )
+
+    def test_protocol_fields_are_str_not_any(self) -> None:
+        annotations = ExecutorTaskLeaseSecretSettings.__annotations__
+        self.assertIs(annotations["callback_token"], str)
+        self.assertIs(annotations["executor_task_lease_secret"], str)
+        self.assertIsNot(annotations["callback_token"], typing.Any)
+        self.assertIsNot(annotations["executor_task_lease_secret"], typing.Any)
+
+    def test_protocol_is_protocol(self) -> None:
+        self.assertTrue(
+            issubclass(ExecutorTaskLeaseSecretSettings, Protocol),
         )
 
 

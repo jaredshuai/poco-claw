@@ -1,4 +1,4 @@
-from typing import Any, Protocol
+from typing import Protocol
 
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
@@ -16,7 +16,7 @@ class RunDispatchExecutorClientPort(Protocol):
         callback_url: str,
         callback_token: str,
         task_lease_secret: str,
-        config: dict[str, Any],
+        config: dict[str, object],
         callback_base_url: str,
         sdk_session_id: str | None,
         permission_mode: str,
@@ -32,7 +32,7 @@ class RunDispatchExecutorGateway(Protocol):
         run_id: str,
         prompt: str,
         execution_context: RunDispatchExecutionContext,
-        config: dict[str, Any],
+        config: dict[str, object],
         sdk_session_id: str | None,
         permission_mode: str,
     ) -> str: ...
@@ -50,7 +50,7 @@ class ExecutorClientRunDispatchGateway:
         run_id: str,
         prompt: str,
         execution_context: RunDispatchExecutionContext,
-        config: dict[str, Any],
+        config: dict[str, object],
         sdk_session_id: str | None,
         permission_mode: str,
     ) -> str:

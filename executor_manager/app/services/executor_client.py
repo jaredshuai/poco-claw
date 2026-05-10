@@ -24,7 +24,7 @@ def _compute_body_digest(body: bytes) -> str:
     return hashlib.sha256(body).hexdigest()
 
 
-def _make_deterministic_json_bytes(data: dict) -> bytes:
+def _make_deterministic_json_bytes(data: dict[str, object]) -> bytes:
     """Produce stable JSON bytes for signing and sending.
 
     Uses sort_keys=True, separators=(",", ":"), ensure_ascii=False
@@ -113,7 +113,7 @@ class ExecutorClient:
         prompt: str,
         callback_url: str,
         callback_token: str,
-        config: dict,
+        config: dict[str, object],
         task_lease_secret: str | None = None,
         callback_base_url: str | None = None,
         sdk_session_id: str | None = None,

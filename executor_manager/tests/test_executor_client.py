@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import inspect
+import typing
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -407,6 +408,47 @@ class TestExecutorClientExecuteTask:
             hashlib.sha256,
         ).hexdigest()
         assert headers["X-Poco-Task-Lease-Signature"] == expected_signature
+
+
+def test_executor_client_execute_task_config_is_dict_str_object() -> None:
+    """Regression: execute_task config parameter must be dict[str, object], not bare dict or Any."""
+    hints = typing.get_type_hints(ExecutorClient.execute_task)
+    config_hint = hints.get("config")
+    assert config_hint is not None
+
+    # Check it's not bare 'dict'
+    hint_str = str(config_hint)
+    assert not hint_str == "dict", "config should not be bare 'dict'"
+
+    # Check it doesn't contain Any
+    assert "Any" not in hint_str, f"config should not use Any: {hint_str}"
+
+    # Check it's dict[str, object]
+    origin = typing.get_origin(config_hint)
+    args = typing.get_args(config_hint)
+    assert origin is dict, f"config should be dict, got {origin}"
+    key_type, value_type = args
+    assert key_type is str, f"config key should be str, got {key_type}"
+    assert value_type is object, f"config value should be object, got {value_type}"
+
+
+def test_make_deterministic_json_bytes_config_is_dict_str_object() -> None:
+    """Regression: _make_deterministic_json_bytes config parameter must be dict[str, object]."""
+    from app.services.executor_client import _make_deterministic_json_bytes
+
+    hints = typing.get_type_hints(_make_deterministic_json_bytes)
+    data_hint = hints.get("data")
+    assert data_hint is not None
+
+    hint_str = str(data_hint)
+    assert "Any" not in hint_str, f"data should not use Any: {hint_str}"
+
+    origin = typing.get_origin(data_hint)
+    args = typing.get_args(data_hint)
+    assert origin is dict, f"data should be dict, got {origin}"
+    key_type, value_type = args
+    assert key_type is str, f"data key should be str, got {key_type}"
+    assert value_type is object, f"data value should be object, got {value_type}"
 
 
 if __name__ == "__main__":

@@ -11,6 +11,57 @@ from app.services.run_dispatch_executor_gateway import (
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
 
+def test_run_dispatch_executor_client_port_config_is_dict_str_object() -> None:
+    """Regression: RunDispatchExecutorClientPort.execute_task config must be dict[str, object], not Any."""
+    hints = typing.get_type_hints(RunDispatchExecutorClientPort.execute_task)
+    config_hint = hints.get("config")
+    assert config_hint is not None
+
+    hint_str = str(config_hint)
+    assert "Any" not in hint_str, f"config should not use Any: {hint_str}"
+
+    origin = typing.get_origin(config_hint)
+    args = typing.get_args(config_hint)
+    assert origin is dict, f"config should be dict, got {origin}"
+    key_type, value_type = args
+    assert key_type is str, f"config key should be str, got {key_type}"
+    assert value_type is object, f"config value should be object, got {value_type}"
+
+
+def test_run_dispatch_executor_gateway_config_is_dict_str_object() -> None:
+    """Regression: RunDispatchExecutorGateway.execute_run config must be dict[str, object], not Any."""
+    hints = typing.get_type_hints(RunDispatchExecutorGateway.execute_run)
+    config_hint = hints.get("config")
+    assert config_hint is not None
+
+    hint_str = str(config_hint)
+    assert "Any" not in hint_str, f"config should not use Any: {hint_str}"
+
+    origin = typing.get_origin(config_hint)
+    args = typing.get_args(config_hint)
+    assert origin is dict, f"config should be dict, got {origin}"
+    key_type, value_type = args
+    assert key_type is str, f"config key should be str, got {key_type}"
+    assert value_type is object, f"config value should be object, got {value_type}"
+
+
+def test_executor_client_run_dispatch_gateway_config_is_dict_str_object() -> None:
+    """Regression: ExecutorClientRunDispatchGateway.execute_run config must be dict[str, object], not Any."""
+    hints = typing.get_type_hints(ExecutorClientRunDispatchGateway.execute_run)
+    config_hint = hints.get("config")
+    assert config_hint is not None
+
+    hint_str = str(config_hint)
+    assert "Any" not in hint_str, f"config should not use Any: {hint_str}"
+
+    origin = typing.get_origin(config_hint)
+    args = typing.get_args(config_hint)
+    assert origin is dict, f"config should be dict, got {origin}"
+    key_type, value_type = args
+    assert key_type is str, f"config key should be str, got {key_type}"
+    assert value_type is object, f"config value should be object, got {value_type}"
+
+
 @pytest.mark.asyncio
 async def test_executor_client_gateway_executes_run_through_executor_client() -> None:
     executor_client = MagicMock()

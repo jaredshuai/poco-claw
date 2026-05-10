@@ -9,6 +9,7 @@ from app.scheduler.task_dispatcher import (
     LegacyTaskDispatchExecutorGateway,
     TaskDispatchDependencies,
     TaskDispatcher,
+    build_task_dispatch_config_resolver,
     build_task_dispatch_dependencies,
 )
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
@@ -1876,6 +1877,72 @@ async def test_task_dispatcher_passes_none_run_id_to_executor_gateway() -> None:
     assert call_kwargs["run_id"] is None, (
         "Legacy TaskDispatcher should pass run_id=None"
     )
+
+
+def _assert_task_dispatch_settings_annotation(annotation: object) -> None:
+    annotation_text = str(annotation)
+    assert "TaskDispatchSettings" in annotation_text
+    assert "Any" not in annotation_text
+
+
+class TestTaskDispatchSettingsAnnotations:
+    """Focused tests proving settings annotations are not Any."""
+
+    def test_task_dispatch_dependencies_init_settings_annotation(self) -> None:
+        hints = typing.get_type_hints(TaskDispatchDependencies.__init__)
+        settings_hint = hints.get("settings")
+        assert settings_hint is not None, (
+            "settings parameter must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(settings_hint)
+
+    def test_bind_settings_if_unset_annotation(self) -> None:
+        hints = typing.get_type_hints(TaskDispatchDependencies.bind_settings_if_unset)
+        settings_hint = hints.get("settings")
+        assert settings_hint is not None, (
+            "settings parameter must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(settings_hint)
+
+    def test_build_task_dispatch_dependencies_settings_annotation(self) -> None:
+        hints = typing.get_type_hints(build_task_dispatch_dependencies)
+        settings_hint = hints.get("settings")
+        assert settings_hint is not None, (
+            "settings parameter must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(settings_hint)
+
+    def test_build_task_dispatch_config_resolver_settings_annotation(self) -> None:
+        hints = typing.get_type_hints(build_task_dispatch_config_resolver)
+        settings_hint = hints.get("settings")
+        assert settings_hint is not None, (
+            "settings parameter must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(settings_hint)
+
+    def test_config_resolver_factory_class_annotation(self) -> None:
+        hints = typing.get_type_hints(TaskDispatchDependencies.__init__)
+        factory_hint = hints.get("config_resolver_factory")
+        assert factory_hint is not None, (
+            "config_resolver_factory must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(factory_hint)
+
+    def test_config_resolver_factory_builder_annotation(self) -> None:
+        hints = typing.get_type_hints(build_task_dispatch_dependencies)
+        factory_hint = hints.get("config_resolver_factory")
+        assert factory_hint is not None, (
+            "config_resolver_factory must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(factory_hint)
+
+    def test_task_dispatcher_dispatch_settings_annotation(self) -> None:
+        hints = typing.get_type_hints(TaskDispatcher.dispatch)
+        settings_hint = hints.get("settings")
+        assert settings_hint is not None, (
+            "settings parameter must have a type annotation"
+        )
+        _assert_task_dispatch_settings_annotation(settings_hint)
 
 
 if __name__ == "__main__":

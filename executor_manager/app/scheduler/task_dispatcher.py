@@ -20,6 +20,7 @@ from app.services.container_pool import ContainerPool
 from app.services.executor_client import ExecutorClient
 from app.services.config_resolver import ConfigBackendClient
 from app.services.config_resolver import ConfigResolver
+from app.services.config_resolver import ConfigResolverSettings
 from app.services.skill_stager import SkillStager
 from app.services.plugin_stager import PluginStager
 from app.services.attachment_stager import AttachmentStager
@@ -51,6 +52,16 @@ from app.services.task_dispatch_state_gateway import (
     BackendTaskDispatchStateGateway,
     TaskDispatchStateGateway,
 )
+
+
+class TaskDispatchSettings(
+    ConfigResolverSettings,
+    RunDispatchExecutionContextSettings,
+    Protocol,
+):
+    """Settings required by the scheduler dispatch path."""
+
+    task_timeout_seconds: int | None
 
 
 class TaskDispatchBackendClientPort(
@@ -177,7 +188,7 @@ class TaskDispatchDependencies:
     def __init__(
         self,
         *,
-        settings: Any | None = None,
+        settings: TaskDispatchSettings | None = None,
         executor_client: RunDispatchExecutorClientPort | None = None,
         backend_client: TaskDispatchBackendClientPort | None = None,
         config_resolver: ConfigResolverPort | None = None,
@@ -197,7 +208,8 @@ class TaskDispatchDependencies:
         backend_client_factory: Callable[[], TaskDispatchBackendClientPort]
         | None = None,
         config_resolver_factory: Callable[
-            [TaskDispatchBackendClientPort, Any | None], ConfigResolverPort
+            [TaskDispatchBackendClientPort, TaskDispatchSettings | None],
+            ConfigResolverPort,
         ]
         | None = None,
         skill_stager_factory: Callable[[], SkillStagerPort] | None = None,
@@ -418,7 +430,7 @@ class TaskDispatchDependencies:
     def state_gateway(self, value: TaskDispatchStateGateway) -> None:
         self._state_gateway = value
 
-    def bind_settings_if_unset(self, settings: Any) -> None:
+    def bind_settings_if_unset(self, settings: TaskDispatchSettings) -> None:
         if self._settings is None:
             self._settings = settings
 
@@ -434,7 +446,7 @@ class TaskDispatchDependencies:
         if self._execution_context_provider is None:
             self._execution_context_provider = (
                 SettingsRunDispatchExecutionContextProvider(
-                    cast(RunDispatchExecutionContextSettings, self._settings)
+                    cast(TaskDispatchSettings, self._settings)
                 )
             )
         return self._execution_context_provider
@@ -457,7 +469,7 @@ def build_task_dispatch_executor_client() -> RunDispatchExecutorClientPort:
 
 def build_task_dispatch_config_resolver(
     backend_client: TaskDispatchBackendClientPort,
-    settings: Any | None = None,
+    settings: TaskDispatchSettings | None = None,
 ) -> ConfigResolverPort:
     return ConfigResolver(backend_client, settings=settings)
 
@@ -496,11 +508,11 @@ def build_task_dispatch_container_pool() -> ContainerPoolCapability:
 
 def build_task_dispatch_dependencies(
     *,
-    settings: Any | None = None,
+    settings: TaskDispatchSettings | None = None,
     executor_client_factory: Callable[[], RunDispatchExecutorClientPort] | None = None,
     backend_client_factory: Callable[[], TaskDispatchBackendClientPort] | None = None,
     config_resolver_factory: Callable[
-        [TaskDispatchBackendClientPort, Any | None], ConfigResolverPort
+        [TaskDispatchBackendClientPort, TaskDispatchSettings | None], ConfigResolverPort
     ]
     | None = None,
     skill_stager_factory: Callable[[], SkillStagerPort] | None = None,
@@ -597,7 +609,7 @@ class TaskDispatcher:
         trace_id: str | None = None,
         enqueued_at: float | None = None,
         dependencies: TaskDispatchDependencies | None = None,
-        settings: Any | None = None,
+        settings: TaskDispatchSettings | None = None,
     ) -> None:
         """Dispatch task to executor.
 
@@ -611,7 +623,11 @@ class TaskDispatcher:
             trace_id: Trace ID for correlating logs across async boundaries
             enqueued_at: perf_counter timestamp when the task was enqueued (for queue delay)
         """
-        settings = settings if settings is not None else get_settings()
+        settings = (
+            settings
+            if settings is not None
+            else cast(TaskDispatchSettings, get_settings())
+        )
         dispatch_dependencies = dependencies or build_task_dispatch_dependencies(
             settings=settings
         )

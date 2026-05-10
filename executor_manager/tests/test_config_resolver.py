@@ -791,6 +791,32 @@ class TestConfigResolverResolveEffectiveSkillFilesReturnType:
         assert args == (str, object), f"Expected dict[str, object], got {args}"
 
 
+class TestConfigResolverResolveEffectivePluginFilesReturnType:
+    """Regression tests for plugin config return types."""
+
+    def test_resolve_plugin_config_protocol_return_type_is_dict_str_object(
+        self,
+    ) -> None:
+        """Regression: verify ConfigBackendClient.resolve_plugin_config return annotation is dict[str, object]."""
+        hints = get_type_hints(ConfigBackendClient.resolve_plugin_config)
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"
+
+    def test_resolve_effective_plugin_files_return_type_is_dict_str_object(
+        self,
+    ) -> None:
+        """Regression: verify ConfigResolver._resolve_effective_plugin_files return annotation is dict[str, object]."""
+        hints = get_type_hints(ConfigResolver._resolve_effective_plugin_files)
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"
+
+
 @pytest.mark.asyncio
 class TestConfigResolverResolveEffectiveSkillFiles:
     """Test ConfigResolver._resolve_effective_skill_files."""

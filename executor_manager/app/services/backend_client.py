@@ -250,7 +250,9 @@ class BackendClient:
         data = response.json()
         return data if isinstance(data, dict) else {}
 
-    async def resolve_plugin_config(self, user_id: str, plugin_ids: list[int]) -> dict:
+    async def resolve_plugin_config(
+        self, user_id: str, plugin_ids: list[int]
+    ) -> dict[str, object]:
         """Resolve effective plugin config for execution based on selected plugin ids."""
         response = await self._request(
             "POST",

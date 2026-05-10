@@ -39,7 +39,7 @@ class ConfigBackendClient(Protocol):
 
     async def resolve_plugin_config(
         self, user_id: str, plugin_ids: list[int]
-    ) -> dict: ...
+    ) -> dict[str, object]: ...
 
     async def resolve_subagents(
         self, user_id: str, subagent_ids: list[int] | None
@@ -592,7 +592,7 @@ class ConfigResolver:
 
     async def _resolve_effective_plugin_files(
         self, user_id: str, config_snapshot: dict
-    ) -> dict:
+    ) -> dict[str, object]:
         """Resolve plugins for execution.
 
         Priority:

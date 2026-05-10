@@ -1,4 +1,5 @@
 import unittest
+from typing import get_origin, get_args
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1070,6 +1071,44 @@ class TestConfigResolverResolveModelEnvOverrides(unittest.TestCase):
         )
 
         assert result == {}
+
+
+def test_config_backend_client_protocol_execution_settings_is_dict_str_object() -> None:
+    """Regression: ConfigBackendClient protocol get_execution_settings returns dict[str, object]."""
+    import typing
+    from app.services.config_resolver import ConfigBackendClient
+
+    hints = typing.get_type_hints(ConfigBackendClient.get_execution_settings)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_config_resolver_resolve_execution_settings_is_dict_str_object() -> None:
+    """Regression: ConfigResolver._resolve_execution_settings returns dict[str, object]."""
+    import typing
+    from app.services.config_resolver import ConfigResolver
+
+    hints = typing.get_type_hints(ConfigResolver._resolve_execution_settings)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
 
 
 if __name__ == "__main__":

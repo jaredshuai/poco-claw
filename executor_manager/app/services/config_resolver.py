@@ -27,7 +27,7 @@ _HOOK_PHASE_ORDER = {
 class ConfigBackendClient(Protocol):
     async def get_env_map(self, user_id: str) -> dict[str, str]: ...
 
-    async def get_execution_settings(self, user_id: str) -> dict: ...
+    async def get_execution_settings(self, user_id: str) -> dict[str, object]: ...
 
     async def resolve_mcp_config(self, user_id: str, server_ids: list[int]) -> dict: ...
 
@@ -536,7 +536,7 @@ class ConfigResolver:
     async def _get_env_map(self, user_id: str) -> dict[str, str]:
         return await self.backend_client.get_env_map(user_id=user_id)
 
-    async def _resolve_execution_settings(self, user_id: str) -> dict:
+    async def _resolve_execution_settings(self, user_id: str) -> dict[str, object]:
         getter = getattr(self.backend_client, "get_execution_settings", None)
         if getter is None:
             return {}

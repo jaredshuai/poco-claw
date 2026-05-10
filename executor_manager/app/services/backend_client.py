@@ -277,7 +277,7 @@ class BackendClient:
         data = response.json()
         return data.get("data", {}) or {}
 
-    async def get_execution_settings(self, user_id: str) -> dict:
+    async def get_execution_settings(self, user_id: str) -> dict[str, object]:
         response = await self._request(
             "GET",
             "/api/v1/internal/execution-settings/resolve",

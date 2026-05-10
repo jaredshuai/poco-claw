@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Self
 
 
 @dataclass(frozen=True)
@@ -9,12 +9,12 @@ class RunDispatchClaim:
     session_id: str
     user_id: str
     prompt: str
-    config_snapshot: dict[str, Any]
+    config_snapshot: dict[str, object]
     sdk_session_id: str | None = None
     permission_mode: str = "default"
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, Any]) -> Self | None:
+    def from_payload(cls, payload: Mapping[str, object]) -> Self | None:
         run = payload.get("run") or {}
         if not isinstance(run, Mapping):
             return None

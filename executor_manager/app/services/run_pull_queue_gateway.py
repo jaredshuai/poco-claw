@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Protocol
 
 from app.services.run_dispatch_claim import RunDispatchClaim
 
@@ -21,7 +21,7 @@ class RunPullQueueBackendClient(Protocol):
         worker_id: str,
         lease_seconds: int,
         schedule_modes: list[str] | None,
-    ) -> Mapping[str, Any] | None: ...
+    ) -> Mapping[str, object] | None: ...
 
 
 class BackendRunPullQueueGateway:

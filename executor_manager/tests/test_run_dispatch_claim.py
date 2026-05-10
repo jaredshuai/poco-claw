@@ -1,6 +1,27 @@
 from app.services.run_dispatch_claim import RunDispatchClaim
 
 
+def test_run_dispatch_claim_from_payload_parameter_is_mapping_str_object() -> None:
+    """Regression: from_payload parameter should be Mapping[str, object], not Mapping[str, Any]."""
+    import typing
+    from collections.abc import Mapping
+
+    hints = typing.get_type_hints(RunDispatchClaim.from_payload)
+    param_type = hints.get("payload")
+
+    # Should be Mapping[str, object], not Mapping[str, Any]
+    origin = typing.get_origin(param_type)
+    args = typing.get_args(param_type)
+
+    assert origin is Mapping, f"Expected Mapping, got {origin}"
+    assert args[0] is str, f"Expected str key, got {args[0]}"
+    assert args[1] is object, f"Expected object value, got {args[1]}"
+
+    # Verify it's Mapping[str, object] by checking the arg is exactly `object`, not `Any`
+    value_type = args[1]
+    assert value_type is object, f"Expected object, got {value_type} (not Any)"
+
+
 def test_run_dispatch_claim_run_id_annotation_is_object() -> None:
     """Regression: run_id should be typed as object, not Any."""
     import typing

@@ -22,6 +22,8 @@ class RunDispatchExecutionContextSettings(Protocol):
 
     callback_base_url: str | None
     callback_token: str
+    executor_task_lease_secret: str
+    task_timeout_seconds: int | None
 
 
 class SettingsRunDispatchExecutionContextProvider:
@@ -33,12 +35,13 @@ class SettingsRunDispatchExecutionContextProvider:
         if not callback_base_url:
             raise ValueError("callback_base_url cannot be empty")
 
+        timeout = self.settings.task_timeout_seconds
+        effective_timeout = 3600 if timeout is None else max(1, int(timeout))
+
         return RunDispatchExecutionContext(
             callback_base_url=callback_base_url,
             callback_url=f"{callback_base_url}/api/v1/callback",
             callback_token=self.settings.callback_token,
             task_lease_secret=resolve_executor_task_lease_secret(self.settings),
-            running_lease_seconds=max(
-                1, int(getattr(self.settings, "task_timeout_seconds", 3600))
-            ),
+            running_lease_seconds=effective_timeout,
         )

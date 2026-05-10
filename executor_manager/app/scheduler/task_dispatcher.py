@@ -61,8 +61,6 @@ class TaskDispatchSettings(
 ):
     """Settings required by the scheduler dispatch path."""
 
-    task_timeout_seconds: int | None
-
 
 class TaskDispatchBackendClientPort(
     ConfigBackendClient,

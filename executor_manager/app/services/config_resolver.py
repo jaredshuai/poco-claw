@@ -29,7 +29,9 @@ class ConfigBackendClient(Protocol):
 
     async def get_execution_settings(self, user_id: str) -> dict[str, object]: ...
 
-    async def resolve_mcp_config(self, user_id: str, server_ids: list[int]) -> dict: ...
+    async def resolve_mcp_config(
+        self, user_id: str, server_ids: list[int]
+    ) -> dict[str, object]: ...
 
     async def resolve_skill_config(
         self, user_id: str, skill_ids: list[int]
@@ -547,7 +549,7 @@ class ConfigResolver:
 
     async def _resolve_effective_mcp_config(
         self, user_id: str, config_snapshot: dict
-    ) -> dict:
+    ) -> dict[str, object]:
         """Resolve MCP config for execution.
 
         Priority:

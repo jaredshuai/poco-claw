@@ -202,7 +202,9 @@ class BackendClient:
         data = response.json()
         return data.get("data", {}) or {}
 
-    async def resolve_mcp_config(self, user_id: str, server_ids: list[int]) -> dict:
+    async def resolve_mcp_config(
+        self, user_id: str, server_ids: list[int]
+    ) -> dict[str, object]:
         """Resolve effective MCP config for execution based on selected server ids."""
         response = await self._request(
             "POST",

@@ -664,6 +664,21 @@ class TestBackendClientResolveMcpConfig:
                 assert "server1" in result
 
 
+class TestBackendClientResolveMcpConfigReturnType:
+    """Regression tests for BackendClient.resolve_mcp_config return type."""
+
+    def test_resolve_mcp_config_return_type_is_dict_str_object(self) -> None:
+        """Regression: verify resolve_mcp_config return annotation is dict[str, object], not bare dict."""
+        import typing
+
+        hints = typing.get_type_hints(BackendClient.resolve_mcp_config)
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"
+
+
 @pytest.mark.asyncio
 class TestBackendClientResolveSkillConfig:
     """Test BackendClient.resolve_skill_config."""

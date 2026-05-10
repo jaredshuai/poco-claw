@@ -1,5 +1,5 @@
 import unittest
-from typing import get_origin, get_args
+from typing import get_origin, get_args, get_type_hints
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +9,7 @@ from app.core.errors.exceptions import AppException
 from app.services.config_resolver import (
     ConfigResolver,
     _resolve_env_value,
+    ConfigBackendClient,
 )
 
 
@@ -744,6 +745,28 @@ class TestConfigResolverResolveEffectiveMcpConfig:
             )
 
             assert result == {"server1": {"command": "uvx"}}
+
+
+class TestConfigResolverResolveEffectiveMcpConfigReturnType:
+    """Regression tests for MCP config return types."""
+
+    def test_resolve_mcp_config_protocol_return_type_is_dict_str_object(self) -> None:
+        """Regression: verify ConfigBackendClient.resolve_mcp_config return annotation is dict[str, object]."""
+        hints = get_type_hints(ConfigBackendClient.resolve_mcp_config)
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"
+
+    def test_resolve_effective_mcp_config_return_type_is_dict_str_object(self) -> None:
+        """Regression: verify ConfigResolver._resolve_effective_mcp_config return annotation is dict[str, object]."""
+        hints = get_type_hints(ConfigResolver._resolve_effective_mcp_config)
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"
 
 
 @pytest.mark.asyncio

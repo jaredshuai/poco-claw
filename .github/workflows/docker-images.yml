@@ -74,8 +74,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           build-args: |
             APP_UID=1000
             NEXT_PUBLIC_SESSION_POLLING_INTERVAL=2500

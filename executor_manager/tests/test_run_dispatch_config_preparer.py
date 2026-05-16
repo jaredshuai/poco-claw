@@ -1,4 +1,4 @@
-from typing import Any, get_origin, get_args
+from typing import Any, Union, get_origin, get_args
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -8,6 +8,7 @@ from app.services.run_dispatch_config_preparer import (
     RunDispatchConfigPreparer,
     ConfigResolverPort,
     ClaudeMdStagerPort,
+    PluginStagerPort,
 )
 
 
@@ -258,3 +259,69 @@ def test_claude_md_stager_port_stage_return_is_dict_str_object() -> None:
     key_type, value_type = args
     assert key_type is str, f"Expected str key, got {key_type}"
     assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_plugin_stager_port_stage_plugins_param_is_dict_str_object() -> None:
+    """Regression: PluginStagerPort.stage_plugins plugins is dict[str, object] | None, not dict[str, Any]."""
+    import typing
+    import types
+
+    hints = typing.get_type_hints(PluginStagerPort.stage_plugins)
+    plugins_param = hints.get("plugins")
+    assert plugins_param is not None, "plugins parameter not found"
+
+    # Handle UnionType for Python 3.10+ union syntax
+    origin = get_origin(plugins_param)
+    if origin is types.UnionType or origin is Union:
+        # Unwrap the union to find dict[str, object]
+        args = get_args(plugins_param)
+        for arg in args:
+            if arg is type(None):
+                continue
+            arg_origin = get_origin(arg)
+            if arg_origin is dict:
+                args = get_args(arg)
+                key_type, value_type = args
+                assert key_type is str, f"Expected str key, got {key_type}"
+                assert value_type is object, f"Expected object value, got {value_type}"
+                return
+        raise AssertionError(f"Expected dict in union, got {args}")
+
+    assert origin is dict, f"Expected dict, got {origin}"
+
+    args = get_args(plugins_param)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_plugin_stager_port_stage_plugins_return_is_dict_str_dict_str_object() -> None:
+    """Regression: PluginStagerPort.stage_plugins returns dict[str, dict[str, object]], not dict[str, Any]."""
+    import typing
+
+    hints = typing.get_type_hints(PluginStagerPort.stage_plugins)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+
+    # Value should be dict[str, object]
+    value_origin = get_origin(value_type)
+    assert value_origin is dict, f"Expected dict value, got {value_origin}"
+
+    value_args = get_args(value_type)
+    assert len(value_args) == 2, (
+        f"Expected 2 type args for value, got {len(value_args)}"
+    )
+    nested_key_type, nested_value_type = value_args
+    assert nested_key_type is str, f"Expected str nested key, got {nested_key_type}"
+    assert nested_value_type is object, (
+        f"Expected object nested value, got {nested_value_type}"
+    )

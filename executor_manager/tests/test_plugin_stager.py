@@ -2,6 +2,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast, get_origin, get_args, Union
 from unittest.mock import MagicMock, patch
 
 from app.core.errors.error_codes import ErrorCode
@@ -284,14 +285,16 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 storage_service=mock_storage, workspace_manager=mock_workspace
             )
 
-            plugins = {
+            plugins: dict[str, object] = {
                 "valid-plugin": {"s3_key": "plugins/valid", "enabled": True},
                 "invalid1": "not a dict",
                 "invalid2": 123,
                 "invalid3": None,
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             # Only valid-plugin should be processed
             assert "valid-plugin" in result
@@ -313,7 +316,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 "disabled-plugin": {"enabled": False},
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert result["disabled-plugin"]["enabled"] is False
 
@@ -333,7 +338,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 "my-plugin": {"s3_key": "plugins/my-plugin.zip"},
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "my-plugin" in result
             assert result["my-plugin"]["enabled"] is True
@@ -356,7 +363,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 "my-plugin": {"key": "plugins/my-plugin.zip"},
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "my-plugin" in result
             mock_storage.download_file.assert_called_once()
@@ -380,7 +389,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 },
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "my-plugin" in result
             assert result["my-plugin"]["custom"] == "value"
@@ -402,7 +413,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 "my-plugin": {"s3_key": "plugins/my-plugin/", "is_prefix": True},
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "my-plugin" in result
             mock_storage.download_prefix.assert_called_once()
@@ -425,7 +438,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 },  # Trailing slash triggers prefix
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "my-plugin" in result
             mock_storage.download_prefix.assert_called_once()
@@ -446,7 +461,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 "no-key-plugin": {"name": "something"},  # No s3_key or key
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "no-key-plugin" not in result
 
@@ -559,7 +576,9 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 "new-plugin": {"s3_key": "plugins/new-plugin.zip"},
             }
 
-            result = stager.stage_plugins("user-123", "session-456", plugins)
+            result = stager.stage_plugins(
+                "user-123", "session-456", cast(dict[str, object], plugins)
+            )
 
             assert "new-plugin" in result
             assert not (plugins_root / "old-plugin").exists()
@@ -609,6 +628,76 @@ class TestPluginStagerStagePlugins(unittest.TestCase):
                 stager.stage_plugins("user-123", "session-456", plugins)
 
             assert ctx.exception.error_code == ErrorCode.BAD_REQUEST
+
+
+class TestPluginStagerAnnotations(unittest.TestCase):
+    """Regression tests for PluginStager type annotations."""
+
+    def test_stage_plugins_param_is_dict_str_object(self) -> None:
+        """Regression: stage_plugins plugins parameter is dict[str, object] | None, not dict[str, Any]."""
+        import typing
+        import types
+
+        hints = typing.get_type_hints(PluginStager.stage_plugins)
+        plugins_param = hints.get("plugins")
+        assert plugins_param is not None, "plugins parameter not found"
+
+        # Handle UnionType for Python 3.10+ union syntax
+        origin = get_origin(plugins_param)
+        if origin is types.UnionType or origin is Union:
+            # Unwrap the union to find dict[str, object]
+            args = get_args(plugins_param)
+            for arg in args:
+                if arg is type(None):
+                    continue
+                arg_origin = get_origin(arg)
+                if arg_origin is dict:
+                    args = get_args(arg)
+                    key_type, value_type = args
+                    assert key_type is str, f"Expected str key, got {key_type}"
+                    assert value_type is object, (
+                        f"Expected object value, got {value_type}"
+                    )
+                    return
+            raise AssertionError(f"Expected dict in union, got {args}")
+
+        assert origin is dict, f"Expected dict, got {origin}"
+
+        args = get_args(plugins_param)
+        assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+        key_type, value_type = args
+        assert key_type is str, f"Expected str key, got {key_type}"
+        assert value_type is object, f"Expected object value, got {value_type}"
+
+    def test_stage_plugins_return_is_dict_str_dict_str_object(self) -> None:
+        """Regression: stage_plugins returns dict[str, dict[str, object]], not dict[str, Any]."""
+        import typing
+
+        hints = typing.get_type_hints(PluginStager.stage_plugins)
+        return_type = hints.get("return")
+        assert return_type is not None, "return type not found"
+
+        origin = get_origin(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+
+        args = get_args(return_type)
+        assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+        key_type, value_type = args
+        assert key_type is str, f"Expected str key, got {key_type}"
+
+        # Value should be dict[str, object]
+        value_origin = get_origin(value_type)
+        assert value_origin is dict, f"Expected dict value, got {value_origin}"
+
+        value_args = get_args(value_type)
+        assert len(value_args) == 2, (
+            f"Expected 2 type args for value, got {len(value_args)}"
+        )
+        nested_key_type, nested_value_type = value_args
+        assert nested_key_type is str, f"Expected str nested key, got {nested_key_type}"
+        assert nested_value_type is object, (
+            f"Expected object nested value, got {nested_value_type}"
+        )
 
 
 if __name__ == "__main__":

@@ -47,8 +47,8 @@ class SkillStagerPort(Protocol):
 
 class PluginStagerPort(Protocol):
     def stage_plugins(
-        self, *, user_id: str, session_id: str, plugins: dict[str, Any]
-    ) -> dict[str, Any]: ...
+        self, *, user_id: str, session_id: str, plugins: dict[str, object] | None
+    ) -> dict[str, dict[str, object]]: ...
 
 
 class AttachmentStagerPort(Protocol):

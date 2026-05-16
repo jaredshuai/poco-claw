@@ -4,7 +4,7 @@ import shutil
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol, cast
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -92,8 +92,8 @@ class PluginStager:
         return removed
 
     def stage_plugins(
-        self, user_id: str, session_id: str, plugins: dict[str, Any]
-    ) -> dict[str, dict[str, Any]]:
+        self, user_id: str, session_id: str, plugins: dict[str, object] | None
+    ) -> dict[str, dict[str, object]]:
         started_total = time.perf_counter()
 
         session_dir = self.workspace_manager.get_workspace_path(
@@ -104,7 +104,7 @@ class PluginStager:
         plugins_root.mkdir(parents=True, exist_ok=True)
 
         enabled_names: set[str] = set()
-        for name, spec in (plugins or {}).items():
+        for name, spec in (cast(dict[str, object], plugins) or {}).items():
             if not isinstance(spec, dict):
                 continue
             self._validate_plugin_name(name)
@@ -114,16 +114,21 @@ class PluginStager:
 
         removed = self._clean_plugins_dir(plugins_root, enabled_names)
 
-        staged: dict[str, dict[str, Any]] = {}
+        staged: dict[str, dict[str, object]] = {}
         plugins_root_resolved = plugins_root.resolve()
-        for name, spec in (plugins or {}).items():
+        for name, spec in (cast(dict[str, object], plugins) or {}).items():
             if not isinstance(spec, dict):
                 continue
             self._validate_plugin_name(name)
             if spec.get("enabled") is False:
                 staged[name] = {"enabled": False}
                 continue
-            entry = spec.get("entry") if isinstance(spec.get("entry"), dict) else spec
+            entry_dict = (
+                cast(dict[str, object], spec.get("entry"))
+                if isinstance(spec.get("entry"), dict)
+                else cast(dict[str, object], spec)
+            )
+            entry = entry_dict
             s3_key = entry.get("s3_key") or entry.get("key")
             if not s3_key:
                 continue

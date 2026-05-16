@@ -60,7 +60,7 @@ class AttachmentStagerPort(Protocol):
 class ClaudeMdStagerPort(Protocol):
     def stage(
         self, *, user_id: str, session_id: str, enabled: bool, content: str
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, object]: ...
 
 
 class SlashCommandStagerPort(Protocol):

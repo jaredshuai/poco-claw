@@ -1,7 +1,9 @@
 import shutil
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from typing import Union, get_origin, get_args
 from unittest.mock import MagicMock, patch
 
 from app.core.errors.error_codes import ErrorCode
@@ -577,6 +579,73 @@ class TestSkillStagerStageSkills(unittest.TestCase):
                 stager.stage_skills("user-123", "session-456", skills)
 
             assert ctx.exception.error_code == ErrorCode.BAD_REQUEST
+
+
+class TestSkillStagerAnnotations(unittest.TestCase):
+    """Regression tests: Ensure SkillStager.stage_skills annotations use dict[str, object], not Any."""
+
+    def test_stage_skills_param_is_dict_str_object_or_none(self) -> None:
+        """Regression: stage_skills skills parameter is dict[str, object] | None."""
+        import typing
+
+        hints = typing.get_type_hints(SkillStager.stage_skills)
+        skills_param = hints.get("skills")
+        assert skills_param is not None, "skills parameter not found"
+
+        # Check if it's a union (dict[str, object] | None)
+        origin = get_origin(skills_param)
+        if origin is types.UnionType or origin is Union:
+            args = get_args(skills_param)
+            for arg in args:
+                if arg is type(None):
+                    continue
+                arg_origin = get_origin(arg)
+                if arg_origin is dict:
+                    type_args = get_args(arg)
+                    key_type, value_type = type_args
+                    assert key_type is str, f"Expected str key, got {key_type}"
+                    assert value_type is object, (
+                        f"Expected object value, got {value_type}"
+                    )
+                    return
+            raise AssertionError(f"Expected dict in union, got {args}")
+
+        assert origin is dict, f"Expected dict, got {origin}"
+        args = get_args(skills_param)
+        assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+        key_type, value_type = args
+        assert key_type is str, f"Expected str key, got {key_type}"
+        assert value_type is object, f"Expected object value, got {value_type}"
+
+    def test_stage_skills_return_is_dict_str_dict_str_object(self) -> None:
+        """Regression: stage_skills returns dict[str, dict[str, object]]."""
+        import typing
+
+        hints = typing.get_type_hints(SkillStager.stage_skills)
+        return_type = hints.get("return")
+        assert return_type is not None, "return type not found"
+
+        origin = get_origin(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+
+        args = get_args(return_type)
+        assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+        key_type, value_type = args
+        assert key_type is str, f"Expected str key, got {key_type}"
+
+        # Value should be dict[str, object]
+        value_origin = get_origin(value_type)
+        assert value_origin is dict, f"Expected dict value, got {value_origin}"
+
+        value_args = get_args(value_type)
+        assert len(value_args) == 2, (
+            f"Expected 2 type args for value, got {len(value_args)}"
+        )
+        nested_key_type, nested_value_type = value_args
+        assert nested_key_type is str, f"Expected str nested key, got {nested_key_type}"
+        assert nested_value_type is object, (
+            f"Expected object nested value, got {nested_value_type}"
+        )
 
 
 if __name__ == "__main__":

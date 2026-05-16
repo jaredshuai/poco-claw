@@ -325,3 +325,71 @@ def test_plugin_stager_port_stage_plugins_return_is_dict_str_dict_str_object() -
     assert nested_value_type is object, (
         f"Expected object nested value, got {nested_value_type}"
     )
+
+
+def test_skill_stager_port_stage_skills_param_is_dict_str_object_or_none() -> None:
+    """Regression: SkillStagerPort.stage_skills skills is dict[str, object] | None, not dict[str, Any]."""
+    import typing
+    import types
+    from app.services.run_dispatch_config_preparer import SkillStagerPort
+
+    hints = typing.get_type_hints(SkillStagerPort.stage_skills)
+    skills_param = hints.get("skills")
+    assert skills_param is not None, "skills parameter not found"
+
+    # Handle UnionType for Python 3.10+ union syntax
+    origin = get_origin(skills_param)
+    if origin is types.UnionType or origin is Union:
+        # Unwrap the union to find dict[str, object]
+        args = get_args(skills_param)
+        for arg in args:
+            if arg is type(None):
+                continue
+            arg_origin = get_origin(arg)
+            if arg_origin is dict:
+                args = get_args(arg)
+                key_type, value_type = args
+                assert key_type is str, f"Expected str key, got {key_type}"
+                assert value_type is object, f"Expected object value, got {value_type}"
+                return
+        raise AssertionError(f"Expected dict in union, got {args}")
+
+    assert origin is dict, f"Expected dict, got {origin}"
+
+    args = get_args(skills_param)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_skill_stager_port_stage_skills_return_is_dict_str_dict_str_object() -> None:
+    """Regression: SkillStagerPort.stage_skills returns dict[str, dict[str, object]], not dict[str, Any]."""
+    import typing
+    from app.services.run_dispatch_config_preparer import SkillStagerPort
+
+    hints = typing.get_type_hints(SkillStagerPort.stage_skills)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+
+    # Value should be dict[str, object]
+    value_origin = get_origin(value_type)
+    assert value_origin is dict, f"Expected dict value, got {value_origin}"
+
+    value_args = get_args(value_type)
+    assert len(value_args) == 2, (
+        f"Expected 2 type args for value, got {len(value_args)}"
+    )
+    nested_key_type, nested_value_type = value_args
+    assert nested_key_type is str, f"Expected str nested key, got {nested_key_type}"
+    assert nested_value_type is object, (
+        f"Expected object nested value, got {nested_value_type}"
+    )

@@ -41,8 +41,8 @@ class ConfigResolverPort(Protocol):
 
 class SkillStagerPort(Protocol):
     def stage_skills(
-        self, *, user_id: str, session_id: str, skills: dict[str, Any]
-    ) -> dict[str, Any]: ...
+        self, *, user_id: str, session_id: str, skills: dict[str, object] | None
+    ) -> dict[str, dict[str, object]]: ...
 
 
 class PluginStagerPort(Protocol):
@@ -148,7 +148,8 @@ class StagingRunDispatchConfigPreparer:
         staged_skills = self.skill_stager.stage_skills(
             user_id=user_id,
             session_id=session_id,
-            skills=cast(dict[str, Any], resolved_config.get("skill_files")) or {},
+            skills=cast(dict[str, object] | None, resolved_config.get("skill_files"))
+            or {},
         )
         resolved_config["skill_files"] = staged_skills
         logger.info(

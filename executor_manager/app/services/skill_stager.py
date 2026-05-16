@@ -4,7 +4,7 @@ import shutil
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
@@ -94,8 +94,8 @@ class SkillStager:
         return removed
 
     def stage_skills(
-        self, user_id: str, session_id: str, skills: dict[str, Any]
-    ) -> dict[str, dict[str, Any]]:
+        self, user_id: str, session_id: str, skills: dict[str, object] | None
+    ) -> dict[str, dict[str, object]]:
         started_total = time.perf_counter()
 
         session_dir = self.workspace_manager.get_workspace_path(
@@ -108,7 +108,8 @@ class SkillStager:
         skills_root.mkdir(parents=True, exist_ok=True)
 
         enabled_names: set[str] = set()
-        for name, spec in (skills or {}).items():
+        skills_dict: dict[str, object] = skills or {}
+        for name, spec in skills_dict.items():
             if not isinstance(spec, dict):
                 continue
             self._validate_skill_name(name)
@@ -119,9 +120,9 @@ class SkillStager:
         # Keep staging idempotent: skills that are disabled/deleted in backend should disappear.
         removed = self._clean_skills_dir(skills_root, enabled_names)
 
-        staged: dict[str, dict[str, Any]] = {}
+        staged: dict[str, dict[str, object]] = {}
         skills_root_resolved = skills_root.resolve()
-        for name, spec in (skills or {}).items():
+        for name, spec in skills_dict.items():
             if not isinstance(spec, dict):
                 continue
             self._validate_skill_name(name)

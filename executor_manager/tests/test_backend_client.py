@@ -1,3 +1,4 @@
+import types
 import unittest
 from types import SimpleNamespace
 from typing import get_origin, get_args
@@ -1378,3 +1379,93 @@ class TestBackendClientResolveSlashCommandsWithSkillNames:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_backend_client_record_mcp_transition_metadata_param_is_dict_str_object() -> (
+    None
+):
+    """Regression: BackendClient.record_mcp_transition accepts metadata: dict[str, object], not bare dict."""
+    import typing
+    from app.services.backend_client import BackendClient
+
+    hints = typing.get_type_hints(BackendClient.record_mcp_transition)
+    metadata_param_type = hints.get("metadata")
+    assert metadata_param_type is not None, "metadata parameter type not found"
+
+    # Handle UnionType (Python 3.10+ syntax: dict[str, object] | None)
+    origin = get_origin(metadata_param_type)
+    if origin is types.UnionType or hasattr(origin, "__origin__"):
+        # It's a union, get the dict part
+        args = get_args(metadata_param_type)
+        dict_type = next((a for a in args if get_origin(a) is dict), None)
+        assert dict_type is not None, "Expected dict in union type"
+        origin = get_origin(dict_type)
+        args = get_args(dict_type)
+    else:
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        args = get_args(metadata_param_type)
+
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_backend_client_record_permission_audit_tool_input_param_is_dict_str_object() -> (
+    None
+):
+    """Regression: BackendClient.record_permission_audit accepts tool_input: dict[str, object], not bare dict."""
+    import typing
+    from app.services.backend_client import BackendClient
+
+    hints = typing.get_type_hints(BackendClient.record_permission_audit)
+    tool_input_param_type = hints.get("tool_input")
+    assert tool_input_param_type is not None, "tool_input parameter type not found"
+
+    # Handle UnionType (Python 3.10+ syntax: dict[str, object] | None)
+    origin = get_origin(tool_input_param_type)
+    if origin is types.UnionType or hasattr(origin, "__origin__"):
+        # It's a union, get the dict part
+        args = get_args(tool_input_param_type)
+        dict_type = next((a for a in args if get_origin(a) is dict), None)
+        assert dict_type is not None, "Expected dict in union type"
+        origin = get_origin(dict_type)
+        args = get_args(dict_type)
+    else:
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        args = get_args(tool_input_param_type)
+
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_backend_client_record_permission_audit_context_param_is_dict_str_object() -> (
+    None
+):
+    """Regression: BackendClient.record_permission_audit accepts context: dict[str, object], not bare dict."""
+    import typing
+    from app.services.backend_client import BackendClient
+
+    hints = typing.get_type_hints(BackendClient.record_permission_audit)
+    context_param_type = hints.get("context")
+    assert context_param_type is not None, "context parameter type not found"
+
+    # Handle UnionType (Python 3.10+ syntax: dict[str, object] | None)
+    origin = get_origin(context_param_type)
+    if origin is types.UnionType or hasattr(origin, "__origin__"):
+        # It's a union, get the dict part
+        args = get_args(context_param_type)
+        dict_type = next((a for a in args if get_origin(a) is dict), None)
+        assert dict_type is not None, "Expected dict in union type"
+        origin = get_origin(dict_type)
+        args = get_args(dict_type)
+    else:
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        args = get_args(context_param_type)
+
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"

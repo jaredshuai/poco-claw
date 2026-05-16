@@ -3,7 +3,10 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.schemas.callback import (
     AgentCallbackRequest,
@@ -982,3 +985,271 @@ class TestExportAndForward(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNormalizePayloads(unittest.TestCase):
+    """Test CallbackService payload normalization methods."""
+
+    def test_normalize_metadata_with_valid_dict(self) -> None:
+        """Test _normalize_metadata passes through valid dict payloads."""
+        result = CallbackService._normalize_metadata({"key": "value", "count": 42})
+        assert result == {"key": "value", "count": 42}
+        assert result is not None
+
+    def test_normalize_metadata_with_none(self) -> None:
+        """Test _normalize_metadata returns None for None."""
+        assert CallbackService._normalize_metadata(None) is None
+
+    def test_normalize_metadata_with_non_dict(self) -> None:
+        """Test _normalize_metadata returns None for non-dict values."""
+        assert CallbackService._normalize_metadata("not a dict") is None
+        assert CallbackService._normalize_metadata(123) is None
+        assert CallbackService._normalize_metadata([1, 2, 3]) is None
+
+    def test_normalize_tool_input_with_valid_dict(self) -> None:
+        """Test _normalize_tool_input passes through valid dict payloads."""
+        result = CallbackService._normalize_tool_input({"path": "/tmp/test"})
+        assert result == {"path": "/tmp/test"}
+
+    def test_normalize_tool_input_with_none(self) -> None:
+        """Test _normalize_tool_input returns None for None."""
+        assert CallbackService._normalize_tool_input(None) is None
+
+    def test_normalize_tool_input_with_non_dict(self) -> None:
+        """Test _normalize_tool_input returns None for non-dict values."""
+        assert CallbackService._normalize_tool_input("string") is None
+        assert CallbackService._normalize_tool_input(42) is None
+
+    def test_normalize_context_with_valid_dict(self) -> None:
+        """Test _normalize_context passes through valid dict payloads."""
+        result = CallbackService._normalize_context({"source": "executor"})
+        assert result == {"source": "executor"}
+
+    def test_normalize_context_with_none(self) -> None:
+        """Test _normalize_context returns None for None."""
+        assert CallbackService._normalize_context(None) is None
+
+    def test_normalize_context_with_non_dict(self) -> None:
+        """Test _normalize_context returns None for non-dict values."""
+        assert CallbackService._normalize_context("string") is None
+        assert CallbackService._normalize_context([]) is None
+
+
+class TestHandleMcpTransition:
+    """Test CallbackService._handle_mcp_transition behavior."""
+
+    def _create_callback(self, new_message: Any) -> AgentCallbackRequest:
+        return AgentCallbackRequest(
+            session_id="test-session",
+            run_id="test-run",
+            status="running",  # type: ignore
+            progress=50,
+            new_message=new_message,
+        )
+
+    @pytest.mark.asyncio
+    async def test_handle_mcp_transition_with_valid_metadata(self) -> None:
+        """Test _handle_mcp_transition forwards valid dict metadata."""
+        mock_backend = MagicMock()
+        mock_backend.record_mcp_transition = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "mcp_transition",
+                    "server_name": "test_server",
+                    "to_state": "connected",
+                    "metadata": {"key": "value"},
+                }
+            )
+
+            await service._handle_mcp_transition(callback)
+
+            mock_backend.record_mcp_transition.assert_awaited_once()
+            call_kwargs = mock_backend.record_mcp_transition.call_args.kwargs
+            assert call_kwargs["metadata"] == {"key": "value"}
+
+    @pytest.mark.asyncio
+    async def test_handle_mcp_transition_with_non_dict_metadata_normalizes_to_none(
+        self,
+    ) -> None:
+        """Test _handle_mcp_transition normalizes non-dict metadata to None."""
+        mock_backend = MagicMock()
+        mock_backend.record_mcp_transition = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "mcp_transition",
+                    "server_name": "test_server",
+                    "to_state": "connected",
+                    "metadata": "not a dict",
+                }
+            )
+
+            await service._handle_mcp_transition(callback)
+
+            mock_backend.record_mcp_transition.assert_awaited_once()
+            call_kwargs = mock_backend.record_mcp_transition.call_args.kwargs
+            assert call_kwargs["metadata"] is None
+
+    @pytest.mark.asyncio
+    async def test_handle_mcp_transition_with_none_metadata(self) -> None:
+        """Test _handle_mcp_transition passes None metadata through."""
+        mock_backend = MagicMock()
+        mock_backend.record_mcp_transition = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "mcp_transition",
+                    "server_name": "test_server",
+                    "to_state": "connected",
+                    "metadata": None,
+                }
+            )
+
+            await service._handle_mcp_transition(callback)
+
+            mock_backend.record_mcp_transition.assert_awaited_once()
+            call_kwargs = mock_backend.record_mcp_transition.call_args.kwargs
+            assert call_kwargs["metadata"] is None
+
+
+class TestHandlePermissionAudit:
+    """Test CallbackService._handle_permission_audit behavior."""
+
+    def _create_callback(self, new_message: Any) -> AgentCallbackRequest:
+        return AgentCallbackRequest(
+            session_id="test-session",
+            run_id="test-run",
+            status="running",  # type: ignore
+            progress=50,
+            new_message=new_message,
+        )
+
+    @pytest.mark.asyncio
+    async def test_handle_permission_audit_with_valid_tool_input_and_context(
+        self,
+    ) -> None:
+        """Test _handle_permission_audit forwards valid dict tool_input and context."""
+        mock_backend = MagicMock()
+        mock_backend.record_permission_audit = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "permission_audit",
+                    "tool_name": "Read",
+                    "tool_input": {"path": "/tmp/file"},
+                    "context": {"user": "testuser"},
+                }
+            )
+
+            await service._handle_permission_audit(callback)
+
+            mock_backend.record_permission_audit.assert_awaited_once()
+            call_kwargs = mock_backend.record_permission_audit.call_args.kwargs
+            assert call_kwargs["tool_input"] == {"path": "/tmp/file"}
+            assert call_kwargs["context"] == {"user": "testuser"}
+
+    @pytest.mark.asyncio
+    async def test_handle_permission_audit_with_non_dict_tool_input_normalizes_to_none(
+        self,
+    ) -> None:
+        """Test _handle_permission_audit normalizes non-dict tool_input to None."""
+        mock_backend = MagicMock()
+        mock_backend.record_permission_audit = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "permission_audit",
+                    "tool_name": "Read",
+                    "tool_input": "not a dict",
+                    "context": {"user": "testuser"},
+                }
+            )
+
+            await service._handle_permission_audit(callback)
+
+            mock_backend.record_permission_audit.assert_awaited_once()
+            call_kwargs = mock_backend.record_permission_audit.call_args.kwargs
+            assert call_kwargs["tool_input"] is None
+            assert call_kwargs["context"] == {"user": "testuser"}
+
+    @pytest.mark.asyncio
+    async def test_handle_permission_audit_with_non_dict_context_normalizes_to_none(
+        self,
+    ) -> None:
+        """Test _handle_permission_audit normalizes non-dict context to None."""
+        mock_backend = MagicMock()
+        mock_backend.record_permission_audit = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "permission_audit",
+                    "tool_name": "Read",
+                    "tool_input": {"path": "/tmp/file"},
+                    "context": "not a dict",
+                }
+            )
+
+            await service._handle_permission_audit(callback)
+
+            mock_backend.record_permission_audit.assert_awaited_once()
+            call_kwargs = mock_backend.record_permission_audit.call_args.kwargs
+            assert call_kwargs["tool_input"] == {"path": "/tmp/file"}
+            assert call_kwargs["context"] is None
+
+    @pytest.mark.asyncio
+    async def test_handle_permission_audit_with_none_inputs(self) -> None:
+        """Test _handle_permission_audit passes None tool_input and context through."""
+        mock_backend = MagicMock()
+        mock_backend.record_permission_audit = AsyncMock()
+
+        with patch(
+            "app.services.callback_service.get_backend_client",
+            return_value=mock_backend,
+        ):
+            service = CallbackService()
+            callback = self._create_callback(
+                {
+                    "type": "permission_audit",
+                    "tool_name": "Read",
+                    "tool_input": None,
+                    "context": None,
+                }
+            )
+
+            await service._handle_permission_audit(callback)
+
+            mock_backend.record_permission_audit.assert_awaited_once()
+            call_kwargs = mock_backend.record_permission_audit.call_args.kwargs
+            assert call_kwargs["tool_input"] is None
+            assert call_kwargs["context"] is None

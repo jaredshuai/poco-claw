@@ -31,7 +31,7 @@ class CallbackBackendClient(Protocol):
         to_state: str,
         event_source: str = "executor_manager",
         error_message: str | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> None: ...
 
     async def record_permission_audit(
@@ -40,12 +40,12 @@ class CallbackBackendClient(Protocol):
         run_id: str,
         session_id: str,
         tool_name: str,
-        tool_input: dict | None = None,
+        tool_input: dict[str, object] | None = None,
         policy_action: str = "allow",
         policy_rule_id: str | None = None,
         policy_reason: str | None = None,
         audit_mode: bool = True,
-        context: dict | None = None,
+        context: dict[str, object] | None = None,
     ) -> None: ...
 
 
@@ -208,6 +208,27 @@ class CallbackService:
         workspace export/list ignore policy in executor_manager WorkspaceManager.
         """
         return is_ignored_workspace_path(path)
+
+    @staticmethod
+    def _normalize_metadata(metadata: Any) -> dict[str, object] | None:
+        """Normalize metadata payload to dict[str, object] | None."""
+        if isinstance(metadata, dict):
+            return dict(metadata)
+        return None
+
+    @staticmethod
+    def _normalize_tool_input(tool_input: Any) -> dict[str, object] | None:
+        """Normalize tool_input payload to dict[str, object] | None."""
+        if isinstance(tool_input, dict):
+            return dict(tool_input)
+        return None
+
+    @staticmethod
+    def _normalize_context(context: Any) -> dict[str, object] | None:
+        """Normalize context payload to dict[str, object] | None."""
+        if isinstance(context, dict):
+            return dict(context)
+        return None
 
     @classmethod
     def _filter_state_patch(
@@ -423,7 +444,7 @@ class CallbackService:
                 to_state=str(new_message.get("to_state") or ""),
                 event_source=str(new_message.get("event_source") or "executor"),
                 error_message=new_message.get("error_message"),
-                metadata=new_message.get("metadata"),
+                metadata=self._normalize_metadata(new_message.get("metadata")),
             )
         except Exception:
             logger.debug(
@@ -445,12 +466,12 @@ class CallbackService:
                 run_id=callback.run_id or "",
                 session_id=callback.session_id,
                 tool_name=str(new_message.get("tool_name") or ""),
-                tool_input=new_message.get("tool_input"),
+                tool_input=self._normalize_tool_input(new_message.get("tool_input")),
                 policy_action=str(new_message.get("policy_action") or "allow"),
                 policy_rule_id=new_message.get("policy_rule_id"),
                 policy_reason=new_message.get("policy_reason"),
                 audit_mode=bool(new_message.get("audit_mode", True)),
-                context=new_message.get("context"),
+                context=self._normalize_context(new_message.get("context")),
             )
         except Exception:
             logger.debug(

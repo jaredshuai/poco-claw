@@ -311,7 +311,7 @@ class BackendClient:
         to_state: str,
         event_source: str = "executor_manager",
         error_message: str | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """Record an MCP connection state transition via backend internal API."""
         await self._request(
@@ -336,12 +336,12 @@ class BackendClient:
         run_id: str,
         session_id: str,
         tool_name: str,
-        tool_input: dict | None = None,
+        tool_input: dict[str, object] | None = None,
         policy_action: str = "allow",
         policy_rule_id: str | None = None,
         policy_reason: str | None = None,
         audit_mode: bool = True,
-        context: dict | None = None,
+        context: dict[str, object] | None = None,
     ) -> None:
         """Record a permission audit event via backend internal API."""
         await self._request(

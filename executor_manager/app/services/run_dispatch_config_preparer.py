@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ class RunDispatchConfigPreparer(Protocol):
         session_id: str,
         run_id: str,
         config_snapshot: dict[str, object],
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, object]: ...
 
 
 class BackendClientPort(Protocol):
@@ -36,7 +36,7 @@ class ConfigResolverPort(Protocol):
         *,
         session_id: str,
         run_id: str,
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, object]: ...
 
 
 class SkillStagerPort(Protocol):
@@ -121,7 +121,7 @@ class StagingRunDispatchConfigPreparer:
         session_id: str,
         run_id: str,
         config_snapshot: dict[str, object],
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         ctx = {
             "run_id": run_id,
             "session_id": session_id,
@@ -148,7 +148,7 @@ class StagingRunDispatchConfigPreparer:
         staged_skills = self.skill_stager.stage_skills(
             user_id=user_id,
             session_id=session_id,
-            skills=resolved_config.get("skill_files") or {},
+            skills=cast(dict[str, Any], resolved_config.get("skill_files")) or {},
         )
         resolved_config["skill_files"] = staged_skills
         logger.info(
@@ -165,7 +165,7 @@ class StagingRunDispatchConfigPreparer:
         staged_plugins = self.plugin_stager.stage_plugins(
             user_id=user_id,
             session_id=session_id,
-            plugins=resolved_config.get("plugin_files") or {},
+            plugins=cast(dict[str, Any], resolved_config.get("plugin_files")) or {},
         )
         resolved_config["plugin_files"] = staged_plugins
         logger.info(
@@ -182,7 +182,7 @@ class StagingRunDispatchConfigPreparer:
         staged_inputs = self.attachment_stager.stage_inputs(
             user_id=user_id,
             session_id=session_id,
-            inputs=resolved_config.get("input_files") or [],
+            inputs=cast(list[dict[str, Any]], resolved_config.get("input_files")) or [],
         )
         resolved_config["input_files"] = staged_inputs
         logger.info(

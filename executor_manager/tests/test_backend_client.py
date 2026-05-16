@@ -1469,3 +1469,18 @@ def test_backend_client_record_permission_audit_context_param_is_dict_str_object
     key_type, value_type = args
     assert key_type is str, f"Expected str key, got {key_type}"
     assert value_type is object, f"Expected object value, got {value_type}"
+
+
+class TestBackendClientDispatchScheduledTasksReturnType:
+    """Regression tests for BackendClient.dispatch_due_scheduled_tasks return type."""
+
+    def test_dispatch_due_scheduled_tasks_return_type_is_dict_str_object(self) -> None:
+        """Regression: verify dispatch_due_scheduled_tasks return annotation is dict[str, object], not bare dict."""
+        import typing
+
+        hints = typing.get_type_hints(BackendClient.dispatch_due_scheduled_tasks)
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"

@@ -395,7 +395,7 @@ class BackendClient:
         result = data.get("data", {}) or {}
         return result if isinstance(result, dict) else {}
 
-    async def dispatch_due_scheduled_tasks(self, limit: int = 50) -> dict:
+    async def dispatch_due_scheduled_tasks(self, limit: int = 50) -> dict[str, object]:
         """Trigger backend to dispatch due scheduled tasks into the run queue."""
         payload = {"limit": max(1, int(limit))}
         response = await self._request(
@@ -406,7 +406,8 @@ class BackendClient:
             retry_connect_errors=2,
         )
         data = response.json()
-        return data.get("data", {}) or {}
+        result = data.get("data", {}) or {}
+        return result if isinstance(result, dict) else {}
 
     async def create_user_input_request(self, payload: dict) -> dict:
         response = await self._request(

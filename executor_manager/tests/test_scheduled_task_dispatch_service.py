@@ -1,8 +1,10 @@
 import unittest
 from types import SimpleNamespace
+from typing import get_origin, get_args
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.scheduled_task_dispatch_service import (
+    ScheduledTaskBackendClient,
     ScheduledTaskDispatchService,
 )
 
@@ -291,6 +293,25 @@ class TestScheduledTaskDispatchServiceDispatchDue(unittest.TestCase):
             ]
             # int(25.7) = 25
             assert call_kwargs["limit"] == 25
+
+
+class TestScheduledTaskBackendClientProtocolReturnType:
+    """Regression tests for ScheduledTaskBackendClient protocol return type."""
+
+    def test_protocol_dispatch_due_scheduled_tasks_return_type_is_dict_str_object(
+        self,
+    ) -> None:
+        """Regression: verify protocol return annotation is dict[str, object], not dict[str, Any]."""
+        import typing
+
+        hints = typing.get_type_hints(
+            ScheduledTaskBackendClient.dispatch_due_scheduled_tasks
+        )
+        return_type = hints.get("return")
+        origin = get_origin(return_type)
+        args = get_args(return_type)
+        assert origin is dict, f"Expected dict origin, got {origin}"
+        assert args == (str, object), f"Expected dict[str, object], got {args}"
 
 
 if __name__ == "__main__":

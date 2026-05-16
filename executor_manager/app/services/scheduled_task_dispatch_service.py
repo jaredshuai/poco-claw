@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Protocol
 
 from app.core.settings import get_settings
 from app.services.backend_client import BackendClient
@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 class ScheduledTaskBackendClient(Protocol):
-    async def dispatch_due_scheduled_tasks(self, *, limit: int) -> dict[str, Any]: ...
+    async def dispatch_due_scheduled_tasks(
+        self, *, limit: int
+    ) -> dict[str, object]: ...
 
 
 class ScheduledTaskSettings(Protocol):

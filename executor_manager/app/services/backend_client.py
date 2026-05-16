@@ -292,7 +292,9 @@ class BackendClient:
         data = response.json()
         return data.get("data", {}) or {}
 
-    async def update_run_metadata(self, run_id: str, metadata: dict) -> None:
+    async def update_run_metadata(
+        self, run_id: str, metadata: dict[str, object]
+    ) -> None:
         await self._request(
             "PATCH",
             f"/api/v1/internal/runs/{run_id}/metadata",

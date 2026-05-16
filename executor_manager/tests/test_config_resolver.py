@@ -1208,5 +1208,26 @@ def test_config_resolver_resolve_execution_settings_is_dict_str_object() -> None
     assert value_type is object, f"Expected object value, got {value_type}"
 
 
+def test_config_backend_client_protocol_update_run_metadata_is_dict_str_object() -> (
+    None
+):
+    """Regression: ConfigBackendClient protocol update_run_metadata accepts metadata: dict[str, object]."""
+    import typing
+    from app.services.config_resolver import ConfigBackendClient
+
+    hints = typing.get_type_hints(ConfigBackendClient.update_run_metadata)
+    metadata_param_type = hints.get("metadata")
+    assert metadata_param_type is not None, "metadata parameter type not found"
+
+    origin = get_origin(metadata_param_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(metadata_param_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1034,6 +1034,25 @@ def test_backend_client_resolve_plugin_config_return_is_dict_str_object() -> Non
     assert value_type is object, f"Expected object value, got {value_type}"
 
 
+def test_backend_client_update_run_metadata_param_is_dict_str_object() -> None:
+    """Regression: BackendClient.update_run_metadata accepts metadata: dict[str, object], not bare dict."""
+    import typing
+    from app.services.backend_client import BackendClient
+
+    hints = typing.get_type_hints(BackendClient.update_run_metadata)
+    metadata_param_type = hints.get("metadata")
+    assert metadata_param_type is not None, "metadata parameter type not found"
+
+    origin = get_origin(metadata_param_type)
+    assert origin is dict, f"Expected dict origin, got {origin}"
+
+    args = get_args(metadata_param_type)
+    assert len(args) == 2, f"Expected 2 type args, got {len(args)}"
+    key_type, value_type = args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
 @pytest.mark.asyncio
 class TestBackendClientUserInputRequests:
     """Test BackendClient user input request methods."""

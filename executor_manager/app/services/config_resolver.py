@@ -45,7 +45,9 @@ class ConfigBackendClient(Protocol):
         self, user_id: str, subagent_ids: list[int] | None
     ) -> dict[str, object]: ...
 
-    async def update_run_metadata(self, run_id: str, metadata: dict) -> None: ...
+    async def update_run_metadata(
+        self, run_id: str, metadata: dict[str, object]
+    ) -> None: ...
 
 
 class ConfigResolverSettings(Protocol):
@@ -376,7 +378,7 @@ class ConfigResolver:
         # Write back resolved metadata to run for post-hoc audit
         if run_id:
             try:
-                metadata_writeback: dict[str, Any] = {}
+                metadata_writeback: dict[str, object] = {}
                 if "permission_policy" in resolved:
                     metadata_writeback["permission_policy_snapshot"] = resolved[
                         "permission_policy"

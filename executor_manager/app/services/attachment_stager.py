@@ -5,7 +5,7 @@ import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 from urllib.parse import urlparse
 
 from app.core.errors.error_codes import ErrorCode
@@ -71,8 +71,8 @@ class AttachmentStager:
         self,
         user_id: str,
         session_id: str,
-        inputs: list[dict[str, Any]] | None,
-    ) -> list[dict[str, Any]]:
+        inputs: list[dict[str, object]] | None,
+    ) -> list[dict[str, object]]:
         if not inputs:
             return []
 
@@ -85,7 +85,7 @@ class AttachmentStager:
         inputs_root = workspace_dir / "inputs"
         inputs_root.mkdir(parents=True, exist_ok=True)
 
-        staged: list[dict[str, Any]] = []
+        staged: list[dict[str, object]] = []
         for item in inputs:
             if not isinstance(item, dict):
                 continue
@@ -185,7 +185,9 @@ class AttachmentStager:
         return "/".join(parts)
 
     @staticmethod
-    def _build_staged(item: dict[str, Any], rel_path: str, name: str) -> dict[str, Any]:
+    def _build_staged(
+        item: dict[str, object], rel_path: str, name: str
+    ) -> dict[str, object]:
         staged = dict(item)
         staged["name"] = name
         staged["path"] = f"/inputs/{rel_path}"

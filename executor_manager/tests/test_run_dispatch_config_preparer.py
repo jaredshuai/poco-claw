@@ -327,6 +327,77 @@ def test_plugin_stager_port_stage_plugins_return_is_dict_str_dict_str_object() -
     )
 
 
+def test_attachment_stager_port_stage_inputs_param_is_list_dict_str_object_or_none() -> (
+    None
+):
+    """Regression: AttachmentStagerPort.stage_inputs inputs is list[dict[str, object]] | None."""
+    import typing
+    import types
+    from app.services.run_dispatch_config_preparer import AttachmentStagerPort
+
+    hints = typing.get_type_hints(AttachmentStagerPort.stage_inputs)
+    inputs_param = hints.get("inputs")
+    assert inputs_param is not None, "inputs parameter not found"
+
+    origin = get_origin(inputs_param)
+    if origin is types.UnionType or origin is Union:
+        args = get_args(inputs_param)
+        for arg in args:
+            if arg is type(None):
+                continue
+            arg_origin = get_origin(arg)
+            if arg_origin is list:
+                list_args = get_args(arg)
+                dict_arg = list_args[0]
+                dict_origin = get_origin(dict_arg)
+                assert dict_origin is dict, f"Expected dict, got {dict_origin}"
+                dict_args = get_args(dict_arg)
+                key_type, value_type = dict_args
+                assert key_type is str, f"Expected str key, got {key_type}"
+                assert value_type is object, f"Expected object value, got {value_type}"
+                return
+        raise AssertionError(f"Expected list in union, got {args}")
+
+    assert origin is list, f"Expected list, got {origin}"
+
+    list_args = get_args(inputs_param)
+    dict_arg = list_args[0]
+    dict_origin = get_origin(dict_arg)
+    assert dict_origin is dict, f"Expected dict, got {dict_origin}"
+
+    dict_args = get_args(dict_arg)
+    assert len(dict_args) == 2, f"Expected 2 type args, got {len(dict_args)}"
+    key_type, value_type = dict_args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
+def test_attachment_stager_port_stage_inputs_return_is_list_dict_str_object() -> None:
+    """Regression: AttachmentStagerPort.stage_inputs returns list[dict[str, object]]."""
+    import typing
+    from app.services.run_dispatch_config_preparer import AttachmentStagerPort
+
+    hints = typing.get_type_hints(AttachmentStagerPort.stage_inputs)
+    return_type = hints.get("return")
+    assert return_type is not None, "return type not found"
+
+    origin = get_origin(return_type)
+    assert origin is list, f"Expected list origin, got {origin}"
+
+    args = get_args(return_type)
+    assert len(args) == 1, f"Expected 1 type arg, got {len(args)}"
+    dict_arg = args[0]
+
+    dict_origin = get_origin(dict_arg)
+    assert dict_origin is dict, f"Expected dict, got {dict_origin}"
+
+    dict_args = get_args(dict_arg)
+    assert len(dict_args) == 2, f"Expected 2 type args, got {len(dict_args)}"
+    key_type, value_type = dict_args
+    assert key_type is str, f"Expected str key, got {key_type}"
+    assert value_type is object, f"Expected object value, got {value_type}"
+
+
 def test_skill_stager_port_stage_skills_param_is_dict_str_object_or_none() -> None:
     """Regression: SkillStagerPort.stage_skills skills is dict[str, object] | None, not dict[str, Any]."""
     import typing

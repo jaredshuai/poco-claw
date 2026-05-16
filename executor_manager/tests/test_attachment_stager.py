@@ -645,5 +645,78 @@ class TestAttachmentStagerStageInputs(unittest.TestCase):
             assert "myfile.txt" in result[0]["path"]
 
 
+class TestAttachmentStagerAnnotations(unittest.TestCase):
+    """Regression tests for AttachmentStager type annotations."""
+
+    def test_stage_inputs_param_is_list_dict_str_object_or_none(self) -> None:
+        """Regression: AttachmentStager.stage_inputs inputs is list[dict[str, object]] | None."""
+        from typing import get_origin, get_args
+
+        hints = AttachmentStager.stage_inputs.__annotations__
+        inputs_param = hints.get("inputs")
+        assert inputs_param is not None, "inputs parameter not found"
+
+        origin = get_origin(inputs_param)
+        import types
+        import typing
+
+        if origin is types.UnionType or origin is typing.Union:
+            args = get_args(inputs_param)
+            for arg in args:
+                if arg is type(None):
+                    continue
+                arg_origin = get_origin(arg)
+                if arg_origin is list:
+                    list_args = get_args(arg)
+                    dict_arg = list_args[0]
+                    dict_origin = get_origin(dict_arg)
+                    assert dict_origin is dict, f"Expected dict, got {dict_origin}"
+                    dict_args = get_args(dict_arg)
+                    key_type, value_type = dict_args
+                    assert key_type is str, f"Expected str key, got {key_type}"
+                    assert value_type is object, (
+                        f"Expected object value, got {value_type}"
+                    )
+                    return
+            raise AssertionError(f"Expected list in union, got {args}")
+
+        assert origin is list, f"Expected list, got {origin}"
+
+        list_args = get_args(inputs_param)
+        dict_arg = list_args[0]
+        dict_origin = get_origin(dict_arg)
+        assert dict_origin is dict, f"Expected dict, got {dict_origin}"
+
+        dict_args = get_args(dict_arg)
+        assert len(dict_args) == 2, f"Expected 2 type args, got {len(dict_args)}"
+        key_type, value_type = dict_args
+        assert key_type is str, f"Expected str key, got {key_type}"
+        assert value_type is object, f"Expected object value, got {value_type}"
+
+    def test_stage_inputs_return_is_list_dict_str_object(self) -> None:
+        """Regression: AttachmentStager.stage_inputs returns list[dict[str, object]]."""
+        from typing import get_origin, get_args
+
+        hints = AttachmentStager.stage_inputs.__annotations__
+        return_type = hints.get("return")
+        assert return_type is not None, "return type not found"
+
+        origin = get_origin(return_type)
+        assert origin is list, f"Expected list origin, got {origin}"
+
+        args = get_args(return_type)
+        assert len(args) == 1, f"Expected 1 type arg, got {len(args)}"
+        dict_arg = args[0]
+
+        dict_origin = get_origin(dict_arg)
+        assert dict_origin is dict, f"Expected dict, got {dict_origin}"
+
+        dict_args = get_args(dict_arg)
+        assert len(dict_args) == 2, f"Expected 2 type args, got {len(dict_args)}"
+        key_type, value_type = dict_args
+        assert key_type is str, f"Expected str key, got {key_type}"
+        assert value_type is object, f"Expected object value, got {value_type}"
+
+
 if __name__ == "__main__":
     unittest.main()

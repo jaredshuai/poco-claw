@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 
 logger = logging.getLogger(__name__)
@@ -53,8 +53,8 @@ class PluginStagerPort(Protocol):
 
 class AttachmentStagerPort(Protocol):
     def stage_inputs(
-        self, *, user_id: str, session_id: str, inputs: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]: ...
+        self, *, user_id: str, session_id: str, inputs: list[dict[str, object]] | None
+    ) -> list[dict[str, object]]: ...
 
 
 class ClaudeMdStagerPort(Protocol):
@@ -166,7 +166,7 @@ class StagingRunDispatchConfigPreparer:
         staged_plugins = self.plugin_stager.stage_plugins(
             user_id=user_id,
             session_id=session_id,
-            plugins=cast(dict[str, Any], resolved_config.get("plugin_files")) or {},
+            plugins=cast(dict[str, object], resolved_config.get("plugin_files")) or {},
         )
         resolved_config["plugin_files"] = staged_plugins
         logger.info(
@@ -183,7 +183,8 @@ class StagingRunDispatchConfigPreparer:
         staged_inputs = self.attachment_stager.stage_inputs(
             user_id=user_id,
             session_id=session_id,
-            inputs=cast(list[dict[str, Any]], resolved_config.get("input_files")) or [],
+            inputs=cast(list[dict[str, object]], resolved_config.get("input_files"))
+            or [],
         )
         resolved_config["input_files"] = staged_inputs
         logger.info(

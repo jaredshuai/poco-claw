@@ -5,7 +5,6 @@ import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 from app.core.observability.request_context import get_request_id, get_trace_id
 
@@ -37,7 +36,7 @@ def _parse_level(value: str | None, *, default: int) -> int:
     return mapping.get(candidate, default)
 
 
-def _safe_value(key: str, value: Any) -> str:
+def _safe_value(key: str, value: object) -> str:
     lowered = key.lower()
     if any(
         token in lowered

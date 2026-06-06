@@ -4,6 +4,7 @@ import logging
 import os
 import tempfile
 import unittest
+from typing import get_type_hints
 from unittest.mock import patch
 
 
@@ -132,6 +133,16 @@ class TestParseLevel(unittest.TestCase):
 
 class TestSafeValue(unittest.TestCase):
     """Test _safe_value helper function."""
+
+    def test_value_parameter_is_object_not_any(self) -> None:
+        """Regression: arbitrary log extra values should be typed as object."""
+        from app.core.observability.logging import _safe_value
+
+        hints = get_type_hints(_safe_value)
+        annotation = hints.get("value")
+
+        assert annotation is object
+        assert "Any" not in str(annotation)
 
     def test_masks_sensitive_keys(self) -> None:
         """Test that sensitive values are masked."""

@@ -11,6 +11,7 @@ from app.core.observability.request_context import (
     get_request_id,
     get_trace_id,
 )
+from app.services.run_dispatch_claim import RunDispatchClaim
 
 BACKEND_INTERNAL_SERVICE = "executor_manager"
 
@@ -201,7 +202,7 @@ class BackendClient:
         worker_id: str,
         lease_seconds: int = 30,
         schedule_modes: list[str] | None = None,
-    ) -> Mapping[str, object] | None:
+    ) -> RunDispatchClaim | None:
         """Claim next run from backend queue."""
         payload: dict[str, object] = {
             "worker_id": worker_id,
@@ -218,7 +219,10 @@ class BackendClient:
             retry_connect_errors=2,
         )
         data = response.json()
-        return self._data_mapping(data)
+        claim_payload = self._data_mapping(data)
+        if claim_payload is None:
+            return None
+        return RunDispatchClaim.from_payload(claim_payload)
 
     async def start_run(
         self, run_id: object, worker_id: str, lease_seconds: int | None = None

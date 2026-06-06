@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from typing import Protocol
 
 from app.services.run_dispatch_claim import RunDispatchClaim
@@ -21,7 +20,7 @@ class RunPullQueueBackendClient(Protocol):
         worker_id: str,
         lease_seconds: int,
         schedule_modes: list[str] | None,
-    ) -> Mapping[str, object] | None: ...
+    ) -> RunDispatchClaim | None: ...
 
 
 class BackendRunPullQueueGateway:
@@ -35,11 +34,15 @@ class BackendRunPullQueueGateway:
         lease_seconds: int,
         schedule_modes: list[str] | None,
     ) -> RunDispatchClaim | None:
-        payload = await self.backend_client.claim_run(
+        claim = await self.backend_client.claim_run(
             worker_id=worker_id,
             lease_seconds=lease_seconds,
             schedule_modes=schedule_modes,
         )
-        if not payload:
+        if claim is None:
             return None
-        return RunDispatchClaim.from_payload(payload)
+        if not isinstance(claim, RunDispatchClaim):
+            raise TypeError(
+                "BackendRunPullQueueGateway.claim_run requires RunDispatchClaim"
+            )
+        return claim

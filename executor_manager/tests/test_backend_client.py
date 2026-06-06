@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from app.services.backend_client import BackendClient
+from app.services.run_dispatch_claim import RunDispatchClaim
 
 
 class TestBackendClientTraceHeaders(unittest.TestCase):
@@ -472,7 +473,14 @@ class TestBackendClientClaimRun:
             client = BackendClient()
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {"data": {"run_id": "run-123"}}
+            mock_response.json.return_value = {
+                "data": {
+                    "run": {"run_id": "run-123", "session_id": "session-1"},
+                    "user_id": "user-1",
+                    "prompt": "do work",
+                    "config_snapshot": {"container_mode": "persistent"},
+                }
+            }
             mock_response.raise_for_status = MagicMock()
 
             with patch.object(
@@ -480,7 +488,12 @@ class TestBackendClientClaimRun:
             ) as mock_request:
                 result = await client.claim_run("worker-1", lease_seconds=60)
 
-                assert result["run_id"] == "run-123"
+                assert isinstance(result, RunDispatchClaim)
+                assert result.run_id == "run-123"
+                assert result.session_id == "session-1"
+                assert result.user_id == "user-1"
+                assert result.prompt == "do work"
+                assert result.config_snapshot == {"container_mode": "persistent"}
                 assert (
                     mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
                     == "token-123"
@@ -528,6 +541,35 @@ class TestBackendClientClaimRun:
 
                 assert result is None
 
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"run": {"session_id": "sess-1"}, "user_id": "user-1", "prompt": "do work"},
+            {"run": {"run_id": "run-1"}, "user_id": "user-1", "prompt": "do work"},
+            {"run": {"run_id": "run-1", "session_id": "sess-1"}, "prompt": "do work"},
+            {"run": {"run_id": "run-1", "session_id": "sess-1"}, "user_id": "user-1"},
+        ],
+    )
+    async def test_claim_run_returns_none_for_invalid_claim_payload(
+        self,
+        payload: dict[str, object],
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": payload}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.claim_run("worker-1")
+
+                assert result is None
+
     async def test_claim_run_returns_none_for_non_mapping_data(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(backend_url="http://backend")
@@ -563,8 +605,8 @@ class TestBackendClientClaimRun:
                 assert result is None
 
 
-def test_backend_client_claim_run_return_is_mapping_str_object_or_none() -> None:
-    """Regression: BackendClient.claim_run returns Mapping[str, object] | None."""
+def test_backend_client_claim_run_return_is_dispatch_claim_or_none() -> None:
+    """Regression: BackendClient.claim_run returns RunDispatchClaim | None."""
     import typing
 
     hints = typing.get_type_hints(BackendClient.claim_run)
@@ -572,16 +614,9 @@ def test_backend_client_claim_run_return_is_mapping_str_object_or_none() -> None
 
     assert return_type is not None
     assert "Any" not in str(return_type)
+    assert "Mapping" not in str(return_type)
     assert "dict" not in str(return_type)
-
-    args = get_args(return_type)
-    mapping_type = next(
-        (arg for arg in args if get_origin(arg) is Mapping),
-        None,
-    )
-
-    assert mapping_type is not None
-    assert get_args(mapping_type) == (str, object)
+    assert RunDispatchClaim in typing.get_args(return_type)
 
 
 def _assert_mapping_str_object(annotation: object) -> None:

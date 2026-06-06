@@ -117,6 +117,22 @@ def test_callback_workspace_export_service_return_is_workspace_export_result() -
     assert return_annotation is WorkspaceExportResult
 
 
+def test_callback_normalizer_inputs_are_object_not_any() -> None:
+    """Regression: raw callback payload normalizers accept object, not Any."""
+    normalizers = {
+        "_normalize_metadata": "metadata",
+        "_normalize_tool_input": "tool_input",
+        "_normalize_context": "context",
+    }
+
+    for method_name, parameter_name in normalizers.items():
+        hints = get_type_hints(getattr(CallbackService, method_name))
+        annotation = hints.get(parameter_name)
+
+        assert annotation is object
+        assert "Any" not in str(annotation)
+
+
 def test_callback_service_defers_default_runtime_adapters() -> None:
     runtime_cleanup = MagicMock()
     workspace_path_filter = MagicMock()

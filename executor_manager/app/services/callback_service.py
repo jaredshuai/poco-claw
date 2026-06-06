@@ -3,7 +3,7 @@ import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Protocol
 
 from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
 from app.schemas.workspace import WorkspaceExportResult
@@ -211,21 +211,21 @@ class CallbackService:
         return is_ignored_workspace_path(path)
 
     @staticmethod
-    def _normalize_metadata(metadata: Any) -> dict[str, object] | None:
+    def _normalize_metadata(metadata: object) -> dict[str, object] | None:
         """Normalize metadata payload to dict[str, object] | None."""
         if isinstance(metadata, dict):
             return dict(metadata)
         return None
 
     @staticmethod
-    def _normalize_tool_input(tool_input: Any) -> dict[str, object] | None:
+    def _normalize_tool_input(tool_input: object) -> dict[str, object] | None:
         """Normalize tool_input payload to dict[str, object] | None."""
         if isinstance(tool_input, dict):
             return dict(tool_input)
         return None
 
     @staticmethod
-    def _normalize_context(context: Any) -> dict[str, object] | None:
+    def _normalize_context(context: object) -> dict[str, object] | None:
         """Normalize context payload to dict[str, object] | None."""
         if isinstance(context, dict):
             return dict(context)

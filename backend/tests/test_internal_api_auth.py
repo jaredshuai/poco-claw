@@ -23,10 +23,11 @@ from app.api.v1 import (  # noqa: E402
     internal_permission_audit,
     internal_runs,
     internal_scheduled_tasks,
+    internal_skills,
     internal_user_input_requests,
     runs,
 )
-from app.core.deps import get_db  # noqa: E402
+from app.core.deps import get_db, get_user_id_by_session_id  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
 from app.schemas.scheduled_task import ScheduledTaskDispatchResponse  # noqa: E402
@@ -41,6 +42,7 @@ def _client() -> TestClient:
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
     app.include_router(internal_scheduled_tasks.router)
+    app.include_router(internal_skills.router)
     app.include_router(internal_user_input_requests.router)
     app.include_router(callback.router)
     return TestClient(app)
@@ -479,6 +481,100 @@ def test_internal_user_input_get_accepts_valid_token_and_service():
     get_request.assert_called_once_with(
         db, request_id="00000000-0000-0000-0000-000000000101"
     )
+
+
+def test_internal_skill_submit_requires_service_identity():
+    """Skill submission with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+    payload = {
+        "folder_path": "skills/demo",
+        "skill_name": "demo",
+        "workspace_files_prefix": "workspace/session-1",
+    }
+    session_id = "00000000-0000-0000-0000-000000000201"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with (
+            patch(
+                "app.api.v1.internal_skills.SessionRepository.get_by_id",
+                return_value=SimpleNamespace(id=session_id),
+            ),
+            patch(
+                "app.api.v1.internal_skills.pending_skill_creation_service"
+                ".submit_from_workspace",
+                return_value=SimpleNamespace(
+                    id=uuid.UUID("00000000-0000-0000-0000-000000000202"),
+                    status="pending",
+                ),
+            ) as submit_from_workspace,
+        ):
+            response = client.post(
+                "/internal/skills/submit-from-workspace",
+                params={"session_id": session_id},
+                json=payload,
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    submit_from_workspace.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_internal_skill_submit_accepts_valid_token_and_service():
+    """Skill submission accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+    payload = {
+        "folder_path": "skills/demo",
+        "skill_name": "demo",
+        "workspace_files_prefix": "workspace/session-1",
+    }
+    session_id = "00000000-0000-0000-0000-000000000201"
+    session = SimpleNamespace(id=session_id)
+    pending = SimpleNamespace(
+        id=uuid.UUID("00000000-0000-0000-0000-000000000202"),
+        status="pending",
+    )
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with (
+            patch(
+                "app.api.v1.internal_skills.SessionRepository.get_by_id",
+                return_value=session,
+            ),
+            patch(
+                "app.api.v1.internal_skills.pending_skill_creation_service"
+                ".submit_from_workspace",
+                return_value=pending,
+            ) as submit_from_workspace,
+        ):
+            response = client.post(
+                "/internal/skills/submit-from-workspace",
+                params={"session_id": session_id},
+                json=payload,
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    submit_from_workspace.assert_called_once_with(
+        db,
+        user_id="user-1",
+        session=session,
+        folder_path="skills/demo",
+        skill_name="demo",
+        workspace_files_prefix="workspace/session-1",
+    )
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(pending)
 
 
 def test_callback_requires_internal_token():

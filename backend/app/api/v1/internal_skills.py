@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_user_id_by_session_id, require_internal_token
+from app.core.deps import get_db, get_user_id_by_session_id, require_executor_manager
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.repositories.session_repository import SessionRepository
@@ -23,7 +23,7 @@ pending_skill_creation_service = PendingSkillCreationService()
 async def submit_skill_from_workspace(
     request: SubmitSkillRequest,
     session_id: uuid.UUID,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:

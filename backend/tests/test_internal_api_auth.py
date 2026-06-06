@@ -497,7 +497,8 @@ def test_callback_requires_internal_token():
     assert response.status_code == 403
 
 
-def test_callback_accepts_internal_token():
+def test_callback_requires_service_identity():
+    """Backend callback with valid token but missing service header fails."""
     client = _client()
     with patch("app.core.deps.get_settings", return_value=_settings()):
         with patch("app.api.v1.callback.callback_service.process_agent_callback") as fn:
@@ -518,4 +519,35 @@ def test_callback_accepts_internal_token():
                 headers={"X-Internal-Token": "internal-token"},
             )
 
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    fn.assert_not_called()
+
+
+def test_callback_accepts_valid_token_and_service():
+    """Backend callback accepts executor_manager service identity."""
+    client = _client()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch("app.api.v1.callback.callback_service.process_agent_callback") as fn:
+            fn.return_value = CallbackResponse(
+                session_id="session-1",
+                status="running",
+                callback_status=CallbackStatus.RUNNING,
+                message=None,
+            )
+            response = client.post(
+                "/callback",
+                json={
+                    "session_id": "session-1",
+                    "time": datetime.now(UTC).isoformat(),
+                    "status": "running",
+                    "progress": 10,
+                },
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
     assert response.status_code == 200
+    fn.assert_called_once()

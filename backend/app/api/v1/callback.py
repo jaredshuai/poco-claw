@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, require_internal_token
+from app.core.deps import get_db, require_executor_manager
 from app.schemas.callback import AgentCallbackRequest, CallbackResponse
 from app.schemas.response import Response, ResponseSchema
 from app.services.callback_service import CallbackService
@@ -19,7 +19,7 @@ callback_service = CallbackService()
 @router.post("", response_model=ResponseSchema[CallbackResponse])
 async def receive_callback(
     callback: AgentCallbackRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     """Receives executor callback and updates session status."""

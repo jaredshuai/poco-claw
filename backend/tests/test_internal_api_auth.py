@@ -29,6 +29,7 @@ from app.api.v1 import (  # noqa: E402
     internal_scheduled_tasks,
     internal_skill_config,
     internal_skills,
+    internal_slash_commands,
     internal_user_input_requests,
     runs,
 )
@@ -55,6 +56,7 @@ def _client() -> TestClient:
     app.include_router(internal_scheduled_tasks.router)
     app.include_router(internal_skill_config.router)
     app.include_router(internal_skills.router)
+    app.include_router(internal_slash_commands.router)
     app.include_router(internal_user_input_requests.router)
     app.include_router(callback.router)
     return TestClient(app)
@@ -408,6 +410,61 @@ def test_internal_plugin_config_resolve_accepts_valid_token_and_service():
         db=db,
         user_id="user-1",
         plugin_ids=[1, 2],
+    )
+
+
+def test_internal_slash_commands_resolve_requires_service_identity():
+    """Slash command resolve with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_slash_commands.service.resolve_user_commands",
+            return_value={"cmd": "content"},
+        ) as resolve_user_commands:
+            response = client.post(
+                "/internal/slash-commands/resolve",
+                json={"names": ["cmd"], "skill_names": ["skill"]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    resolve_user_commands.assert_not_called()
+
+
+def test_internal_slash_commands_resolve_accepts_valid_token_and_service():
+    """Slash command resolve accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_slash_commands.service.resolve_user_commands",
+            return_value={"cmd": "content"},
+        ) as resolve_user_commands:
+            response = client.post(
+                "/internal/slash-commands/resolve",
+                json={"names": ["cmd"], "skill_names": ["skill"]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 200
+    resolve_user_commands.assert_called_once_with(
+        db,
+        user_id="user-1",
+        names=["cmd"],
+        skill_names=["skill"],
     )
 
 

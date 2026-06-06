@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_internal_actor
+from app.core.deps import get_db, get_internal_actor, require_executor_manager
 from app.core.identity import Actor
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.slash_command_config import SlashCommandResolveRequest
@@ -19,6 +19,7 @@ service = SlashCommandConfigService()
 )
 async def resolve_slash_commands(
     request: SlashCommandResolveRequest,
+    _: None = Depends(require_executor_manager),
     actor: Actor = Depends(get_internal_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:

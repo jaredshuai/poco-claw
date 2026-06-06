@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, require_internal_token
+from app.core.deps import get_db, require_executor_manager
 from app.models.permission_audit_event import PermissionAuditEvent
 
 router = APIRouter(prefix="/internal/permission-audit", tags=["internal-audit"])
@@ -27,7 +27,7 @@ class PermissionAuditRequest(BaseModel):
 def record_permission_audit(
     req: PermissionAuditRequest,
     db: Session = Depends(get_db),
-    _: str = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
 ) -> dict[str, str]:
     event = PermissionAuditEvent(
         run_id=req.run_id,

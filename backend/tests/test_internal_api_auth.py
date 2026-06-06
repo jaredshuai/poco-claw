@@ -16,7 +16,13 @@ from app.core.settings import get_settings
 
 get_settings.cache_clear()
 
-from app.api.v1 import callback, internal_runs, runs  # noqa: E402
+from app.api.v1 import (  # noqa: E402
+    callback,
+    internal_mcp_transitions,
+    internal_permission_audit,
+    internal_runs,
+    runs,
+)
 from app.core.deps import get_db  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
@@ -27,6 +33,8 @@ def _client() -> TestClient:
     setup_exception_handlers(app, debug=False)
     app.include_router(runs.router)
     app.include_router(internal_runs.router)
+    app.include_router(internal_mcp_transitions.router)
+    app.include_router(internal_permission_audit.router)
     app.include_router(callback.router)
     return TestClient(app)
 
@@ -189,6 +197,116 @@ def test_internal_run_metadata_accepts_valid_token_and_service():
     assert response.status_code == 200
     assert mock_run.config_layers == {"source": "resolver"}
     db.flush.assert_called_once()
+    db.commit.assert_called_once()
+
+
+def test_internal_mcp_transition_requires_service_identity():
+    """MCP transition with valid token but missing service header fails."""
+    client = _client()
+    client.app.dependency_overrides[get_db] = lambda: MagicMock()
+    payload = {
+        "run_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "server_name": "filesystem",
+        "to_state": "connected",
+        "event_source": "executor_manager",
+    }
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_mcp_transitions.McpConnectionService"
+        ) as service_cls:
+            response = client.post(
+                "/internal/mcp-transitions",
+                json=payload,
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    service_cls.assert_not_called()
+
+
+def test_internal_mcp_transition_accepts_valid_token_and_service():
+    """MCP transition accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    payload = {
+        "run_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "server_name": "filesystem",
+        "to_state": "connected",
+        "event_source": "executor_manager",
+    }
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_mcp_transitions.McpConnectionService"
+        ) as service_cls:
+            response = client.post(
+                "/internal/mcp-transitions",
+                json=payload,
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    service_cls.return_value.record_transition.assert_called_once()
+    db.commit.assert_called_once()
+
+
+def test_internal_permission_audit_requires_service_identity():
+    """Permission audit with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    payload = {
+        "run_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "tool_name": "Read",
+        "policy_action": "allow",
+    }
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        response = client.post(
+            "/internal/permission-audit",
+            json=payload,
+            headers={"X-Internal-Token": "internal-token"},
+        )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_internal_permission_audit_accepts_valid_token_and_service():
+    """Permission audit accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    payload = {
+        "run_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "tool_name": "Read",
+        "policy_action": "allow",
+    }
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        response = client.post(
+            "/internal/permission-audit",
+            json=payload,
+            headers={
+                "X-Internal-Token": "internal-token",
+                "X-Internal-Service": "executor_manager",
+            },
+        )
+
+    assert response.status_code == 200
+    db.add.assert_called_once()
     db.commit.assert_called_once()
 
 

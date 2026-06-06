@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, require_internal_token
+from app.core.deps import get_db, require_executor_manager
 from app.services.mcp_connection_service import McpConnectionService
 
 router = APIRouter(prefix="/internal/mcp-transitions", tags=["internal-mcp"])
@@ -25,7 +25,7 @@ class McpTransitionRequest(BaseModel):
 def record_mcp_transition(
     req: McpTransitionRequest,
     db: Session = Depends(get_db),
-    _: str = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
 ) -> dict[str, str]:
     service = McpConnectionService()
     service.record_transition(

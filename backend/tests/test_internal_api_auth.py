@@ -21,11 +21,13 @@ from app.api.v1 import (  # noqa: E402
     internal_mcp_transitions,
     internal_permission_audit,
     internal_runs,
+    internal_scheduled_tasks,
     runs,
 )
 from app.core.deps import get_db  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
+from app.schemas.scheduled_task import ScheduledTaskDispatchResponse  # noqa: E402
 
 
 def _client() -> TestClient:
@@ -35,6 +37,7 @@ def _client() -> TestClient:
     app.include_router(internal_runs.router)
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
+    app.include_router(internal_scheduled_tasks.router)
     app.include_router(callback.router)
     return TestClient(app)
 
@@ -308,6 +311,52 @@ def test_internal_permission_audit_accepts_valid_token_and_service():
     assert response.status_code == 200
     db.add.assert_called_once()
     db.commit.assert_called_once()
+
+
+def test_internal_scheduled_task_dispatch_requires_service_identity():
+    """Scheduled dispatch with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_scheduled_tasks.scheduled_task_service.dispatch_due",
+            return_value=ScheduledTaskDispatchResponse(dispatched=0),
+        ) as dispatch_due:
+            response = client.post(
+                "/internal/scheduled-tasks/dispatch-due",
+                json={"limit": 10},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    dispatch_due.assert_not_called()
+
+
+def test_internal_scheduled_task_dispatch_accepts_valid_token_and_service():
+    """Scheduled dispatch accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_scheduled_tasks.scheduled_task_service.dispatch_due",
+            return_value=ScheduledTaskDispatchResponse(dispatched=1),
+        ) as dispatch_due:
+            response = client.post(
+                "/internal/scheduled-tasks/dispatch-due",
+                json={"limit": 10},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    dispatch_due.assert_called_once_with(db, limit=10)
 
 
 def test_callback_requires_internal_token():

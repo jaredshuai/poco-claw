@@ -127,7 +127,7 @@ class WorkspaceManager:
         *,
         max_depth: int = 8,
         max_entries: int = 4000,
-    ) -> list[dict]:
+    ) -> list[dict[str, object]]:
         """List workspace files as a tree structure."""
         workspace_dir = self.get_session_workspace_dir(
             user_id=user_id, session_id=session_id
@@ -138,11 +138,13 @@ class WorkspaceManager:
         counter = {"count": 0}
         base = workspace_dir.resolve()
 
-        def build_dir(current: Path, prefix: str, depth: int) -> list[dict]:
+        def build_dir(
+            current: Path, prefix: str, depth: int
+        ) -> list[dict[str, object]]:
             if depth > max_depth:
                 return []
 
-            nodes: list[dict] = []
+            nodes: list[dict[str, object]] = []
             try:
                 entries = sorted(
                     current.iterdir(),

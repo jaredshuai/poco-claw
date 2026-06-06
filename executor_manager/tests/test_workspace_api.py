@@ -5,6 +5,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from typing import get_args, get_origin
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -74,6 +75,36 @@ def test_workspace_manager_provider_has_no_mutable_global() -> None:
     from app.api.v1 import workspace
 
     assert not hasattr(workspace, "workspace_manager")
+
+
+def _assert_dict_str_value(annotation: object, value_annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is dict
+    assert get_args(annotation) == (str, value_annotation)
+
+
+def _assert_list_dict_str_value(annotation: object, value_annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is list
+    (item_type,) = get_args(annotation)
+    _assert_dict_str_value(item_type, value_annotation)
+
+
+def test_workspace_api_manager_port_is_structured() -> None:
+    """Regression: workspace API manager port avoids Any and bare dict."""
+    import typing
+
+    from app.api.v1.workspace import WorkspaceApiManager
+
+    disk_hints = typing.get_type_hints(WorkspaceApiManager.get_disk_usage)
+    user_hints = typing.get_type_hints(WorkspaceApiManager.get_user_workspaces)
+    files_hints = typing.get_type_hints(WorkspaceApiManager.list_workspace_files)
+
+    _assert_dict_str_value(disk_hints.get("return"), float | int | str)
+    _assert_list_dict_str_value(user_hints.get("return"), str | int)
+    _assert_list_dict_str_value(files_hints.get("return"), object)
 
 
 class TestWorkspaceEndpoints(unittest.TestCase):

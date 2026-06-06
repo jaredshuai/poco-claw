@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import get_args, get_origin
 from unittest.mock import MagicMock, patch
 
 from app.services.workspace_manager import WorkspaceManager, WorkspaceMeta
@@ -206,6 +207,21 @@ class TestWorkspaceManagerResolveUserId(unittest.TestCase):
 
 class TestWorkspaceManagerListWorkspaceFiles(unittest.TestCase):
     """Test WorkspaceManager.list_workspace_files."""
+
+    def test_list_workspace_files_return_annotation_is_structured(self) -> None:
+        """Regression: list_workspace_files returns list[dict[str, object]]."""
+        import typing
+
+        hints = typing.get_type_hints(WorkspaceManager.list_workspace_files)
+        return_hint = hints.get("return")
+
+        assert return_hint is not None
+        assert "Any" not in str(return_hint)
+        assert get_origin(return_hint) is list
+
+        (item_hint,) = get_args(return_hint)
+        assert get_origin(item_hint) is dict
+        assert get_args(item_hint) == (str, object)
 
     def test_list_workspace_files_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

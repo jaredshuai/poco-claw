@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
@@ -16,9 +16,9 @@ router = APIRouter(prefix="/workspace", tags=["workspace"])
 
 
 class WorkspaceApiManager(Protocol):
-    def get_disk_usage(self) -> dict[str, Any]: ...
+    def get_disk_usage(self) -> dict[str, float | int | str]: ...
 
-    def get_user_workspaces(self, user_id: str) -> list[dict[str, Any]]: ...
+    def get_user_workspaces(self, user_id: str) -> list[dict[str, str | int]]: ...
 
     def archive_workspace(
         self,
@@ -43,7 +43,7 @@ class WorkspaceApiManager(Protocol):
         *,
         max_depth: int = 8,
         max_entries: int = 4000,
-    ) -> list[dict[Any, Any]]: ...
+    ) -> list[dict[str, object]]: ...
 
     def resolve_workspace_file(
         self,

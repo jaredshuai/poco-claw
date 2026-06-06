@@ -9,7 +9,6 @@ from app.core.deps import (
     get_db,
     get_user_id_by_session_id,
     require_executor_manager,
-    require_internal_token,
 )
 from app.schemas.memory import (
     InternalMemoryCreateRequest,
@@ -62,7 +61,7 @@ async def create_memories_internal(
 )
 async def get_memory_create_job_internal(
     job_id: uuid.UUID,
-    _token: None = Depends(require_internal_token),
+    _token: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
@@ -78,7 +77,7 @@ async def get_memory_create_job_internal(
 
 @router.get("/memories", response_model=ResponseSchema[Any])
 async def list_memories_internal(
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     result = memory_service.list_memories(
@@ -90,7 +89,7 @@ async def list_memories_internal(
 @router.post("/memories/search", response_model=ResponseSchema[Any])
 async def search_memories_internal(
     request: InternalMemorySearchRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     search_request = MemorySearchRequest(
@@ -104,7 +103,7 @@ async def search_memories_internal(
 @router.get("/memories/{memory_id}", response_model=ResponseSchema[Any])
 async def get_memory_internal(
     memory_id: str,
-    _token: None = Depends(require_internal_token),
+    _token: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     result = memory_service.get_memory(memory_id=memory_id, user_id=user_id)
@@ -129,7 +128,7 @@ async def update_memory_internal(
 @router.get("/memories/{memory_id}/history", response_model=ResponseSchema[Any])
 async def get_memory_history_internal(
     memory_id: str,
-    _token: None = Depends(require_internal_token),
+    _token: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     result = memory_service.get_memory_history(

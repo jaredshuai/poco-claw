@@ -40,7 +40,10 @@ from app.core.deps import get_db, get_user_id_by_session_id  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
 from app.schemas.env_var import SystemEnvVarResponse  # noqa: E402
-from app.schemas.memory import MemoryCreateJobEnqueueResponse  # noqa: E402
+from app.schemas.memory import (  # noqa: E402
+    MemoryCreateJobEnqueueResponse,
+    MemoryCreateJobResponse,
+)
 from app.schemas.scheduled_task import ScheduledTaskDispatchResponse  # noqa: E402
 from app.schemas.user_input_request import UserInputRequestResponse  # noqa: E402
 
@@ -1087,6 +1090,241 @@ def test_internal_memory_create_accepts_valid_token_and_service():
     assert enqueue_create.call_args.args[0] is db
     assert enqueue_create.call_args.kwargs["user_id"] == "user-1"
     process_create_job.assert_called_once_with(job_id)
+
+
+def test_internal_memory_job_requires_service_identity():
+    """Memory job lookup with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+    job_id = uuid.UUID("00000000-0000-0000-0000-000000000303")
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_create_job_service.get_job",
+            return_value=MemoryCreateJobResponse(job_id=job_id, status="completed"),
+        ) as get_job:
+            response = client.get(
+                f"/internal/memories/jobs/{job_id}",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    get_job.assert_not_called()
+
+
+def test_internal_memory_job_accepts_valid_token_and_service():
+    """Memory job lookup accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+    job_id = uuid.UUID("00000000-0000-0000-0000-000000000303")
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_create_job_service.get_job",
+            return_value=MemoryCreateJobResponse(job_id=job_id, status="completed"),
+        ) as get_job:
+            response = client.get(
+                f"/internal/memories/jobs/{job_id}",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    get_job.assert_called_once_with(db, user_id="user-1", job_id=job_id)
+
+
+def test_internal_memory_list_requires_service_identity():
+    """Memory listing with valid token but missing service header fails."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.list_memories",
+            return_value=[{"id": "mem-1"}],
+        ) as list_memories:
+            response = client.get(
+                "/internal/memories",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    list_memories.assert_not_called()
+
+
+def test_internal_memory_list_accepts_valid_token_and_service():
+    """Memory listing accepts executor_manager service identity."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.list_memories",
+            return_value=[{"id": "mem-1"}],
+        ) as list_memories:
+            response = client.get(
+                "/internal/memories",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    list_memories.assert_called_once_with(user_id="user-1")
+
+
+def test_internal_memory_search_requires_service_identity():
+    """Memory search with valid token but missing service header fails."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.search_memories",
+            return_value=[{"id": "mem-1"}],
+        ) as search_memories:
+            response = client.post(
+                "/internal/memories/search",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                json={"query": "project", "filters": {"kind": "note"}},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    search_memories.assert_not_called()
+
+
+def test_internal_memory_search_accepts_valid_token_and_service():
+    """Memory search accepts executor_manager service identity."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.search_memories",
+            return_value=[{"id": "mem-1"}],
+        ) as search_memories:
+            response = client.post(
+                "/internal/memories/search",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                json={"query": "project", "filters": {"kind": "note"}},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    search_memories.assert_called_once()
+    assert search_memories.call_args.kwargs["user_id"] == "user-1"
+    request = search_memories.call_args.kwargs["request"]
+    assert request.query == "project"
+    assert request.filters == {"kind": "note"}
+
+
+def test_internal_memory_get_requires_service_identity():
+    """Memory lookup with valid token but missing service header fails."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.get_memory",
+            return_value={"id": "mem-1"},
+        ) as get_memory:
+            response = client.get(
+                "/internal/memories/mem-1",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    get_memory.assert_not_called()
+
+
+def test_internal_memory_get_accepts_valid_token_and_service():
+    """Memory lookup accepts executor_manager service identity."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.get_memory",
+            return_value={"id": "mem-1"},
+        ) as get_memory:
+            response = client.get(
+                "/internal/memories/mem-1",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    get_memory.assert_called_once_with(memory_id="mem-1", user_id="user-1")
+
+
+def test_internal_memory_history_requires_service_identity():
+    """Memory history with valid token but missing service header fails."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.get_memory_history",
+            return_value=[{"revision": 1}],
+        ) as get_memory_history:
+            response = client.get(
+                "/internal/memories/mem-1/history",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    get_memory_history.assert_not_called()
+
+
+def test_internal_memory_history_accepts_valid_token_and_service():
+    """Memory history accepts executor_manager service identity."""
+    client = _client()
+    client.app.dependency_overrides[get_user_id_by_session_id] = lambda: "user-1"
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_memories.memory_service.get_memory_history",
+            return_value=[{"revision": 1}],
+        ) as get_memory_history:
+            response = client.get(
+                "/internal/memories/mem-1/history",
+                params={"session_id": "00000000-0000-0000-0000-000000000302"},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    get_memory_history.assert_called_once_with(
+        memory_id="mem-1",
+        user_id="user-1",
+    )
 
 
 def test_internal_memory_update_requires_service_identity():

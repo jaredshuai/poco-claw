@@ -19,6 +19,7 @@ get_settings.cache_clear()
 
 from app.api.v1 import (  # noqa: E402
     callback,
+    internal_claude_md,
     internal_env_vars,
     internal_execution_settings,
     internal_memories,
@@ -49,6 +50,7 @@ def _client() -> TestClient:
     setup_exception_handlers(app, debug=False)
     app.include_router(runs.router)
     app.include_router(internal_runs.router)
+    app.include_router(internal_claude_md.router)
     app.include_router(internal_env_vars.router)
     app.include_router(internal_execution_settings.router)
     app.include_router(internal_memories.router)
@@ -301,6 +303,54 @@ def test_internal_env_map_accepts_valid_token_and_service():
 
     assert response.status_code == 200
     get_env_map.assert_called_once_with(db, user_id="user-1")
+
+
+def test_internal_claude_md_requires_service_identity():
+    """Internal CLAUDE.md with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_claude_md.service.get_settings",
+            return_value={"enabled": True, "content": "Use project rules."},
+        ) as get_settings:
+            response = client.get(
+                "/internal/claude-md",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    get_settings.assert_not_called()
+
+
+def test_internal_claude_md_accepts_valid_token_and_service():
+    """Internal CLAUDE.md accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_claude_md.service.get_settings",
+            return_value={"enabled": True, "content": "Use project rules."},
+        ) as get_settings:
+            response = client.get(
+                "/internal/claude-md",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 200
+    get_settings.assert_called_once_with(db, user_id="user-1")
 
 
 def test_internal_mcp_config_resolve_requires_service_identity():

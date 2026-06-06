@@ -5,7 +5,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_user_id_by_session_id, require_internal_token
+from app.core.deps import (
+    get_db,
+    get_user_id_by_session_id,
+    require_executor_manager,
+    require_internal_token,
+)
 from app.schemas.memory import (
     InternalMemoryCreateRequest,
     InternalMemorySearchRequest,
@@ -29,7 +34,7 @@ memory_create_job_service = MemoryCreateJobService(memory_service=memory_service
 async def create_memories_internal(
     request: InternalMemoryCreateRequest,
     background_tasks: BackgroundTasks,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
@@ -110,7 +115,7 @@ async def get_memory_internal(
 async def update_memory_internal(
     memory_id: str,
     request: InternalMemoryUpdateRequest,
-    _token: None = Depends(require_internal_token),
+    _token: None = Depends(require_executor_manager),
     _user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     result = memory_service.update_memory(memory_id=memory_id, text=request.text)
@@ -132,7 +137,7 @@ async def get_memory_history_internal(
 @router.delete("/memories/{memory_id}", response_model=ResponseSchema[dict[str, str]])
 async def delete_memory_internal(
     memory_id: str,
-    _token: None = Depends(require_internal_token),
+    _token: None = Depends(require_executor_manager),
     _user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     memory_service.delete_memory(memory_id=memory_id)
@@ -143,7 +148,7 @@ async def delete_memory_internal(
 
 @router.delete("/memories", response_model=ResponseSchema[dict[str, bool]])
 async def delete_all_memories_internal(
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
     memory_service.delete_all_memories(

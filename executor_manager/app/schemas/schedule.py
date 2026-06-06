@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,7 @@ class ScheduleRuleInfo(BaseModel):
     start_immediately: bool | None = None
 
     # window
-    cron: dict[str, Any] | None = None
+    cron: dict[str, object] | None = None
     timezone: str | None = None
     window_minutes: int | None = None
     poll_interval_seconds: int | None = None

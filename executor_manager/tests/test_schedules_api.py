@@ -1,9 +1,29 @@
 """Tests for app/api/v1/schedules.py."""
 
 import unittest
+from typing import Any, get_args, get_origin, get_type_hints
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+
+class TestScheduleSchemaTypes(unittest.TestCase):
+    """Regression tests for schedule response schema boundaries."""
+
+    def test_schedule_rule_info_cron_uses_object_values_not_any(self) -> None:
+        """Regression: schedule response cron payload is dict[str, object], not Any."""
+        from app.schemas.schedule import ScheduleRuleInfo
+
+        hints = get_type_hints(ScheduleRuleInfo)
+        cron_hint = hints["cron"]
+        union_args = get_args(cron_hint)
+
+        assert type(None) in union_args
+        dict_hint = next(arg for arg in union_args if get_origin(arg) is dict)
+        key_type, value_type = get_args(dict_hint)
+        assert key_type is str
+        assert value_type is object
+        assert value_type is not Any
 
 
 class TestGetSchedules(unittest.TestCase):

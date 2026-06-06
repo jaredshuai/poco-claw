@@ -8,7 +8,7 @@ import httpx
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.scheduler.task_dispatcher import TaskDispatchExecutorTarget
+from app.scheduler.task_dispatcher import TaskDispatcher, TaskDispatchExecutorTarget
 from app.schemas.task import (
     SessionStatusResponse,
     TaskConfig,
@@ -16,11 +16,13 @@ from app.schemas.task import (
     TaskStatusResponse,
 )
 from app.services.task_service import (
+    ApschedulerTaskScheduler,
     BackendTaskClient,
+    ScheduledTaskStatus,
     TaskBackendClient,
+    TaskDispatchSchedule,
     TaskDispatcherTargetResolver,
     TaskScheduler,
-    TaskSchedulerJob,
     TaskService,
     TaskSessionCreation,
     TaskTargetResolver,
@@ -56,6 +58,59 @@ class FixedIdGenerator:
 
     def new_id(self) -> str:
         return self._ids.pop(0)
+
+
+class TestApschedulerTaskScheduler(unittest.TestCase):
+    """Test APScheduler adapter for TaskService scheduling."""
+
+    def test_schedule_dispatch_translates_named_schedule_to_apscheduler_job(
+        self,
+    ) -> None:
+        raw_scheduler = MagicMock()
+        task_scheduler = ApschedulerTaskScheduler(raw_scheduler)
+        schedule = TaskDispatchSchedule(
+            task_id="task-123",
+            session_id="session-123",
+            prompt="Test prompt",
+            config={"browser_enabled": False},
+            sdk_session_id="sdk-123",
+            request_id="req-123",
+            trace_id="trace-123",
+            enqueued_at=123.456,
+        )
+
+        task_scheduler.schedule_dispatch(schedule)
+
+        raw_scheduler.add_job.assert_called_once_with(
+            TaskDispatcher.dispatch,
+            args=[
+                "task-123",
+                "session-123",
+                "Test prompt",
+                {"browser_enabled": False},
+                "sdk-123",
+                "req-123",
+                "trace-123",
+                123.456,
+            ],
+            id="task-123",
+            replace_existing=True,
+        )
+
+    def test_get_scheduled_task_translates_apscheduler_job(self) -> None:
+        next_run_time = datetime.now()
+        raw_scheduler = MagicMock()
+        raw_scheduler.get_job.return_value = SimpleNamespace(
+            next_run_time=next_run_time
+        )
+        task_scheduler = ApschedulerTaskScheduler(raw_scheduler)
+
+        result = task_scheduler.get_scheduled_task("task-123")
+
+        assert result == ScheduledTaskStatus(
+            task_id="task-123",
+            next_run_time=next_run_time,
+        )
 
 
 class TestTaskServiceInit(unittest.TestCase):
@@ -197,6 +252,7 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         mock_backend_client = MagicMock()
         mock_backend_client.create_session = AsyncMock(return_value=_session_creation())
         mock_scheduler = MagicMock()
+        mock_scheduler.schedule_dispatch = MagicMock()
         mock_target_resolver = MagicMock()
         mock_target_resolver.resolve_executor_target = AsyncMock(
             return_value=TaskDispatchExecutorTarget(
@@ -240,7 +296,17 @@ class TestTaskServiceCreateTask(unittest.TestCase):
 
         assert result.task_id == "task-fixed"
         assert result.container_id == "container-from-port"
-        mock_scheduler.add_job.assert_called_once()
+        mock_scheduler.schedule_dispatch.assert_called_once()
+        schedule = mock_scheduler.schedule_dispatch.call_args.args[0]
+        assert isinstance(schedule, TaskDispatchSchedule)
+        assert schedule.task_id == "task-fixed"
+        assert schedule.session_id == "new-session-123"
+        assert schedule.prompt == "Test prompt"
+        assert schedule.config == {
+            "container_mode": "persistent",
+            "browser_enabled": True,
+        }
+        assert schedule.sdk_session_id == "sdk-123"
         mock_target_resolver.resolve_executor_target.assert_awaited_once_with(
             session_id="new-session-123",
             user_id="user-123",
@@ -877,27 +943,21 @@ class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
         assert protocol_hints.get("return") is TaskDispatchExecutorTarget
         assert adapter_hints.get("return") is TaskDispatchExecutorTarget
 
-    def test_scheduler_add_job_return_is_object(self) -> None:
+    def test_scheduler_schedule_dispatch_uses_named_schedule(self) -> None:
         import typing
 
-        hints = typing.get_type_hints(TaskScheduler.add_job)
+        hints = typing.get_type_hints(TaskScheduler.schedule_dispatch)
 
-        assert hints.get("return") is object
+        assert hints.get("schedule") is TaskDispatchSchedule
+        assert hints.get("return") is type(None)
 
-    def test_scheduler_add_job_kwargs_are_object(self) -> None:
+    def test_scheduler_get_scheduled_task_returns_status_or_none(self) -> None:
         import typing
 
-        hints = typing.get_type_hints(TaskScheduler.add_job)
-
-        assert hints.get("kwargs") is object
-
-    def test_scheduler_get_job_returns_scheduler_job_or_none(self) -> None:
-        import typing
-
-        hints = typing.get_type_hints(TaskScheduler.get_job)
+        hints = typing.get_type_hints(TaskScheduler.get_scheduled_task)
         return_type = hints.get("return")
 
-        assert set(get_args(return_type)) == {TaskSchedulerJob, type(None)}
+        assert set(get_args(return_type)) == {ScheduledTaskStatus, type(None)}
 
 
 if __name__ == "__main__":

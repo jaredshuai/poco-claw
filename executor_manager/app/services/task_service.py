@@ -2,6 +2,7 @@ import logging
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 import httpx
@@ -73,14 +74,69 @@ class BackendTaskClient:
         return SessionStatusResponse.model_validate(payload)
 
 
-class TaskSchedulerJob(Protocol):
-    next_run_time: object | None
+@dataclass(frozen=True)
+class TaskDispatchSchedule:
+    task_id: str
+    session_id: str
+    prompt: str
+    config: dict[str, object]
+    sdk_session_id: str | None
+    request_id: str | None
+    trace_id: str | None
+    enqueued_at: float
+
+
+@dataclass(frozen=True)
+class ScheduledTaskStatus:
+    task_id: str
+    next_run_time: datetime | None
+
+
+class TaskSchedulerBackendJob(Protocol):
+    next_run_time: datetime | None
+
+
+class TaskSchedulerBackend(Protocol):
+    def add_job(self, func: Callable[..., object], **kwargs: object) -> object: ...
+
+    def get_job(self, job_id: str) -> TaskSchedulerBackendJob | None: ...
 
 
 class TaskScheduler(Protocol):
-    def add_job(self, func: Callable[..., object], **kwargs: object) -> object: ...
+    def schedule_dispatch(self, schedule: TaskDispatchSchedule) -> None: ...
 
-    def get_job(self, job_id: str) -> TaskSchedulerJob | None: ...
+    def get_scheduled_task(self, task_id: str) -> ScheduledTaskStatus | None: ...
+
+
+class ApschedulerTaskScheduler:
+    def __init__(self, scheduler: TaskSchedulerBackend) -> None:
+        self.scheduler = scheduler
+
+    def schedule_dispatch(self, schedule: TaskDispatchSchedule) -> None:
+        self.scheduler.add_job(
+            TaskDispatcher.dispatch,
+            args=[
+                schedule.task_id,
+                schedule.session_id,
+                schedule.prompt,
+                schedule.config,
+                schedule.sdk_session_id,
+                schedule.request_id,
+                schedule.trace_id,
+                schedule.enqueued_at,
+            ],
+            id=schedule.task_id,
+            replace_existing=True,
+        )
+
+    def get_scheduled_task(self, task_id: str) -> ScheduledTaskStatus | None:
+        job = self.scheduler.get_job(task_id)
+        if job is None:
+            return None
+        return ScheduledTaskStatus(
+            task_id=task_id,
+            next_run_time=job.next_run_time,
+        )
 
 
 class TaskTargetResolver(Protocol):
@@ -102,7 +158,7 @@ def build_backend_client() -> TaskBackendClient:
 
 
 def build_task_scheduler() -> TaskScheduler:
-    return scheduler
+    return ApschedulerTaskScheduler(scheduler)
 
 
 class TaskDispatcherTargetResolver:
@@ -265,20 +321,17 @@ class TaskService:
             enqueued_at = time.perf_counter()
             step_started = time.perf_counter()
             task_scheduler = self.task_scheduler_factory()
-            task_scheduler.add_job(
-                TaskDispatcher.dispatch,
-                args=[
-                    task_id,
-                    active_session_id,
-                    prompt,
-                    config,
-                    sdk_session_id,
-                    request_id,
-                    trace_id,
-                    enqueued_at,
-                ],
-                id=task_id,
-                replace_existing=True,
+            task_scheduler.schedule_dispatch(
+                TaskDispatchSchedule(
+                    task_id=task_id,
+                    session_id=active_session_id,
+                    prompt=prompt,
+                    config=config,
+                    sdk_session_id=sdk_session_id,
+                    request_id=request_id,
+                    trace_id=trace_id,
+                    enqueued_at=enqueued_at,
+                )
             )
             logger.info(
                 "timing",
@@ -336,13 +389,17 @@ class TaskService:
             AppException: If task not found in scheduler
         """
         task_scheduler = self.task_scheduler_factory()
-        job = task_scheduler.get_job(task_id)
+        scheduled_task = task_scheduler.get_scheduled_task(task_id)
 
-        if job:
+        if scheduled_task:
             return TaskStatusResponse(
                 task_id=task_id,
                 status="scheduled",
-                next_run_time=str(job.next_run_time) if job.next_run_time else None,
+                next_run_time=(
+                    str(scheduled_task.next_run_time)
+                    if scheduled_task.next_run_time
+                    else None
+                ),
             )
 
         # Task not found in scheduler - may have already executed

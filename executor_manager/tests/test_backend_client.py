@@ -105,6 +105,7 @@ class TestBackendClientTraceHeaders(unittest.TestCase):
 
         assert headers == {
             "X-Internal-Token": "token-123",
+            "X-Internal-Service": "executor_manager",
             "X-Request-ID": "req-123",
             "X-Trace-ID": "trace-456",
         }
@@ -129,6 +130,7 @@ class TestBackendClientTraceHeaders(unittest.TestCase):
 
         assert headers == {
             "X-Internal-Token": "token-123",
+            "X-Internal-Service": "executor_manager",
             "X-User-Id": "user-123",
             "X-Request-ID": "req-123",
             "X-Trace-ID": "trace-456",
@@ -395,6 +397,10 @@ class TestBackendClientForwardCallback:
                     mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
                     == "token-123"
                 )
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Service"]
+                    == "executor_manager"
+                )
 
     async def test_forward_callback_empty_data(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
@@ -478,6 +484,10 @@ class TestBackendClientClaimRun:
                 assert (
                     mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
                     == "token-123"
+                )
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Service"]
+                    == "executor_manager"
                 )
 
     async def test_claim_run_with_schedule_modes(self) -> None:
@@ -686,6 +696,10 @@ class TestBackendClientRunOperations:
                     mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
                     == "token-123"
                 )
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Service"]
+                    == "executor_manager"
+                )
 
     async def test_start_run_with_lease_seconds(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
@@ -747,12 +761,16 @@ class TestBackendClientRunOperations:
 
             with patch.object(
                 client._client, "request", AsyncMock(return_value=mock_response)
-            ):
+            ) as mock_request:
                 result = await client.fail_run(
                     "run-123", "worker-1", error_message="Something went wrong"
                 )
 
                 assert result["status"] == "failed"
+                assert (
+                    mock_request.call_args.kwargs["headers"]["X-Internal-Service"]
+                    == "executor_manager"
+                )
 
     async def test_start_run_returns_empty_mapping_for_non_mapping_data(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:

@@ -12,6 +12,8 @@ from app.core.observability.request_context import (
     get_trace_id,
 )
 
+BACKEND_INTERNAL_SERVICE = "executor_manager"
+
 
 class BackendClientSettings(Protocol):
     backend_url: str
@@ -79,6 +81,7 @@ class BackendClient:
     def _internal_headers(self) -> dict[str, str]:
         return {
             "X-Internal-Token": self.settings.internal_api_token,
+            "X-Internal-Service": BACKEND_INTERNAL_SERVICE,
             **self._trace_headers(),
         }
 

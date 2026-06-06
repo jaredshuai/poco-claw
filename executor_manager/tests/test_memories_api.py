@@ -28,6 +28,19 @@ def _assert_list_mapping_str_object(annotation: object) -> None:
     _assert_mapping_str_object(item_type)
 
 
+def _assert_response_model_payload(
+    annotation: object, expected_payload: object
+) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    metadata = getattr(annotation, "__pydantic_generic_metadata__", {})
+    assert metadata.get("args") == (expected_payload,)
+    assert get_args(annotation.model_fields["data"].annotation) == (
+        expected_payload,
+        type(None),
+    )
+
+
 def _assert_dict_str_object(annotation: object) -> None:
     assert annotation is not None
     assert "Any" not in str(annotation)
@@ -165,6 +178,27 @@ def test_memory_schema_payload_fields_do_not_expose_any() -> None:
     assert object in result_args
     assert Any not in result_args
     assert "Any" not in str(result_hint)
+
+
+def test_memory_routes_response_models_do_not_expose_any() -> None:
+    """Regression: memory routes should expose structured response payloads."""
+    from app.api.v1.memories import router
+    from fastapi.routing import APIRoute
+
+    route_models = {
+        route.endpoint.__name__: route.response_model
+        for route in router.routes
+        if isinstance(route, APIRoute)
+    }
+
+    mapping_payload = Mapping[str, object]
+    list_payload = list[Mapping[str, object]]
+
+    _assert_response_model_payload(route_models["list_memories"], list_payload)
+    _assert_response_model_payload(route_models["search_memories"], list_payload)
+    _assert_response_model_payload(route_models["get_memory"], mapping_payload)
+    _assert_response_model_payload(route_models["update_memory"], mapping_payload)
+    _assert_response_model_payload(route_models["get_memory_history"], list_payload)
 
 
 class TestMemoriesEndpoints(unittest.TestCase):

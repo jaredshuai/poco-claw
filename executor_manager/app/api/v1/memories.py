@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
@@ -88,7 +88,7 @@ async def get_memory_create_job(
     )
 
 
-@router.get("", response_model=ResponseSchema[Any])
+@router.get("", response_model=ResponseSchema[list[Mapping[str, object]]])
 async def list_memories(
     session_id: str = Query(...),
     backend: MemoriesBackendClient = Depends(get_backend_client),
@@ -97,7 +97,7 @@ async def list_memories(
     return Response.success(data=result, message="Memories retrieved successfully")
 
 
-@router.post("/search", response_model=ResponseSchema[Any])
+@router.post("/search", response_model=ResponseSchema[list[Mapping[str, object]]])
 async def search_memories(
     request: MemorySearchRequest,
     backend: MemoriesBackendClient = Depends(get_backend_client),
@@ -107,7 +107,7 @@ async def search_memories(
     return Response.success(data=result, message="Memories searched successfully")
 
 
-@router.get("/{memory_id}", response_model=ResponseSchema[Any])
+@router.get("/{memory_id}", response_model=ResponseSchema[Mapping[str, object]])
 async def get_memory(
     memory_id: str,
     session_id: str = Query(...),
@@ -120,7 +120,7 @@ async def get_memory(
     return Response.success(data=result, message="Memory retrieved successfully")
 
 
-@router.put("/{memory_id}", response_model=ResponseSchema[Any])
+@router.put("/{memory_id}", response_model=ResponseSchema[Mapping[str, object]])
 async def update_memory(
     memory_id: str,
     request: MemoryUpdateRequest,
@@ -135,7 +135,10 @@ async def update_memory(
     return Response.success(data=result, message="Memory updated successfully")
 
 
-@router.get("/{memory_id}/history", response_model=ResponseSchema[Any])
+@router.get(
+    "/{memory_id}/history",
+    response_model=ResponseSchema[list[Mapping[str, object]]],
+)
 async def get_memory_history(
     memory_id: str,
     session_id: str = Query(...),

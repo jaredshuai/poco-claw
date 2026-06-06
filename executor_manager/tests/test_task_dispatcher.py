@@ -9,13 +9,26 @@ from app.scheduler.task_dispatcher import (
     ContainerPoolCapability,
     ExecutorClientLegacyTaskDispatchGateway,
     LegacyTaskDispatchExecutorGateway,
+    TaskDispatchExecutorTarget,
     TaskDispatchDependencies,
+    TaskDispatchRuntime,
     TaskDispatcher,
+    TaskDispatcherRuntime,
     build_task_dispatch_config_resolver,
     build_task_dispatch_dependencies,
 )
 from app.schemas.task import ContainerStatsResponse
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
+
+
+def _executor_target(
+    executor_url: str = "http://executor:8080",
+    container_id: str | None = "container-123",
+) -> TaskDispatchExecutorTarget:
+    return TaskDispatchExecutorTarget(
+        executor_url=executor_url,
+        container_id=container_id,
+    )
 
 
 def test_task_dispatcher_does_not_own_legacy_config_preparation() -> None:
@@ -246,7 +259,7 @@ class TestTaskDispatcherResolveExecutorTarget:
                 container_id=None,
             )
 
-            assert result == ("http://executor:8080", "container-123")
+            assert result == _executor_target()
             mock_pool.get_or_create_container.assert_called_once_with(
                 session_id="session-123",
                 user_id="user-456",
@@ -337,7 +350,7 @@ class TestTaskDispatcherDispatch:
                 patch.object(
                     TaskDispatcher,
                     "resolve_executor_target",
-                    AsyncMock(return_value=("http://executor:8080", "container-123")),
+                    AsyncMock(return_value=_executor_target()),
                 ),
             ):
                 await TaskDispatcher.dispatch(
@@ -392,7 +405,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -466,7 +479,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -533,7 +546,7 @@ class TestTaskDispatcherDispatch:
 
             mock_runtime = MagicMock()
             mock_runtime.resolve_executor_target = AsyncMock(
-                return_value=("http://executor:8080", "container-123")
+                return_value=_executor_target()
             )
             mock_runtime.cancel_task = AsyncMock()
 
@@ -605,7 +618,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -667,7 +680,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -734,7 +747,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -817,7 +830,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -920,7 +933,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -994,7 +1007,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -1065,7 +1078,7 @@ class TestTaskDispatcherDispatch:
 
         mock_runtime = MagicMock()
         mock_runtime.resolve_executor_target = AsyncMock(
-            return_value=("http://executor:8080", "container-123")
+            return_value=_executor_target()
         )
         mock_runtime.cancel_task = AsyncMock()
 
@@ -1214,10 +1227,7 @@ class TestTaskDispatcherDispatch:
                                                 TaskDispatcher,
                                                 "resolve_executor_target",
                                                 AsyncMock(
-                                                    return_value=(
-                                                        "http://executor:8080",
-                                                        "container-123",
-                                                    )
+                                                    return_value=_executor_target()
                                                 ),
                                             ):
                                                 await TaskDispatcher.dispatch(
@@ -1316,10 +1326,7 @@ class TestTaskDispatcherDispatch:
                                                     TaskDispatcher,
                                                     "resolve_executor_target",
                                                     AsyncMock(
-                                                        return_value=(
-                                                            "http://executor:8080",
-                                                            "container-123",
-                                                        )
+                                                        return_value=_executor_target()
                                                     ),
                                                 ):
                                                     with pytest.raises(
@@ -1411,10 +1418,7 @@ class TestTaskDispatcherDispatch:
                                                 TaskDispatcher,
                                                 "resolve_executor_target",
                                                 AsyncMock(
-                                                    return_value=(
-                                                        "http://executor:8080",
-                                                        "container-123",
-                                                    )
+                                                    return_value=_executor_target()
                                                 ),
                                             ):
                                                 await TaskDispatcher.dispatch(
@@ -1500,10 +1504,7 @@ class TestTaskDispatcherDispatch:
                                                 TaskDispatcher,
                                                 "resolve_executor_target",
                                                 AsyncMock(
-                                                    return_value=(
-                                                        "http://executor:8080",
-                                                        "container-123",
-                                                    )
+                                                    return_value=_executor_target()
                                                 ),
                                             ):
                                                 import time
@@ -1597,10 +1598,7 @@ class TestTaskDispatcherDispatch:
                                                 TaskDispatcher,
                                                 "resolve_executor_target",
                                                 AsyncMock(
-                                                    return_value=(
-                                                        "http://executor:8080",
-                                                        "container-123",
-                                                    )
+                                                    return_value=_executor_target()
                                                 ),
                                             ):
                                                 # Should not raise - subagent exception is caught and logged
@@ -1853,9 +1851,7 @@ async def test_task_dispatcher_passes_none_run_id_to_executor_gateway() -> None:
     mock_state_gateway.mark_failed = AsyncMock()
 
     mock_runtime = MagicMock()
-    mock_runtime.resolve_executor_target = AsyncMock(
-        return_value=("http://executor:8080", "container-123")
-    )
+    mock_runtime.resolve_executor_target = AsyncMock(return_value=_executor_target())
     mock_runtime.cancel_task = AsyncMock()
 
     dependencies = TaskDispatchDependencies(
@@ -1908,9 +1904,7 @@ async def test_task_dispatcher_normalizes_legacy_config_identity_fields() -> Non
     mock_state_gateway.mark_failed = AsyncMock()
 
     mock_runtime = MagicMock()
-    mock_runtime.resolve_executor_target = AsyncMock(
-        return_value=("http://executor:8080", "container-123")
-    )
+    mock_runtime.resolve_executor_target = AsyncMock(return_value=_executor_target())
     mock_runtime.cancel_task = AsyncMock()
 
     dependencies = TaskDispatchDependencies(
@@ -1981,6 +1975,17 @@ def test_executor_client_legacy_task_dispatch_gateway_returns_none() -> None:
     """Assert legacy executor adapter does not expose executor response payload."""
     hints = typing.get_type_hints(ExecutorClientLegacyTaskDispatchGateway.execute_run)
     assert hints.get("return") is type(None)
+
+
+def test_task_dispatch_runtime_returns_named_executor_target() -> None:
+    """Assert legacy runtime target resolution returns a named target, not a tuple."""
+    protocol_hints = typing.get_type_hints(TaskDispatchRuntime.resolve_executor_target)
+    adapter_hints = typing.get_type_hints(TaskDispatcherRuntime.resolve_executor_target)
+    classmethod_hints = typing.get_type_hints(TaskDispatcher.resolve_executor_target)
+
+    assert protocol_hints.get("return") is TaskDispatchExecutorTarget
+    assert adapter_hints.get("return") is TaskDispatchExecutorTarget
+    assert classmethod_hints.get("return") is TaskDispatchExecutorTarget
 
 
 def test_task_dispatcher_dispatch_config_is_dict_str_object() -> None:

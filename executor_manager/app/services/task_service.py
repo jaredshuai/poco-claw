@@ -11,6 +11,7 @@ from app.core.observability.request_context import get_request_id, get_trace_id
 from app.core.settings import Settings, get_settings
 from app.scheduler.scheduler_config import scheduler
 from app.scheduler.task_dispatcher import TaskDispatcher
+from app.scheduler.task_dispatcher import TaskDispatchExecutorTarget
 from app.schemas.task import (
     SessionStatusResponse,
     TaskCreateResponse,
@@ -58,7 +59,7 @@ class TaskTargetResolver(Protocol):
         browser_enabled: bool,
         container_mode: str,
         container_id: str | None,
-    ) -> tuple[str, str | None]: ...
+    ) -> TaskDispatchExecutorTarget: ...
 
 
 def build_backend_client() -> TaskBackendClient:
@@ -80,7 +81,7 @@ class TaskDispatcherTargetResolver:
         browser_enabled: bool,
         container_mode: str,
         container_id: str | None,
-    ) -> tuple[str, str | None]:
+    ) -> TaskDispatchExecutorTarget:
         return await TaskDispatcher.resolve_executor_target(
             session_id=session_id,
             user_id=user_id,
@@ -213,13 +214,14 @@ class TaskService:
             if container_id or container_mode == "persistent":
                 step_started = time.perf_counter()
                 browser_enabled = bool(config.get("browser_enabled"))
-                _, container_id = await self.target_resolver.resolve_executor_target(
+                executor_target = await self.target_resolver.resolve_executor_target(
                     session_id=active_session_id,
                     user_id=user_id,
                     browser_enabled=browser_enabled,
                     container_mode=container_mode,
                     container_id=container_id,
                 )
+                container_id = executor_target.container_id
                 logger.info(
                     "timing",
                     extra={

@@ -1,6 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Protocol, cast
 
 from app.core.settings import get_settings
@@ -125,6 +126,12 @@ class ExecutorClientLegacyTaskDispatchGateway:
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class TaskDispatchExecutorTarget:
+    executor_url: str
+    container_id: str | None
+
+
 class ContainerPoolCapability(Protocol):
     """Minimal protocol for container-pool capability used by TaskDispatcher."""
 
@@ -156,7 +163,7 @@ class TaskDispatchRuntime(Protocol):
         browser_enabled: bool,
         container_mode: str,
         container_id: str | None,
-    ) -> tuple[str, str | None]: ...
+    ) -> TaskDispatchExecutorTarget: ...
 
     async def cancel_task(self, session_id: str) -> None: ...
 
@@ -170,7 +177,7 @@ class TaskDispatcherRuntime:
         browser_enabled: bool,
         container_mode: str,
         container_id: str | None,
-    ) -> tuple[str, str | None]:
+    ) -> TaskDispatchExecutorTarget:
         return await TaskDispatcher.resolve_executor_target(
             session_id=session_id,
             user_id=user_id,
@@ -587,14 +594,21 @@ class TaskDispatcher:
         browser_enabled: bool,
         container_mode: str,
         container_id: str | None,
-    ) -> tuple[str, str | None]:
+    ) -> TaskDispatchExecutorTarget:
         container_pool = cls.get_container_pool()
-        return await container_pool.get_or_create_container(
+        (
+            executor_url,
+            allocated_container_id,
+        ) = await container_pool.get_or_create_container(
             session_id=session_id,
             user_id=user_id,
             browser_enabled=browser_enabled,
             container_mode=container_mode,
             container_id=container_id,
+        )
+        return TaskDispatchExecutorTarget(
+            executor_url=executor_url,
+            container_id=allocated_container_id,
         )
 
     @staticmethod
@@ -681,13 +695,15 @@ class TaskDispatcher:
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))
-            executor_url, container_id = await runtime.resolve_executor_target(
+            executor_target = await runtime.resolve_executor_target(
                 session_id=session_id,
                 user_id=user_id,
                 browser_enabled=browser_enabled,
                 container_mode=container_mode,
                 container_id=container_id,
             )
+            executor_url = executor_target.executor_url
+            container_id = executor_target.container_id
             runtime_resolved = True
             logger.info(
                 "timing",

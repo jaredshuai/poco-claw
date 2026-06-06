@@ -8,6 +8,7 @@ import httpx
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.scheduler.task_dispatcher import TaskDispatchExecutorTarget
 from app.schemas.task import (
     SessionStatusResponse,
     TaskConfig,
@@ -16,9 +17,11 @@ from app.schemas.task import (
 )
 from app.services.task_service import (
     TaskBackendClient,
+    TaskDispatcherTargetResolver,
     TaskScheduler,
     TaskSchedulerJob,
     TaskService,
+    TaskTargetResolver,
 )
 
 
@@ -181,7 +184,10 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         mock_scheduler = MagicMock()
         mock_target_resolver = MagicMock()
         mock_target_resolver.resolve_executor_target = AsyncMock(
-            return_value=("http://executor.local", "container-from-port")
+            return_value=TaskDispatchExecutorTarget(
+                executor_url="http://executor.local",
+                container_id="container-from-port",
+            )
         )
 
         with patch(
@@ -364,7 +370,10 @@ class TestTaskServiceCreateTask(unittest.TestCase):
             patch(
                 "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
                 new_callable=AsyncMock,
-                return_value=("container-123", "container-123"),
+                return_value=TaskDispatchExecutorTarget(
+                    executor_url="http://executor.local",
+                    container_id="container-123",
+                ),
             ),
             patch(
                 "app.core.observability.request_context.get_request_id",
@@ -413,7 +422,10 @@ class TestTaskServiceCreateTask(unittest.TestCase):
             patch(
                 "app.scheduler.task_dispatcher.TaskDispatcher.resolve_executor_target",
                 new_callable=AsyncMock,
-                return_value=("existing-container", "existing-container"),
+                return_value=TaskDispatchExecutorTarget(
+                    executor_url="http://executor.local",
+                    container_id="existing-container",
+                ),
             ),
             patch(
                 "app.core.observability.request_context.get_request_id",
@@ -797,6 +809,19 @@ class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
 
         assert get_origin(config_type) is dict
         assert get_args(config_type) == (str, object)
+
+    def test_target_resolver_returns_named_executor_target(self) -> None:
+        import typing
+
+        protocol_hints = typing.get_type_hints(
+            TaskTargetResolver.resolve_executor_target
+        )
+        adapter_hints = typing.get_type_hints(
+            TaskDispatcherTargetResolver.resolve_executor_target
+        )
+
+        assert protocol_hints.get("return") is TaskDispatchExecutorTarget
+        assert adapter_hints.get("return") is TaskDispatchExecutorTarget
 
     def test_scheduler_add_job_return_is_object(self) -> None:
         import typing

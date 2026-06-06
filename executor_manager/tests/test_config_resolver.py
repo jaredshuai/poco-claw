@@ -13,6 +13,25 @@ from app.services.config_resolver import (
 )
 
 
+def test_config_resolver_raw_payload_normalizers_use_object_not_any() -> None:
+    """Regression: raw config normalizers should not expose Any."""
+    resolve_env_hints = get_type_hints(_resolve_env_value)
+
+    assert resolve_env_hints["value"] is object
+    assert resolve_env_hints["return"] is object
+
+    normalizers = {
+        ConfigResolver._normalize_ids: "value",
+        ConfigResolver._extract_enabled_ids_from_toggles: "value",
+    }
+    for method, parameter_name in normalizers.items():
+        hints = get_type_hints(method)
+        annotation = hints.get(parameter_name)
+
+        assert annotation is object
+        assert "Any" not in str(annotation)
+
+
 class TestResolveEnvValue(unittest.TestCase):
     """Test _resolve_env_value function."""
 

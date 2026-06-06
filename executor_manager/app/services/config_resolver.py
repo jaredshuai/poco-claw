@@ -3,7 +3,7 @@ import re
 import time
 from collections.abc import Callable
 from inspect import isawaitable
-from typing import Any, Protocol, TypedDict
+from typing import Protocol, TypedDict
 from urllib.parse import urlparse
 
 from app.core.settings import get_settings
@@ -130,7 +130,7 @@ _PROVIDER_RUNTIME_SPECS: dict[str, ProviderRuntimeSpec] = {
 }
 
 
-def _resolve_env_value(value: Any, env_map: dict[str, str]) -> Any:
+def _resolve_env_value(value: object, env_map: dict[str, str]) -> object:
     if isinstance(value, str):
         matches = _ENV_PATTERN.findall(value)
         if not matches:
@@ -623,7 +623,7 @@ class ConfigResolver:
         )
 
     @staticmethod
-    def _normalize_ids(value: Any) -> list[int]:
+    def _normalize_ids(value: object) -> list[int]:
         if not isinstance(value, list):
             return []
         result: list[int] = []
@@ -649,7 +649,7 @@ class ConfigResolver:
         return result
 
     @staticmethod
-    def _extract_enabled_ids_from_toggles(value: Any) -> list[int] | None:
+    def _extract_enabled_ids_from_toggles(value: object) -> list[int] | None:
         """Convert {id: bool} toggles into enabled id list.
 
         Returns None when the value does not look like toggles.

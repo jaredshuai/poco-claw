@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_actor, get_db, require_internal_token
+from app.core.deps import get_current_actor, get_db, require_executor_manager
 from app.core.identity import Actor
 from app.schemas.memory import (
     MemoryCreateJobEnqueueResponse,
@@ -28,7 +28,7 @@ memory_create_job_service = MemoryCreateJobService(memory_service=memory_service
 @router.post("/configure", response_model=ResponseSchema[dict[str, bool]])
 async def configure_memory(
     request: MemoryConfigureRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
 ) -> JSONResponse:
     memory_service.configure(enabled=request.enabled, config=request.config)
     return Response.success(
@@ -186,7 +186,7 @@ async def delete_all_memories(
 
 @router.post("/reset", response_model=ResponseSchema[dict[str, bool]])
 async def reset_memories(
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
 ) -> JSONResponse:
     memory_service.reset()
     return Response.success(

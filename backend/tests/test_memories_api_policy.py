@@ -37,6 +37,88 @@ def _settings() -> SimpleNamespace:
     )
 
 
+def test_configure_memory_requires_service_identity():
+    """Memory configuration with valid token but missing service header fails."""
+    client = _api_client()
+
+    with (
+        patch("app.core.deps.get_settings", return_value=_settings()),
+        patch.object(memories.memory_service, "configure") as mock_configure,
+    ):
+        response = client.post(
+            "/memories/configure",
+            json={"enabled": True},
+            headers={"X-Internal-Token": "internal-token"},
+        )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    mock_configure.assert_not_called()
+
+
+def test_configure_memory_accepts_executor_manager_service_identity():
+    """Memory configuration accepts executor_manager service identity."""
+    client = _api_client()
+
+    with (
+        patch("app.core.deps.get_settings", return_value=_settings()),
+        patch.object(memories.memory_service, "configure") as mock_configure,
+        patch.object(memories.memory_service, "is_enabled", return_value=True),
+    ):
+        response = client.post(
+            "/memories/configure",
+            json={"enabled": True, "config": {"llm": {"provider": "openai"}}},
+            headers={
+                "X-Internal-Token": "internal-token",
+                "X-Internal-Service": "executor_manager",
+            },
+        )
+
+    assert response.status_code == 200
+    mock_configure.assert_called_once_with(
+        enabled=True,
+        config={"llm": {"provider": "openai"}},
+    )
+
+
+def test_reset_memories_requires_service_identity():
+    """Memory reset with valid token but missing service header fails."""
+    client = _api_client()
+
+    with (
+        patch("app.core.deps.get_settings", return_value=_settings()),
+        patch.object(memories.memory_service, "reset") as mock_reset,
+    ):
+        response = client.post(
+            "/memories/reset",
+            headers={"X-Internal-Token": "internal-token"},
+        )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    mock_reset.assert_not_called()
+
+
+def test_reset_memories_accepts_executor_manager_service_identity():
+    """Memory reset accepts executor_manager service identity."""
+    client = _api_client()
+
+    with (
+        patch("app.core.deps.get_settings", return_value=_settings()),
+        patch.object(memories.memory_service, "reset") as mock_reset,
+    ):
+        response = client.post(
+            "/memories/reset",
+            headers={
+                "X-Internal-Token": "internal-token",
+                "X-Internal-Service": "executor_manager",
+            },
+        )
+
+    assert response.status_code == 200
+    mock_reset.assert_called_once_with()
+
+
 def test_create_memories_uses_actor_user_id_and_passes_request():
     """create_memories should use actor.user_id and pass request unchanged."""
     actor = Actor(user_id="creator-user-123", auth_source="test")

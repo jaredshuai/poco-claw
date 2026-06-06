@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 import os
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -16,7 +16,8 @@ from app.core.settings import get_settings
 
 get_settings.cache_clear()
 
-from app.api.v1 import callback, runs  # noqa: E402
+from app.api.v1 import callback, internal_runs, runs  # noqa: E402
+from app.core.deps import get_db  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
 
@@ -25,6 +26,7 @@ def _client() -> TestClient:
     app = FastAPI()
     setup_exception_handlers(app, debug=False)
     app.include_router(runs.router)
+    app.include_router(internal_runs.router)
     app.include_router(callback.router)
     return TestClient(app)
 
@@ -138,6 +140,56 @@ def test_run_fail_requires_service_identity():
 
     assert response.status_code == 403
     assert "Service identity required" in response.json()["message"]
+
+
+def test_internal_run_metadata_requires_service_identity():
+    """Run metadata update with valid token but missing service header fails."""
+    client = _client()
+    client.app.dependency_overrides[get_db] = lambda: MagicMock()
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_runs.RunRepository.get_by_id",
+            return_value=None,
+        ):
+            response = client.patch(
+                "/internal/runs/00000000-0000-0000-0000-000000000001/metadata",
+                json={"config_layers": {"source": "resolver"}},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+
+
+def test_internal_run_metadata_accepts_valid_token_and_service():
+    """Run metadata update accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    mock_run = SimpleNamespace(
+        permission_policy_snapshot=None,
+        resolved_hook_specs=None,
+        config_layers=None,
+    )
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_runs.RunRepository.get_by_id",
+            return_value=mock_run,
+        ):
+            response = client.patch(
+                "/internal/runs/00000000-0000-0000-0000-000000000001/metadata",
+                json={"config_layers": {"source": "resolver"}},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    assert mock_run.config_layers == {"source": "resolver"}
+    db.flush.assert_called_once()
+    db.commit.assert_called_once()
 
 
 def test_callback_requires_internal_token():

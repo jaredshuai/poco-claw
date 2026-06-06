@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, require_internal_token
+from app.core.deps import get_db, require_executor_manager
 from app.repositories.run_repository import RunRepository
 
 router = APIRouter(prefix="/internal/runs", tags=["internal-runs"])
@@ -22,7 +22,7 @@ def update_run_metadata(
     run_id: uuid.UUID,
     req: RunMetadataUpdateRequest,
     db: Session = Depends(get_db),
-    _: str = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
 ) -> dict[str, str]:
     db_run = RunRepository.get_by_id(db, run_id)
     if db_run is None:

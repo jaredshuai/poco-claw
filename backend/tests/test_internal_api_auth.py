@@ -24,6 +24,7 @@ from app.api.v1 import (  # noqa: E402
     internal_mcp_config,
     internal_mcp_transitions,
     internal_permission_audit,
+    internal_plugin_config,
     internal_runs,
     internal_scheduled_tasks,
     internal_skill_config,
@@ -50,6 +51,7 @@ def _client() -> TestClient:
     app.include_router(internal_mcp_config.router)
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
+    app.include_router(internal_plugin_config.router)
     app.include_router(internal_scheduled_tasks.router)
     app.include_router(internal_skill_config.router)
     app.include_router(internal_skills.router)
@@ -352,6 +354,60 @@ def test_internal_skill_config_resolve_accepts_valid_token_and_service():
         db=db,
         user_id="user-1",
         skill_ids=[1, 2],
+    )
+
+
+def test_internal_plugin_config_resolve_requires_service_identity():
+    """Plugin config resolve with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_plugin_config.service.resolve_user_plugin_files",
+            return_value={"plugins": []},
+        ) as resolve_user_plugin_files:
+            response = client.post(
+                "/internal/plugin-config/resolve",
+                json={"plugin_ids": [1, 2]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    resolve_user_plugin_files.assert_not_called()
+
+
+def test_internal_plugin_config_resolve_accepts_valid_token_and_service():
+    """Plugin config resolve accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_plugin_config.service.resolve_user_plugin_files",
+            return_value={"plugins": []},
+        ) as resolve_user_plugin_files:
+            response = client.post(
+                "/internal/plugin-config/resolve",
+                json={"plugin_ids": [1, 2]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 200
+    resolve_user_plugin_files.assert_called_once_with(
+        db=db,
+        user_id="user-1",
+        plugin_ids=[1, 2],
     )
 
 

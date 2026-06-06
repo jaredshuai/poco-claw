@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Any, Literal, Protocol
+from typing import Annotated, Literal, Protocol, cast
 
 import tomllib
 from apscheduler.triggers.cron import CronTrigger
@@ -56,7 +56,7 @@ class WindowPullRule(BaseModel):
     schedule_modes: list[str] = Field(default_factory=list)
 
     # CronTrigger fields (APS cheduler)
-    cron: dict[str, Any] = Field(default_factory=dict)
+    cron: dict[str, object] = Field(default_factory=dict)
     timezone: str = "UTC"
 
     window_minutes: int = 360
@@ -149,7 +149,7 @@ class PullScheduleConfig(BaseModel):
         return self
 
 
-def _load_file_data(path: Path) -> dict[str, Any]:
+def _load_file_data(path: Path) -> dict[str, object]:
     if not path.exists():
         raise FileNotFoundError(str(path))
 
@@ -157,9 +157,9 @@ def _load_file_data(path: Path) -> dict[str, Any]:
     suffix = path.suffix.lower()
 
     if suffix in [".toml"]:
-        return tomllib.loads(raw.decode("utf-8"))
+        return cast(dict[str, object], tomllib.loads(raw.decode("utf-8")))
     if suffix in [".json"]:
-        return json.loads(raw.decode("utf-8"))
+        return cast(dict[str, object], json.loads(raw.decode("utf-8")))
 
     raise ValueError(f"Unsupported schedule config format: {path.suffix}")
 

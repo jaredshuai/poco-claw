@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Protocol, get_type_hints
+from typing import Any, Protocol, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -98,6 +98,19 @@ class TestIntervalPullRule(unittest.TestCase):
 
 class TestWindowPullRule(unittest.TestCase):
     """Test WindowPullRule model."""
+
+    def test_cron_annotation_uses_object_values_not_any(self) -> None:
+        """Regression: cron config should be dict[str, object], not dict[str, Any]."""
+        from app.scheduler.pull_schedule_config import WindowPullRule
+
+        hints = get_type_hints(WindowPullRule)
+        cron_hint = hints["cron"]
+
+        assert get_origin(cron_hint) is dict
+        key_type, value_type = get_args(cron_hint)
+        assert key_type is str
+        assert value_type is object
+        assert value_type is not Any
 
     def test_create_with_required_fields(self) -> None:
         """Test creating rule with required fields."""
@@ -328,6 +341,19 @@ class TestPullScheduleConfig(unittest.TestCase):
 
 class TestLoadFileData(unittest.TestCase):
     """Test _load_file_data function."""
+
+    def test_return_annotation_uses_object_values_not_any(self) -> None:
+        """Regression: loaded config payload should be dict[str, object], not Any."""
+        from app.scheduler.pull_schedule_config import _load_file_data
+
+        hints = get_type_hints(_load_file_data)
+        return_hint = hints["return"]
+
+        assert get_origin(return_hint) is dict
+        key_type, value_type = get_args(return_hint)
+        assert key_type is str
+        assert value_type is object
+        assert value_type is not Any
 
     def test_load_toml_file(self) -> None:
         """Test loading a TOML file."""

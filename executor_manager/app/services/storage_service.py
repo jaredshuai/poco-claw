@@ -1,7 +1,7 @@
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Protocol
+from typing import Iterable, Protocol, cast
 
 import boto3
 from botocore.config import Config
@@ -27,35 +27,69 @@ class S3StorageSettings(Protocol):
 
 
 class S3ObjectClient(Protocol):
-    def upload_file(self, *args: Any, **kwargs: Any) -> Any: ...
+    def upload_file(
+        self,
+        filename: str,
+        bucket: str,
+        key: str,
+        *,
+        ExtraArgs: Mapping[str, object] | None = None,
+    ) -> None: ...
 
-    def put_object(self, **kwargs: Any) -> Any: ...
+    def put_object(
+        self,
+        *,
+        Bucket: str,
+        Key: str,
+        Body: bytes,
+        ContentType: str | None = None,
+    ) -> object: ...
 
-    def get_paginator(self, operation_name: str) -> Any: ...
+    def get_paginator(self, operation_name: str) -> "S3ListObjectsPaginator": ...
 
-    def download_file(self, bucket: str, key: str, filename: str) -> Any: ...
+    def download_file(self, bucket: str, key: str, filename: str) -> None: ...
+
+
+class S3ListObjectsPaginator(Protocol):
+    def paginate(
+        self,
+        *,
+        Bucket: str,
+        Prefix: str,
+    ) -> Iterable[Mapping[str, object]]: ...
 
 
 def build_s3_client(settings: S3StorageSettings) -> S3ObjectClient:
-    config_kwargs: dict[str, Any] = {
-        "connect_timeout": settings.s3_connect_timeout_seconds,
-        "read_timeout": settings.s3_read_timeout_seconds,
-        "retries": {
-            "max_attempts": settings.s3_max_attempts,
-            "mode": "standard",
-        },
-    }
     if settings.s3_force_path_style:
-        config_kwargs["s3"] = {"addressing_style": "path"}
-    config = Config(**config_kwargs) if config_kwargs else None
+        config = Config(
+            connect_timeout=settings.s3_connect_timeout_seconds,
+            read_timeout=settings.s3_read_timeout_seconds,
+            retries={
+                "max_attempts": settings.s3_max_attempts,
+                "mode": "standard",
+            },
+            s3={"addressing_style": "path"},
+        )
+    else:
+        config = Config(
+            connect_timeout=settings.s3_connect_timeout_seconds,
+            read_timeout=settings.s3_read_timeout_seconds,
+            retries={
+                "max_attempts": settings.s3_max_attempts,
+                "mode": "standard",
+            },
+        )
 
-    return boto3.client(
-        "s3",
-        endpoint_url=settings.s3_endpoint,
-        aws_access_key_id=settings.s3_access_key,
-        aws_secret_access_key=settings.s3_secret_key,
-        region_name=settings.s3_region,
-        config=config,
+    return cast(
+        S3ObjectClient,
+        boto3.client(
+            "s3",
+            endpoint_url=settings.s3_endpoint,
+            aws_access_key_id=settings.s3_access_key,
+            aws_secret_access_key=settings.s3_secret_key,
+            region_name=settings.s3_region,
+            config=config,
+        ),
     )
 
 
@@ -102,7 +136,7 @@ class S3StorageService:
     def upload_file(
         self, *, file_path: str, key: str, content_type: str | None = None
     ) -> None:
-        extra_args: dict[str, Any] = {}
+        extra_args: dict[str, object] = {}
         if content_type:
             extra_args["ContentType"] = content_type
         try:
@@ -127,11 +161,16 @@ class S3StorageService:
         body: bytes,
         content_type: str | None = None,
     ) -> None:
-        kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": key, "Body": body}
-        if content_type:
-            kwargs["ContentType"] = content_type
         try:
-            self.client.put_object(**kwargs)
+            if content_type:
+                self.client.put_object(
+                    Bucket=self.bucket,
+                    Key=key,
+                    Body=body,
+                    ContentType=content_type,
+                )
+            else:
+                self.client.put_object(Bucket=self.bucket, Key=key, Body=body)
         except (ClientError, BotoCoreError) as exc:
             logger.error(f"Failed to put object {key}: {exc}")
             raise AppException(
@@ -144,9 +183,14 @@ class S3StorageService:
         try:
             paginator = self.client.get_paginator("list_objects_v2")
             for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
-                for item in page.get("Contents", []) or []:
+                contents = page.get("Contents", [])
+                if not isinstance(contents, list):
+                    continue
+                for item in contents:
+                    if not isinstance(item, Mapping):
+                        continue
                     key = item.get("Key")
-                    if key:
+                    if isinstance(key, str) and key:
                         yield key
         except (ClientError, BotoCoreError) as exc:
             logger.error(f"Failed to list objects for {prefix}: {exc}")

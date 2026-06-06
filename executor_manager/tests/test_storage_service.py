@@ -1,4 +1,6 @@
+import inspect
 import tempfile
+import typing
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,7 +10,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.services.storage_service import S3StorageService
+from app.services.storage_service import (
+    S3ListObjectsPaginator,
+    S3ObjectClient,
+    S3StorageService,
+    build_s3_client,
+)
 
 
 class TestS3StorageServiceInit(unittest.TestCase):
@@ -530,6 +537,75 @@ class TestS3StorageServiceSafeDestination(unittest.TestCase):
                 dest_dir, "deeply/nested/path/file.txt"
             )
             assert dest_dir in result.parents
+
+
+def _annotation_contains_any(annotation: object) -> bool:
+    """Return True when annotation is or recursively contains typing.Any."""
+    if annotation is typing.Any:
+        return True
+    return any(_annotation_contains_any(arg) for arg in typing.get_args(annotation))
+
+
+class TestS3TypeBoundaries(unittest.TestCase):
+    """Regression tests for S3 adapter type-boundary narrowing.
+
+    The S3 client/paginator protocols and the build_s3_client factory must use
+    explicit, Any-free annotations so the type boundary stays narrow.
+    """
+
+    @staticmethod
+    def _assert_no_any(label: str, hints: dict[str, object]) -> None:
+        for arg_name, annotation in hints.items():
+            assert not _annotation_contains_any(annotation), (
+                f"{label}['{arg_name}'] = {annotation!r} contains Any"
+            )
+
+    def test_s3_object_client_annotations_have_no_any(self) -> None:
+        for method_name in (
+            "upload_file",
+            "put_object",
+            "get_paginator",
+            "download_file",
+        ):
+            method = inspect.getattr_static(S3ObjectClient, method_name)
+            self._assert_no_any(
+                f"S3ObjectClient.{method_name}",
+                typing.get_type_hints(method),
+            )
+
+    def test_s3_object_client_annotations_are_resolved(self) -> None:
+        hints = typing.get_type_hints(S3ObjectClient.upload_file)
+        assert "filename" in hints and "bucket" in hints and "key" in hints
+        assert "ExtraArgs" in hints
+        assert hints["return"] is type(None)
+        paginator_hints = typing.get_type_hints(S3ObjectClient.get_paginator)
+        assert paginator_hints["return"] is S3ListObjectsPaginator
+
+    def test_s3_list_objects_paginator_annotations_have_no_any(self) -> None:
+        method = inspect.getattr_static(S3ListObjectsPaginator, "paginate")
+        self._assert_no_any(
+            "S3ListObjectsPaginator.paginate",
+            typing.get_type_hints(method),
+        )
+
+    def test_s3_list_objects_paginator_annotations_are_resolved(self) -> None:
+        hints = typing.get_type_hints(S3ListObjectsPaginator.paginate)
+        assert "Bucket" in hints and "Prefix" in hints
+        assert "return" in hints
+        # Return must be an explicit Iterable of Mapping (not Any, not bare object).
+        return_type = hints["return"]
+        assert typing.get_origin(return_type) is not typing.Any
+        assert return_type is not typing.Any
+
+    def test_build_s3_client_annotations_have_no_any(self) -> None:
+        self._assert_no_any(
+            "build_s3_client",
+            typing.get_type_hints(build_s3_client),
+        )
+
+    def test_build_s3_client_annotations_are_explicit(self) -> None:
+        hints = typing.get_type_hints(build_s3_client)
+        assert hints["return"] is S3ObjectClient
 
 
 if __name__ == "__main__":

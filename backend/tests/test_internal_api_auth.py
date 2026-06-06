@@ -21,6 +21,7 @@ from app.api.v1 import (  # noqa: E402
     callback,
     internal_env_vars,
     internal_memories,
+    internal_mcp_config,
     internal_mcp_transitions,
     internal_permission_audit,
     internal_runs,
@@ -45,6 +46,7 @@ def _client() -> TestClient:
     app.include_router(internal_runs.router)
     app.include_router(internal_env_vars.router)
     app.include_router(internal_memories.router)
+    app.include_router(internal_mcp_config.router)
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
     app.include_router(internal_scheduled_tasks.router)
@@ -241,6 +243,60 @@ def test_internal_run_metadata_accepts_valid_token_and_service():
     assert mock_run.config_layers == {"source": "resolver"}
     db.flush.assert_called_once()
     db.commit.assert_called_once()
+
+
+def test_internal_mcp_config_resolve_requires_service_identity():
+    """MCP config resolve with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_mcp_config.service.resolve_user_mcp_config",
+            return_value={"servers": []},
+        ) as resolve_user_mcp_config:
+            response = client.post(
+                "/internal/mcp-config/resolve",
+                json={"server_ids": [1, 2]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    resolve_user_mcp_config.assert_not_called()
+
+
+def test_internal_mcp_config_resolve_accepts_valid_token_and_service():
+    """MCP config resolve accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_mcp_config.service.resolve_user_mcp_config",
+            return_value={"servers": []},
+        ) as resolve_user_mcp_config:
+            response = client.post(
+                "/internal/mcp-config/resolve",
+                json={"server_ids": [1, 2]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 200
+    resolve_user_mcp_config.assert_called_once_with(
+        db=db,
+        user_id="user-1",
+        server_ids=[1, 2],
+    )
 
 
 def test_internal_mcp_transition_requires_service_identity():

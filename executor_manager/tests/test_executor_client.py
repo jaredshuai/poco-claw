@@ -99,7 +99,7 @@ class TestExecutorClientExecuteTask:
                 config={"model": "claude"},
             )
 
-            assert result == "session-123"
+            assert result is None
             mock_client.post.assert_called_once()
             call_args = mock_client.post.call_args
             headers = call_args.kwargs["headers"]
@@ -131,7 +131,7 @@ class TestExecutorClientExecuteTask:
                 config={"model": "claude"},
             )
 
-        assert result == "session-123"
+        assert result is None
         task_client_factory.assert_called_once_with()
         task_client.post.assert_awaited_once()
 
@@ -239,7 +239,7 @@ class TestExecutorClientExecuteTask:
                 permission_mode="acceptEdits",
             )
 
-            assert result == "session-123"
+            assert result is None
             call_args = mock_client.post.call_args
             body = call_args.kwargs["content"]
             import json
@@ -430,6 +430,12 @@ def test_executor_client_execute_task_config_is_dict_str_object() -> None:
     key_type, value_type = args
     assert key_type is str, f"config key should be str, got {key_type}"
     assert value_type is object, f"config value should be object, got {value_type}"
+
+
+def test_executor_client_execute_task_returns_none() -> None:
+    """Regression: execute_task is a command and does not expose executor response payload."""
+    hints = typing.get_type_hints(ExecutorClient.execute_task)
+    assert hints.get("return") is type(None)
 
 
 def test_make_deterministic_json_bytes_config_is_dict_str_object() -> None:

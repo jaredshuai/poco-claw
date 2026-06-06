@@ -118,7 +118,7 @@ class ExecutorClient:
         callback_base_url: str | None = None,
         sdk_session_id: str | None = None,
         permission_mode: str = "default",
-    ) -> str:
+    ) -> None:
         """Call Executor to execute a task.
 
         Args:
@@ -161,5 +161,3 @@ class ExecutorClient:
                 timeout=httpx.Timeout(30.0, connect=10.0),
             )
             response.raise_for_status()
-            data = response.json()
-            return data["session_id"]

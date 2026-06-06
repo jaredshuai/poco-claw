@@ -85,7 +85,7 @@ async def test_executor_client_gateway_executes_run_through_executor_client() ->
         permission_mode="acceptEdits",
     )
 
-    assert result == "sdk-session-1"
+    assert result is None
     executor_client.execute_task.assert_awaited_once_with(
         executor_url="http://executor.local",
         session_id="sess-1",
@@ -132,6 +132,19 @@ def test_executor_client_run_dispatch_gateway_requires_str_run_id() -> None:
     hint_str = str(run_id_hint)
     assert "str" in hint_str
     assert "None" not in hint_str, "run_id should be str, not str | None"
+
+
+def test_run_dispatch_executor_gateway_returns_none() -> None:
+    """Assert run dispatch executor gateway is a command and does not expose executor payload."""
+    protocol_hints = typing.get_type_hints(RunDispatchExecutorGateway.execute_run)
+    adapter_hints = typing.get_type_hints(ExecutorClientRunDispatchGateway.execute_run)
+    client_port_hints = typing.get_type_hints(
+        RunDispatchExecutorClientPort.execute_task
+    )
+
+    assert protocol_hints["return"] is type(None)
+    assert adapter_hints["return"] is type(None)
+    assert client_port_hints["return"] is type(None)
 
 
 def test_run_dispatch_executor_client_port_allows_optional_run_id() -> None:

@@ -1959,6 +1959,12 @@ def test_legacy_task_dispatch_executor_gateway_config_is_dict_str_object() -> No
     _assert_dict_str_object(config_hint)
 
 
+def test_legacy_task_dispatch_executor_gateway_returns_none() -> None:
+    """Assert legacy executor gateway is a command and does not expose executor payload."""
+    hints = typing.get_type_hints(LegacyTaskDispatchExecutorGateway.execute_run)
+    assert hints.get("return") is type(None)
+
+
 def test_executor_client_legacy_task_dispatch_gateway_config_is_dict_str_object() -> (
     None
 ):
@@ -1969,6 +1975,12 @@ def test_executor_client_legacy_task_dispatch_gateway_config_is_dict_str_object(
     assert config_hint is not None
     assert "Any" not in str(config_hint)
     _assert_dict_str_object(config_hint)
+
+
+def test_executor_client_legacy_task_dispatch_gateway_returns_none() -> None:
+    """Assert legacy executor adapter does not expose executor response payload."""
+    hints = typing.get_type_hints(ExecutorClientLegacyTaskDispatchGateway.execute_run)
+    assert hints.get("return") is type(None)
 
 
 def test_task_dispatcher_dispatch_config_is_dict_str_object() -> None:

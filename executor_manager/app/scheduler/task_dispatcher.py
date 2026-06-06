@@ -86,7 +86,7 @@ class LegacyTaskDispatchExecutorGateway(Protocol):
         config: dict[str, object],
         sdk_session_id: str | None,
         permission_mode: str,
-    ) -> str: ...
+    ) -> None: ...
 
 
 class ExecutorClientLegacyTaskDispatchGateway:
@@ -106,8 +106,8 @@ class ExecutorClientLegacyTaskDispatchGateway:
         config: dict[str, object],
         sdk_session_id: str | None,
         permission_mode: str,
-    ) -> str:
-        return await self.executor_client.execute_task(
+    ) -> None:
+        await self.executor_client.execute_task(
             executor_url=executor_url,
             session_id=session_id,
             run_id=run_id,

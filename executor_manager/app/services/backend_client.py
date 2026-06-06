@@ -326,7 +326,7 @@ class BackendClient:
         When `subagent_ids` is None, backend uses the user's enabled subagents
         as defaults. An explicit empty list means "disable all subagents".
         """
-        payload: dict = {}
+        payload: dict[str, object] = {}
         if subagent_ids is not None:
             payload["subagent_ids"] = subagent_ids
         response = await self._request(
@@ -424,7 +424,7 @@ class BackendClient:
         skill_names: list[str] | None = None,
     ) -> dict[str, str]:
         """Resolve enabled slash commands for execution (rendered markdown)."""
-        payload: dict = {"names": names or []}
+        payload: dict[str, object] = {"names": names or []}
         if skill_names is not None:
             payload["skill_names"] = skill_names
         response = await self._request(

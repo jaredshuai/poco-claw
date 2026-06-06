@@ -597,6 +597,36 @@ def _assert_dict_str_object(annotation: object) -> None:
     assert get_args(annotation) == (str, object)
 
 
+def test_backend_client_local_payload_annotations_are_dict_str_object() -> None:
+    """Regression: adapter request payload locals avoid bare dict."""
+    import ast
+    from pathlib import Path
+
+    source_path = Path(BackendClient.resolve_subagents.__code__.co_filename)
+    module = ast.parse(source_path.read_text(encoding="utf-8"))
+    expected_methods = {"resolve_subagents", "resolve_slash_commands"}
+    payload_annotations: dict[str, str] = {}
+
+    for node in ast.walk(module):
+        if not isinstance(node, ast.AsyncFunctionDef):
+            continue
+        if node.name not in expected_methods:
+            continue
+        for stmt in ast.walk(node):
+            if not isinstance(stmt, ast.AnnAssign):
+                continue
+            if not isinstance(stmt.target, ast.Name):
+                continue
+            if stmt.target.id == "payload":
+                payload_annotations[node.name] = ast.unparse(stmt.annotation)
+
+    assert set(payload_annotations) == expected_methods
+    assert payload_annotations == {
+        "resolve_subagents": "dict[str, object]",
+        "resolve_slash_commands": "dict[str, object]",
+    }
+
+
 def test_backend_client_forward_callback_port_is_mapping_str_object() -> None:
     """Regression: forward_callback port uses Mapping[str, object], not Any or dict."""
     import typing

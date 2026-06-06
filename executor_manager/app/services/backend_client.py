@@ -226,34 +226,30 @@ class BackendClient:
 
     async def start_run(
         self, run_id: object, worker_id: str, lease_seconds: int | None = None
-    ) -> Mapping[str, object]:
+    ) -> None:
         """Mark run as running."""
         payload: dict[str, object] = {"worker_id": worker_id}
         if lease_seconds is not None:
             payload["lease_seconds"] = lease_seconds
-        response = await self._request(
+        await self._request(
             "POST",
             f"/api/v1/runs/{run_id}/start",
             json=payload,
             headers=self._internal_headers(),
             retry_connect_errors=2,
         )
-        data = response.json()
-        return self._data_mapping(data) or {}
 
     async def fail_run(
         self, run_id: object, worker_id: str, error_message: str | None = None
-    ) -> Mapping[str, object]:
+    ) -> None:
         """Mark run as failed."""
-        response = await self._request(
+        await self._request(
             "POST",
             f"/api/v1/runs/{run_id}/fail",
             json={"worker_id": worker_id, "error_message": error_message},
             headers=self._internal_headers(),
             retry_connect_errors=2,
         )
-        data = response.json()
-        return self._data_mapping(data) or {}
 
     async def get_env_map(self, user_id: str) -> dict[str, str]:
         response = await self._request(

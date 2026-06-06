@@ -682,15 +682,15 @@ def test_backend_client_forward_callback_port_is_mapping_str_object() -> None:
     _assert_mapping_str_object(hints.get("return"))
 
 
-def test_backend_client_start_fail_run_return_is_mapping_str_object() -> None:
-    """Regression: start/fail run adapters return Mapping[str, object], not bare dict."""
+def test_backend_client_start_fail_run_return_is_none() -> None:
+    """Regression: start/fail run adapters are commands and do not expose backend payload."""
     import typing
 
     start_hints = typing.get_type_hints(BackendClient.start_run)
     fail_hints = typing.get_type_hints(BackendClient.fail_run)
 
-    _assert_mapping_str_object(start_hints.get("return"))
-    _assert_mapping_str_object(fail_hints.get("return"))
+    assert start_hints.get("return") is type(None)
+    assert fail_hints.get("return") is type(None)
 
 
 def test_backend_client_submit_skill_from_workspace_return_is_mapping_str_object() -> (
@@ -726,7 +726,7 @@ class TestBackendClientRunOperations:
             ) as mock_request:
                 result = await client.start_run("run-123", "worker-1")
 
-                assert result["status"] == "running"
+                assert result is None
                 assert (
                     mock_request.call_args.kwargs["headers"]["X-Internal-Token"]
                     == "token-123"
@@ -756,7 +756,7 @@ class TestBackendClientRunOperations:
                     "run-123", "worker-1", lease_seconds=3600
                 )
 
-                assert result["status"] == "running"
+                assert result is None
                 call_kwargs = mock_request.call_args.kwargs
                 assert call_kwargs["json"]["worker_id"] == "worker-1"
                 assert call_kwargs["json"]["lease_seconds"] == 3600
@@ -779,7 +779,7 @@ class TestBackendClientRunOperations:
             ) as mock_request:
                 result = await client.start_run("run-123", "worker-1")
 
-                assert result["status"] == "running"
+                assert result is None
                 call_kwargs = mock_request.call_args.kwargs
                 assert call_kwargs["json"]["worker_id"] == "worker-1"
                 assert "lease_seconds" not in call_kwargs["json"]
@@ -801,13 +801,13 @@ class TestBackendClientRunOperations:
                     "run-123", "worker-1", error_message="Something went wrong"
                 )
 
-                assert result["status"] == "failed"
+                assert result is None
                 assert (
                     mock_request.call_args.kwargs["headers"]["X-Internal-Service"]
                     == "executor_manager"
                 )
 
-    async def test_start_run_returns_empty_mapping_for_non_mapping_data(self) -> None:
+    async def test_start_run_ignores_non_mapping_response_data(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(backend_url="http://backend")
 
@@ -822,9 +822,9 @@ class TestBackendClientRunOperations:
             ):
                 result = await client.start_run("run-123", "worker-1")
 
-                assert result == {}
+                assert result is None
 
-    async def test_fail_run_returns_empty_mapping_for_non_string_mapping_keys(
+    async def test_fail_run_ignores_non_string_mapping_keys(
         self,
     ) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
@@ -841,7 +841,7 @@ class TestBackendClientRunOperations:
             ):
                 result = await client.fail_run("run-123", "worker-1")
 
-                assert result == {}
+                assert result is None
 
 
 @pytest.mark.asyncio

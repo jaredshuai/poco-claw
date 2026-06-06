@@ -31,7 +31,7 @@ def test_run_dispatch_state_gateway_fail_run_run_id_annotation_is_object() -> No
 
 
 def test_backend_client_start_fail_run_id_annotation_is_object() -> None:
-    """Regression: backend client start_run/fail_run run_id should be object, not Any."""
+    """Regression: backend client start_run/fail_run run_id should be object and return None."""
     start_hints = typing.get_type_hints(
         RunDispatchStateBackendClient.start_run,
         globalns=globals(),
@@ -44,6 +44,8 @@ def test_backend_client_start_fail_run_id_annotation_is_object() -> None:
     )
     assert start_hints["run_id"] is object
     assert fail_hints["run_id"] is object
+    assert start_hints["return"] is type(None)
+    assert fail_hints["return"] is type(None)
 
 
 @pytest.mark.asyncio

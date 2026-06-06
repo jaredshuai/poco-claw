@@ -4,8 +4,10 @@ from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
+from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
+from typing import get_args, get_origin
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -98,6 +100,47 @@ def test_user_input_requests_backend_provider_has_no_mutable_global() -> None:
     from app.api.v1 import user_input_requests
 
     assert not hasattr(user_input_requests, "backend_client")
+
+
+def _assert_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert "dict" not in str(annotation)
+    assert get_origin(annotation) is Mapping
+    assert get_args(annotation) == (str, object)
+
+
+def test_user_input_requests_backend_client_protocol_is_structured() -> None:
+    """Regression: route backend port avoids Any and bare dict."""
+    import typing
+    from app.api.v1.user_input_requests import UserInputRequestsBackendClient
+
+    create_hints = typing.get_type_hints(
+        UserInputRequestsBackendClient.create_user_input_request
+    )
+    get_hints = typing.get_type_hints(
+        UserInputRequestsBackendClient.get_user_input_request
+    )
+
+    payload_hint = create_hints.get("payload")
+    assert payload_hint is not None
+    assert "Any" not in str(payload_hint)
+    assert get_origin(payload_hint) is dict
+    assert get_args(payload_hint) == (str, object)
+
+    _assert_mapping_str_object(create_hints.get("return"))
+
+    return_hint = get_hints.get("return")
+    assert return_hint is not None
+    assert "Any" not in str(return_hint)
+    assert "dict" not in str(return_hint)
+    args = get_args(return_hint)
+    mapping_type = next(
+        (arg for arg in args if get_origin(arg) is Mapping),
+        None,
+    )
+    assert mapping_type is not None
+    assert get_args(mapping_type) == (str, object)
 
 
 class TestUserInputRequestsEndpoints(unittest.TestCase):

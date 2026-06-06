@@ -1292,6 +1292,50 @@ class TestBackendClientUserInputRequests:
             )
             assert result["id"] == "req-123"
 
+    async def test_create_user_input_request_returns_empty_mapping_for_non_mapping_data(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.backend_url = "http://backend"
+            mock_settings_obj.internal_api_token = "token-123"
+            mock_settings.return_value = mock_settings_obj
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": ["raw", "payload"]}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.create_user_input_request({"question": "ok?"})
+
+            assert result == {}
+
+    async def test_create_user_input_request_returns_empty_mapping_for_non_string_keys(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.backend_url = "http://backend"
+            mock_settings_obj.internal_api_token = "token-123"
+            mock_settings.return_value = mock_settings_obj
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {123: "req-123"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.create_user_input_request({"question": "ok?"})
+
+            assert result == {}
+
     async def test_get_user_input_request_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
             mock_settings_obj = MagicMock()
@@ -1316,6 +1360,78 @@ class TestBackendClientUserInputRequests:
                 "/api/v1/internal/user-input-requests/req-123",
             )
             assert result["status"] == "pending"
+
+    async def test_get_user_input_request_returns_none_for_non_mapping_data(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.backend_url = "http://backend"
+            mock_settings_obj.internal_api_token = "token-123"
+            mock_settings.return_value = mock_settings_obj
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": None}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.get_user_input_request("req-123")
+
+            assert result is None
+
+    async def test_get_user_input_request_returns_none_for_non_string_keys(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.backend_url = "http://backend"
+            mock_settings_obj.internal_api_token = "token-123"
+            mock_settings.return_value = mock_settings_obj
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {123: "pending"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.get_user_input_request("req-123")
+
+            assert result is None
+
+
+def test_backend_client_user_input_request_ports_are_structured() -> None:
+    """Regression: user-input request adapter ports avoid Any and bare dict."""
+    import typing
+
+    create_hints = typing.get_type_hints(BackendClient.create_user_input_request)
+    get_hints = typing.get_type_hints(BackendClient.get_user_input_request)
+
+    payload_hint = create_hints.get("payload")
+    assert payload_hint is not None
+    assert "Any" not in str(payload_hint)
+    assert get_origin(payload_hint) is dict
+    assert get_args(payload_hint) == (str, object)
+
+    _assert_mapping_str_object(create_hints.get("return"))
+
+    return_hint = get_hints.get("return")
+    assert return_hint is not None
+    assert "Any" not in str(return_hint)
+    assert "dict" not in str(return_hint)
+    args = get_args(return_hint)
+    mapping_type = next(
+        (arg for arg in args if get_origin(arg) is Mapping),
+        None,
+    )
+    assert mapping_type is not None
+    assert get_args(mapping_type) == (str, object)
 
 
 @pytest.mark.asyncio

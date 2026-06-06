@@ -431,7 +431,9 @@ class BackendClient:
         result = data.get("data", {}) or {}
         return result if isinstance(result, dict) else {}
 
-    async def create_user_input_request(self, payload: dict) -> dict:
+    async def create_user_input_request(
+        self, payload: dict[str, object]
+    ) -> Mapping[str, object]:
         response = await self._request(
             "POST",
             "/api/v1/internal/user-input-requests",
@@ -439,16 +441,18 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data["data"]
+        return self._data_mapping(data) or {}
 
-    async def get_user_input_request(self, request_id: str) -> dict:
+    async def get_user_input_request(
+        self, request_id: str
+    ) -> Mapping[str, object] | None:
         response = await self._request(
             "GET",
             f"/api/v1/internal/user-input-requests/{request_id}",
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data["data"]
+        return self._data_mapping(data)
 
     async def create_memory(self, session_id: str, payload: dict[str, Any]) -> Any:
         """Create memories via backend internal API."""

@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -16,9 +17,13 @@ router = APIRouter(prefix="/user-input-requests", tags=["user-input-requests"])
 
 
 class UserInputRequestsBackendClient(Protocol):
-    async def create_user_input_request(self, payload: dict[str, Any]) -> Any: ...
+    async def create_user_input_request(
+        self, payload: dict[str, object]
+    ) -> Mapping[str, object]: ...
 
-    async def get_user_input_request(self, request_id: str) -> Any: ...
+    async def get_user_input_request(
+        self, request_id: str
+    ) -> Mapping[str, object] | None: ...
 
 
 def build_backend_client() -> UserInputRequestsBackendClient:

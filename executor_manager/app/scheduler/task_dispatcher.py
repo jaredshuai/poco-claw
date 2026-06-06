@@ -82,7 +82,7 @@ class LegacyTaskDispatchExecutorGateway(Protocol):
         run_id: str | None,
         prompt: str,
         execution_context: RunDispatchExecutionContext,
-        config: dict[str, Any],
+        config: dict[str, object],
         sdk_session_id: str | None,
         permission_mode: str,
     ) -> str: ...
@@ -102,7 +102,7 @@ class ExecutorClientLegacyTaskDispatchGateway:
         run_id: str | None,
         prompt: str,
         execution_context: RunDispatchExecutionContext,
-        config: dict[str, Any],
+        config: dict[str, object],
         sdk_session_id: str | None,
         permission_mode: str,
     ) -> str:
@@ -601,7 +601,7 @@ class TaskDispatcher:
         task_id: str,
         session_id: str,
         prompt: str,
-        config: dict,
+        config: dict[str, object],
         sdk_session_id: str | None = None,
         request_id: str | None = None,
         trace_id: str | None = None,
@@ -638,9 +638,14 @@ class TaskDispatcher:
             dispatch_dependencies.execution_context_provider.get_context()
         )
 
-        user_id = config.get("user_id", "")
-        container_mode = config.get("container_mode", "ephemeral")
-        container_id = config.get("container_id")
+        raw_user_id = config.get("user_id")
+        user_id = raw_user_id if isinstance(raw_user_id, str) else ""
+        raw_container_mode = config.get("container_mode")
+        container_mode = (
+            raw_container_mode if isinstance(raw_container_mode, str) else "ephemeral"
+        )
+        raw_container_id = config.get("container_id")
+        container_id = raw_container_id if isinstance(raw_container_id, str) else None
 
         executor_url = None
         runtime_resolved = False

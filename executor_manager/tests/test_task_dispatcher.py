@@ -6,6 +6,7 @@ import pytest
 
 import app.scheduler.task_dispatcher as task_dispatcher_module
 from app.scheduler.task_dispatcher import (
+    ExecutorClientLegacyTaskDispatchGateway,
     LegacyTaskDispatchExecutorGateway,
     TaskDispatchDependencies,
     TaskDispatcher,
@@ -1877,6 +1878,105 @@ async def test_task_dispatcher_passes_none_run_id_to_executor_gateway() -> None:
     assert call_kwargs["run_id"] is None, (
         "Legacy TaskDispatcher should pass run_id=None"
     )
+
+
+@pytest.mark.asyncio
+async def test_task_dispatcher_normalizes_legacy_config_identity_fields() -> None:
+    """Assert legacy dispatch does not pass non-string config values into runtime."""
+    settings = MagicMock()
+    settings.callback_base_url = "http://callback"
+    settings.callback_token = "token-123"
+    settings.executor_task_lease_secret = "lease-token"
+
+    mock_executor_gateway = MagicMock()
+    mock_executor_gateway.execute_run = AsyncMock()
+
+    mock_config_preparer = MagicMock()
+    raw_config: dict[str, object] = {
+        "user_id": 123,
+        "container_mode": {"bad": "mode"},
+        "container_id": ["bad-container"],
+    }
+    mock_config_preparer.prepare_config = AsyncMock(
+        return_value={"skill_files": {}, "plugin_files": {}, "input_files": []}
+    )
+
+    mock_state_gateway = MagicMock()
+    mock_state_gateway.mark_running = AsyncMock()
+    mock_state_gateway.mark_failed = AsyncMock()
+
+    mock_runtime = MagicMock()
+    mock_runtime.resolve_executor_target = AsyncMock(
+        return_value=("http://executor:8080", "container-123")
+    )
+    mock_runtime.cancel_task = AsyncMock()
+
+    dependencies = TaskDispatchDependencies(
+        config_preparer=mock_config_preparer,
+        state_gateway=mock_state_gateway,
+        runtime=mock_runtime,
+        executor_gateway=mock_executor_gateway,
+    )
+
+    await TaskDispatcher.dispatch(
+        task_id="task-123",
+        session_id="session-456",
+        prompt="Hello",
+        config=raw_config,
+        dependencies=dependencies,
+        settings=settings,
+    )
+
+    mock_config_preparer.prepare_config.assert_awaited_once_with(
+        user_id="",
+        session_id="session-456",
+        run_id="task-123",
+        config_snapshot=raw_config,
+    )
+    mock_runtime.resolve_executor_target.assert_awaited_once_with(
+        session_id="session-456",
+        user_id="",
+        browser_enabled=False,
+        container_mode="ephemeral",
+        container_id=None,
+    )
+
+
+def _assert_dict_str_object(annotation: object) -> None:
+    assert typing.get_origin(annotation) is dict
+    assert typing.get_args(annotation) == (str, object)
+
+
+def test_legacy_task_dispatch_executor_gateway_config_is_dict_str_object() -> None:
+    """Assert legacy executor gateway config is dict[str, object], not Any."""
+    hints = typing.get_type_hints(LegacyTaskDispatchExecutorGateway.execute_run)
+    config_hint = hints.get("config")
+
+    assert config_hint is not None
+    assert "Any" not in str(config_hint)
+    _assert_dict_str_object(config_hint)
+
+
+def test_executor_client_legacy_task_dispatch_gateway_config_is_dict_str_object() -> (
+    None
+):
+    """Assert legacy executor adapter config is dict[str, object], not Any."""
+    hints = typing.get_type_hints(ExecutorClientLegacyTaskDispatchGateway.execute_run)
+    config_hint = hints.get("config")
+
+    assert config_hint is not None
+    assert "Any" not in str(config_hint)
+    _assert_dict_str_object(config_hint)
+
+
+def test_task_dispatcher_dispatch_config_is_dict_str_object() -> None:
+    """Assert legacy TaskDispatcher.dispatch config is dict[str, object], not bare dict."""
+    hints = typing.get_type_hints(TaskDispatcher.dispatch)
+    config_hint = hints.get("config")
+
+    assert config_hint is not None
+    assert "Any" not in str(config_hint)
+    _assert_dict_str_object(config_hint)
 
 
 def _assert_task_dispatch_settings_annotation(annotation: object) -> None:

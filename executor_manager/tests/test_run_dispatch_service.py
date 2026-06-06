@@ -7,6 +7,7 @@ import pytest
 
 from app.services.run_dispatch_claim import RunDispatchClaim
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
+from app.services.run_dispatch_runtime import RunDispatchRuntimeAllocation
 from app.services.run_dispatch_service import RunDispatchService
 
 
@@ -113,7 +114,10 @@ async def test_dispatch_claim_delegates_runtime_allocation_to_injected_runtime()
 ):
     runtime = MagicMock()
     runtime.allocate_runtime = AsyncMock(
-        return_value=("http://runtime-executor.local", "runtime-container-1")
+        return_value=RunDispatchRuntimeAllocation(
+            executor_url="http://runtime-executor.local",
+            container_id="runtime-container-1",
+        )
     )
     runtime.cancel_runtime = AsyncMock()
     service = _make_dispatch_service(runtime=runtime)
@@ -154,7 +158,10 @@ async def test_dispatch_claim_delegates_runtime_allocation_to_injected_runtime()
 async def test_dispatch_claim_cancels_injected_runtime_when_start_run_fails() -> None:
     runtime = MagicMock()
     runtime.allocate_runtime = AsyncMock(
-        return_value=("http://runtime-executor.local", "runtime-container-1")
+        return_value=RunDispatchRuntimeAllocation(
+            executor_url="http://runtime-executor.local",
+            container_id="runtime-container-1",
+        )
     )
     runtime.cancel_runtime = AsyncMock()
     service = _make_dispatch_service(runtime=runtime)
@@ -173,7 +180,10 @@ async def test_dispatch_claim_cancels_injected_runtime_when_start_run_fails() ->
 async def test_dispatch_claim_delegates_config_preparation_to_injected_port() -> None:
     runtime = MagicMock()
     runtime.allocate_runtime = AsyncMock(
-        return_value=("http://runtime-executor.local", "runtime-container-1")
+        return_value=RunDispatchRuntimeAllocation(
+            executor_url="http://runtime-executor.local",
+            container_id="runtime-container-1",
+        )
     )
     runtime.cancel_runtime = AsyncMock()
     config_preparer = MagicMock()
@@ -215,7 +225,10 @@ async def test_dispatch_claim_delegates_config_preparation_to_injected_port() ->
 async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
     runtime = MagicMock()
     runtime.allocate_runtime = AsyncMock(
-        return_value=("http://runtime-executor.local", "runtime-container-1")
+        return_value=RunDispatchRuntimeAllocation(
+            executor_url="http://runtime-executor.local",
+            container_id="runtime-container-1",
+        )
     )
     runtime.cancel_runtime = AsyncMock()
     config_preparer = MagicMock()
@@ -266,7 +279,10 @@ async def test_dispatch_claim_delegates_run_state_to_injected_gateway() -> None:
 async def test_dispatch_claim_does_not_call_per_server_mcp_staged() -> None:
     runtime = MagicMock()
     runtime.allocate_runtime = AsyncMock(
-        return_value=("http://runtime-executor.local", "runtime-container-1")
+        return_value=RunDispatchRuntimeAllocation(
+            executor_url="http://runtime-executor.local",
+            container_id="runtime-container-1",
+        )
     )
     runtime.cancel_runtime = AsyncMock()
     config_preparer = MagicMock()
@@ -306,7 +322,10 @@ async def test_dispatch_claim_does_not_call_per_server_mcp_staged() -> None:
 async def test_dispatch_claim_delegates_executor_call_to_injected_gateway() -> None:
     runtime = MagicMock()
     runtime.allocate_runtime = AsyncMock(
-        return_value=("http://runtime-executor.local", "runtime-container-1")
+        return_value=RunDispatchRuntimeAllocation(
+            executor_url="http://runtime-executor.local",
+            container_id="runtime-container-1",
+        )
     )
     runtime.cancel_runtime = AsyncMock()
     config_preparer = MagicMock()

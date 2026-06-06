@@ -546,16 +546,15 @@ class RunDispatchService:
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))
-            (
-                executor_url,
-                container_id,
-            ) = await self.runtime.allocate_runtime(
+            runtime_allocation = await self.runtime.allocate_runtime(
                 session_id=session_id,
                 user_id=user_id,
                 browser_enabled=browser_enabled,
                 container_mode=container_mode,
                 container_id=container_id,
             )
+            executor_url = runtime_allocation.executor_url
+            container_id = runtime_allocation.container_id
             runtime_allocated = True
             logger.info(
                 "timing",

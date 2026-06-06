@@ -91,6 +91,26 @@ class BackendClient:
             normalized[key] = value
         return normalized
 
+    @staticmethod
+    def _data_mapping_list(data: object) -> list[Mapping[str, object]]:
+        if not isinstance(data, Mapping):
+            return []
+        result = data.get("data")
+        if not isinstance(result, list):
+            return []
+
+        normalized: list[Mapping[str, object]] = []
+        for item in result:
+            if not isinstance(item, Mapping):
+                return []
+            mapped: dict[str, object] = {}
+            for key, value in item.items():
+                if not isinstance(key, str):
+                    return []
+                mapped[key] = value
+            normalized.append(mapped)
+        return normalized
+
     async def _request(
         self,
         method: str,
@@ -454,7 +474,9 @@ class BackendClient:
         data = response.json()
         return self._data_mapping(data)
 
-    async def create_memory(self, session_id: str, payload: dict[str, Any]) -> Any:
+    async def create_memory(
+        self, session_id: str, payload: dict[str, object]
+    ) -> Mapping[str, object]:
         """Create memories via backend internal API."""
         response = await self._request(
             "POST",
@@ -464,9 +486,11 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping(data) or {}
 
-    async def get_memory_create_job(self, session_id: str, job_id: str) -> Any:
+    async def get_memory_create_job(
+        self, session_id: str, job_id: str
+    ) -> Mapping[str, object]:
         """Get memory create job status via backend internal API."""
         response = await self._request(
             "GET",
@@ -475,9 +499,9 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping(data) or {}
 
-    async def list_memories(self, session_id: str) -> Any:
+    async def list_memories(self, session_id: str) -> list[Mapping[str, object]]:
         """List memories via backend internal API."""
         response = await self._request(
             "GET",
@@ -486,9 +510,11 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping_list(data)
 
-    async def search_memories(self, session_id: str, payload: dict[str, Any]) -> Any:
+    async def search_memories(
+        self, session_id: str, payload: dict[str, object]
+    ) -> list[Mapping[str, object]]:
         """Search memories via backend internal API."""
         response = await self._request(
             "POST",
@@ -498,9 +524,9 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping_list(data)
 
-    async def get_memory(self, session_id: str, memory_id: str) -> Any:
+    async def get_memory(self, session_id: str, memory_id: str) -> Mapping[str, object]:
         """Get a memory by id via backend internal API."""
         response = await self._request(
             "GET",
@@ -509,14 +535,14 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping(data) or {}
 
     async def update_memory(
         self,
         session_id: str,
         memory_id: str,
-        payload: dict[str, Any],
-    ) -> Any:
+        payload: dict[str, object],
+    ) -> Mapping[str, object]:
         """Update a memory by id via backend internal API."""
         response = await self._request(
             "PUT",
@@ -526,9 +552,11 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping(data) or {}
 
-    async def get_memory_history(self, session_id: str, memory_id: str) -> Any:
+    async def get_memory_history(
+        self, session_id: str, memory_id: str
+    ) -> list[Mapping[str, object]]:
         """Get memory history via backend internal API."""
         response = await self._request(
             "GET",
@@ -537,9 +565,11 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data.get("data")
+        return self._data_mapping_list(data)
 
-    async def delete_memory(self, session_id: str, memory_id: str) -> dict[str, Any]:
+    async def delete_memory(
+        self, session_id: str, memory_id: str
+    ) -> Mapping[str, object]:
         """Delete a memory by id via backend internal API."""
         response = await self._request(
             "DELETE",
@@ -548,10 +578,9 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        result = data.get("data")
-        return result if isinstance(result, dict) else {}
+        return self._data_mapping(data) or {}
 
-    async def delete_all_memories(self, session_id: str) -> dict[str, Any]:
+    async def delete_all_memories(self, session_id: str) -> Mapping[str, object]:
         """Delete all memories in session scope via backend internal API."""
         response = await self._request(
             "DELETE",
@@ -560,5 +589,4 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        result = data.get("data")
-        return result if isinstance(result, dict) else {}
+        return self._data_mapping(data) or {}

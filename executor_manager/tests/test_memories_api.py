@@ -1,13 +1,38 @@
 """Tests for app/api/v1/memories.py."""
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from typing import get_args, get_origin
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+
+def _assert_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert "dict" not in str(annotation)
+    assert get_origin(annotation) is Mapping
+    assert get_args(annotation) == (str, object)
+
+
+def _assert_list_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is list
+    (item_type,) = get_args(annotation)
+    _assert_mapping_str_object(item_type)
+
+
+def _assert_dict_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is dict
+    assert get_args(annotation) == (str, object)
 
 
 def _load_memories_module_from_source():
@@ -73,6 +98,38 @@ def test_memories_backend_provider_has_no_mutable_global() -> None:
     from app.api.v1 import memories
 
     assert not hasattr(memories, "backend_client")
+
+
+def test_memories_backend_client_protocol_ports_are_structured() -> None:
+    """Regression: memory API backend port avoids Any and raw dict payloads."""
+    import typing
+    from app.api.v1.memories import MemoriesBackendClient
+
+    mapping_methods = [
+        "create_memory",
+        "get_memory_create_job",
+        "get_memory",
+        "update_memory",
+        "delete_memory",
+        "delete_all_memories",
+    ]
+    list_methods = [
+        "list_memories",
+        "search_memories",
+        "get_memory_history",
+    ]
+
+    for method_name in mapping_methods:
+        hints = typing.get_type_hints(getattr(MemoriesBackendClient, method_name))
+        _assert_mapping_str_object(hints.get("return"))
+
+    for method_name in list_methods:
+        hints = typing.get_type_hints(getattr(MemoriesBackendClient, method_name))
+        _assert_list_mapping_str_object(hints.get("return"))
+
+    for method_name in ("create_memory", "search_memories", "update_memory"):
+        hints = typing.get_type_hints(getattr(MemoriesBackendClient, method_name))
+        _assert_dict_str_object(hints.get("payload"))
 
 
 class TestMemoriesEndpoints(unittest.TestCase):

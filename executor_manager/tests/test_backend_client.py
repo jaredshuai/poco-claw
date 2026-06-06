@@ -564,6 +564,21 @@ def _assert_mapping_str_object(annotation: object) -> None:
     assert get_args(annotation) == (str, object)
 
 
+def _assert_list_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is list
+    (item_type,) = get_args(annotation)
+    _assert_mapping_str_object(item_type)
+
+
+def _assert_dict_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is dict
+    assert get_args(annotation) == (str, object)
+
+
 def test_backend_client_forward_callback_port_is_mapping_str_object() -> None:
     """Regression: forward_callback port uses Mapping[str, object], not Any or dict."""
     import typing
@@ -1438,6 +1453,30 @@ def test_backend_client_user_input_request_ports_are_structured() -> None:
 class TestBackendClientMemoryOperations:
     """Test BackendClient memory CRUD operations."""
 
+    async def _call_memory_method(
+        self,
+        method_name: str,
+        *args: object,
+        response_data: object,
+    ) -> object:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings_obj = MagicMock()
+            mock_settings_obj.backend_url = "http://backend"
+            mock_settings_obj.internal_api_token = "token-123"
+            mock_settings.return_value = mock_settings_obj
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = response_data
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                method = getattr(client, method_name)
+                return await method(*args)
+
     async def test_create_memory_success(self) -> None:
         with patch("app.services.backend_client.get_settings") as mock_settings:
             mock_settings_obj = MagicMock()
@@ -1670,6 +1709,108 @@ class TestBackendClientMemoryOperations:
                 result = await client.delete_all_memories("sess-123")
 
             assert result == {}
+
+    @pytest.mark.parametrize(
+        ("method_name", "args"),
+        [
+            ("create_memory", ("sess-123", {"content": "test"})),
+            ("get_memory_create_job", ("sess-123", "job-456")),
+            ("get_memory", ("sess-123", "mem-123")),
+            ("update_memory", ("sess-123", "mem-123", {"content": "updated"})),
+            ("delete_memory", ("sess-123", "mem-123")),
+            ("delete_all_memories", ("sess-123",)),
+        ],
+    )
+    async def test_memory_mapping_methods_reject_raw_payloads(
+        self,
+        method_name: str,
+        args: tuple[object, ...],
+    ) -> None:
+        assert (
+            await self._call_memory_method(
+                method_name,
+                *args,
+                response_data={"data": ["raw", "payload"]},
+            )
+            == {}
+        )
+        assert (
+            await self._call_memory_method(
+                method_name,
+                *args,
+                response_data={"data": {123: "mem-123"}},
+            )
+            == {}
+        )
+
+    @pytest.mark.parametrize(
+        ("method_name", "args"),
+        [
+            ("list_memories", ("sess-123",)),
+            ("search_memories", ("sess-123", {"query": "test"})),
+            ("get_memory_history", ("sess-123", "mem-123")),
+        ],
+    )
+    async def test_memory_list_methods_reject_raw_payloads(
+        self,
+        method_name: str,
+        args: tuple[object, ...],
+    ) -> None:
+        assert (
+            await self._call_memory_method(
+                method_name,
+                *args,
+                response_data={"data": {"id": "mem-123"}},
+            )
+            == []
+        )
+        assert (
+            await self._call_memory_method(
+                method_name,
+                *args,
+                response_data={"data": ["raw"]},
+            )
+            == []
+        )
+        assert (
+            await self._call_memory_method(
+                method_name,
+                *args,
+                response_data={"data": [{123: "mem-123"}]},
+            )
+            == []
+        )
+
+
+def test_backend_client_memory_ports_are_structured() -> None:
+    """Regression: memory backend adapter ports avoid Any and raw dict returns."""
+    import typing
+
+    mapping_methods = [
+        "create_memory",
+        "get_memory_create_job",
+        "get_memory",
+        "update_memory",
+        "delete_memory",
+        "delete_all_memories",
+    ]
+    list_methods = [
+        "list_memories",
+        "search_memories",
+        "get_memory_history",
+    ]
+
+    for method_name in mapping_methods:
+        hints = typing.get_type_hints(getattr(BackendClient, method_name))
+        _assert_mapping_str_object(hints.get("return"))
+
+    for method_name in list_methods:
+        hints = typing.get_type_hints(getattr(BackendClient, method_name))
+        _assert_list_mapping_str_object(hints.get("return"))
+
+    for method_name in ("create_memory", "search_memories", "update_memory"):
+        hints = typing.get_type_hints(getattr(BackendClient, method_name))
+        _assert_dict_str_object(hints.get("payload"))
 
 
 @pytest.mark.asyncio

@@ -255,6 +255,54 @@ def test_internal_run_metadata_accepts_valid_token_and_service():
     db.commit.assert_called_once()
 
 
+def test_internal_env_map_requires_service_identity():
+    """Env map with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.get_env_map",
+            return_value={"API_KEY": "secret"},
+        ) as get_env_map:
+            response = client.get(
+                "/internal/env-vars/map",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    get_env_map.assert_not_called()
+
+
+def test_internal_env_map_accepts_valid_token_and_service():
+    """Env map accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.get_env_map",
+            return_value={"API_KEY": "secret"},
+        ) as get_env_map:
+            response = client.get(
+                "/internal/env-vars/map",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 200
+    get_env_map.assert_called_once_with(db, user_id="user-1")
+
+
 def test_internal_mcp_config_resolve_requires_service_identity():
     """MCP config resolve with valid token but missing service header fails."""
     client = _client()

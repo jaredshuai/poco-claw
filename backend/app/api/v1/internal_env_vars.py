@@ -24,6 +24,7 @@ env_var_service = EnvVarService()
 
 @router.get("/env-vars/map", response_model=ResponseSchema[dict[str, str]])
 async def get_env_map(
+    _: None = Depends(require_executor_manager),
     actor: Actor = Depends(get_internal_actor),
     db: Session = Depends(get_db),
 ) -> JSONResponse:

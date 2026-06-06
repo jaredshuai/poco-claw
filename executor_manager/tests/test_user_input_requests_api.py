@@ -110,6 +110,42 @@ def _assert_mapping_str_object(annotation: object) -> None:
     assert get_args(annotation) == (str, object)
 
 
+def _assert_dict_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert annotation is not dict
+    assert "Any" not in str(annotation)
+    assert get_origin(annotation) is dict
+    assert get_args(annotation) == (str, object)
+
+
+def _assert_optional_dict_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert annotation is not dict
+    assert "Any" not in str(annotation)
+    args = get_args(annotation)
+    assert type(None) in args
+    dict_annotation = next((arg for arg in args if get_origin(arg) is dict), None)
+    assert dict_annotation is not None
+    assert get_args(dict_annotation) == (str, object)
+
+
+def test_user_input_request_schema_payloads_are_structured() -> None:
+    """Regression: user-input DTO payload fields avoid bare dict/Any."""
+    import typing
+
+    from app.schemas.user_input_request import (
+        UserInputRequestCreateRequest,
+        UserInputRequestResponse,
+    )
+
+    create_hints = typing.get_type_hints(UserInputRequestCreateRequest)
+    response_hints = typing.get_type_hints(UserInputRequestResponse)
+
+    _assert_dict_str_object(create_hints.get("tool_input"))
+    _assert_dict_str_object(response_hints.get("tool_input"))
+    _assert_optional_dict_str_object(response_hints.get("answers"))
+
+
 def test_user_input_requests_backend_client_protocol_is_structured() -> None:
     """Regression: route backend port avoids Any and bare dict."""
     import typing

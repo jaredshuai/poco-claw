@@ -19,6 +19,7 @@ get_settings.cache_clear()
 
 from app.api.v1 import (  # noqa: E402
     callback,
+    internal_env_vars,
     internal_memories,
     internal_mcp_transitions,
     internal_permission_audit,
@@ -31,6 +32,7 @@ from app.api.v1 import (  # noqa: E402
 from app.core.deps import get_db, get_user_id_by_session_id  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
+from app.schemas.env_var import SystemEnvVarResponse  # noqa: E402
 from app.schemas.memory import MemoryCreateJobEnqueueResponse  # noqa: E402
 from app.schemas.scheduled_task import ScheduledTaskDispatchResponse  # noqa: E402
 from app.schemas.user_input_request import UserInputRequestResponse  # noqa: E402
@@ -41,6 +43,7 @@ def _client() -> TestClient:
     setup_exception_handlers(app, debug=False)
     app.include_router(runs.router)
     app.include_router(internal_runs.router)
+    app.include_router(internal_env_vars.router)
     app.include_router(internal_memories.router)
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
@@ -65,6 +68,19 @@ def _user_input_response() -> UserInputRequestResponse:
         answers=None,
         expires_at=datetime(2026, 1, 1, tzinfo=UTC),
         answered_at=None,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+
+def _system_env_var_response() -> SystemEnvVarResponse:
+    return SystemEnvVarResponse(
+        id=1,
+        user_id="system",
+        key="SYSTEM_TOKEN",
+        value="secret",
+        description="System token",
+        scope="system",
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         updated_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
@@ -772,6 +788,142 @@ def test_internal_memory_delete_all_accepts_valid_token_and_service():
 
     assert response.status_code == 200
     delete_all_memories.assert_called_once_with(user_id="user-1")
+
+
+def test_internal_system_env_var_create_requires_service_identity():
+    """System env-var creation with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.create_system_env_var",
+            return_value=_system_env_var_response(),
+        ) as create_system_env_var:
+            response = client.post(
+                "/internal/system-env-vars",
+                json={"key": "SYSTEM_TOKEN", "value": "secret"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    create_system_env_var.assert_not_called()
+
+
+def test_internal_system_env_var_create_accepts_valid_token_and_service():
+    """System env-var creation accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.create_system_env_var",
+            return_value=_system_env_var_response(),
+        ) as create_system_env_var:
+            response = client.post(
+                "/internal/system-env-vars",
+                json={"key": "SYSTEM_TOKEN", "value": "secret"},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    create_system_env_var.assert_called_once()
+    assert create_system_env_var.call_args.args[0] is db
+
+
+def test_internal_system_env_var_update_requires_service_identity():
+    """System env-var update with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.update_system_env_var",
+            return_value=_system_env_var_response(),
+        ) as update_system_env_var:
+            response = client.patch(
+                "/internal/system-env-vars/1",
+                json={"value": "updated"},
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    update_system_env_var.assert_not_called()
+
+
+def test_internal_system_env_var_update_accepts_valid_token_and_service():
+    """System env-var update accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.update_system_env_var",
+            return_value=_system_env_var_response(),
+        ) as update_system_env_var:
+            response = client.patch(
+                "/internal/system-env-vars/1",
+                json={"value": "updated"},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    update_system_env_var.assert_called_once()
+    assert update_system_env_var.call_args.args[:2] == (db, 1)
+
+
+def test_internal_system_env_var_delete_requires_service_identity():
+    """System env-var deletion with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.delete_system_env_var"
+        ) as delete_system_env_var:
+            response = client.delete(
+                "/internal/system-env-vars/1",
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    delete_system_env_var.assert_not_called()
+
+
+def test_internal_system_env_var_delete_accepts_valid_token_and_service():
+    """System env-var deletion accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.delete_system_env_var"
+        ) as delete_system_env_var:
+            response = client.delete(
+                "/internal/system-env-vars/1",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    delete_system_env_var.assert_called_once_with(db, 1)
 
 
 def test_callback_requires_internal_token():

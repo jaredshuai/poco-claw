@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_internal_actor, require_internal_token
+from app.core.deps import (
+    get_db,
+    get_internal_actor,
+    require_executor_manager,
+    require_internal_token,
+)
 from app.core.identity import Actor
 from app.schemas.env_var import (
     SystemEnvVarCreateRequest,
@@ -44,7 +49,7 @@ async def list_system_env_vars(
 )
 async def create_system_env_var(
     request: SystemEnvVarCreateRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = env_var_service.create_system_env_var(db, request)
@@ -58,7 +63,7 @@ async def create_system_env_var(
 async def update_system_env_var(
     env_var_id: int,
     request: SystemEnvVarUpdateRequest,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = env_var_service.update_system_env_var(db, env_var_id, request)
@@ -71,7 +76,7 @@ async def update_system_env_var(
 )
 async def delete_system_env_var(
     env_var_id: int,
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     env_var_service.delete_system_env_var(db, env_var_id)

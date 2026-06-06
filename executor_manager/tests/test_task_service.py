@@ -13,7 +13,12 @@ from app.schemas.task import (
     TaskCreateResponse,
     TaskStatusResponse,
 )
-from app.services.task_service import TaskBackendClient, TaskService
+from app.services.task_service import (
+    TaskBackendClient,
+    TaskScheduler,
+    TaskSchedulerJob,
+    TaskService,
+)
 
 
 class FixedIdGenerator:
@@ -762,6 +767,28 @@ class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
 
         assert get_origin(config_type) is dict
         assert get_args(config_type) == (str, object)
+
+    def test_scheduler_add_job_return_is_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskScheduler.add_job)
+
+        assert hints.get("return") is object
+
+    def test_scheduler_add_job_kwargs_are_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskScheduler.add_job)
+
+        assert hints.get("kwargs") is object
+
+    def test_scheduler_get_job_returns_scheduler_job_or_none(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskScheduler.get_job)
+        return_type = hints.get("return")
+
+        assert set(get_args(return_type)) == {TaskSchedulerJob, type(None)}
 
 
 if __name__ == "__main__":

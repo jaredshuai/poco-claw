@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Protocol
 
 import httpx
 
@@ -39,10 +39,14 @@ class TaskBackendClient(Protocol):
     async def get_session(self, session_id: str) -> dict[str, object]: ...
 
 
-class TaskScheduler(Protocol):
-    def add_job(self, func: Callable[..., Any], **kwargs: Any) -> Any: ...
+class TaskSchedulerJob(Protocol):
+    next_run_time: object | None
 
-    def get_job(self, job_id: str) -> Any: ...
+
+class TaskScheduler(Protocol):
+    def add_job(self, func: Callable[..., object], **kwargs: object) -> object: ...
+
+    def get_job(self, job_id: str) -> TaskSchedulerJob | None: ...
 
 
 class TaskTargetResolver(Protocol):

@@ -96,7 +96,9 @@ class BackendClient:
                 attempt += 1
                 await asyncio.sleep(min(0.25 * attempt, 1.0))
 
-    async def create_session(self, user_id: str, config: dict) -> dict:
+    async def create_session(
+        self, user_id: str, config: dict[str, object]
+    ) -> dict[str, object]:
         """Create a session, returns session info dict with session_id and sdk_session_id."""
         response = await self._request(
             "POST",
@@ -105,9 +107,10 @@ class BackendClient:
             headers=self._trace_headers(),
         )
         data = response.json()
-        return data["data"]
+        result = data.get("data", {})
+        return result if isinstance(result, dict) else {}
 
-    async def get_session(self, session_id: str) -> dict[str, Any]:
+    async def get_session(self, session_id: str) -> dict[str, object]:
         """Get session details from the Backend service."""
         response = await self._request(
             "GET",

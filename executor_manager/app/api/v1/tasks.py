@@ -1,6 +1,6 @@
 from functools import lru_cache
 import logging
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -24,7 +24,7 @@ class TaskApiService(Protocol):
         self,
         user_id: str,
         prompt: str,
-        config: dict[str, Any],
+        config: dict[str, object],
         session_id: str | None = None,
     ) -> TaskCreateResponse: ...
 

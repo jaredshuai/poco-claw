@@ -32,9 +32,11 @@ class TaskBackendClient(Protocol):
     @staticmethod
     def _trace_headers() -> dict[str, str]: ...
 
-    async def create_session(self, user_id: str, config: dict) -> dict[str, Any]: ...
+    async def create_session(
+        self, user_id: str, config: dict[str, object]
+    ) -> dict[str, object]: ...
 
-    async def get_session(self, session_id: str) -> dict[str, Any]: ...
+    async def get_session(self, session_id: str) -> dict[str, object]: ...
 
 
 class TaskScheduler(Protocol):
@@ -124,7 +126,7 @@ class TaskService:
         self,
         user_id: str,
         prompt: str,
-        config: dict,
+        config: dict[str, object],
         session_id: str | None = None,
     ) -> TaskCreateResponse:
         """Create a task and schedule it for execution.
@@ -165,6 +167,7 @@ class TaskService:
                     },
                 )
                 sdk_session_id = session_data.sdk_session_id
+                active_session_id = session_id
                 logger.info(f"Reusing existing session {session_id} for task {task_id}")
             else:
                 # Create new session
@@ -172,28 +175,42 @@ class TaskService:
                 session_info = await backend_client.create_session(
                     user_id=user_id, config=config
                 )
+                raw_session_id = session_info.get("session_id")
+                if not isinstance(raw_session_id, str):
+                    raise ValueError("Backend session response missing session_id")
+                raw_sdk_session_id = session_info.get("sdk_session_id")
+                sdk_session_id = (
+                    raw_sdk_session_id if isinstance(raw_sdk_session_id, str) else None
+                )
+                active_session_id = raw_session_id
                 logger.info(
                     "timing",
                     extra={
                         "step": "task_create_backend_create_session",
                         "duration_ms": int((time.perf_counter() - step_started) * 1000),
                         "task_id": task_id,
-                        "session_id": session_info.get("session_id"),
+                        "session_id": active_session_id,
                         "user_id": user_id,
                     },
                 )
-                session_id = session_info["session_id"]
-                sdk_session_id = session_info.get("sdk_session_id")
-                logger.info(f"Created session {session_id} for task {task_id}")
+                logger.info(f"Created session {active_session_id} for task {task_id}")
 
-            container_id = config.get("container_id")
-            container_mode = config.get("container_mode", "ephemeral")
+            raw_container_id = config.get("container_id")
+            container_id = (
+                raw_container_id if isinstance(raw_container_id, str) else None
+            )
+            raw_container_mode = config.get("container_mode", "ephemeral")
+            container_mode = (
+                raw_container_mode
+                if isinstance(raw_container_mode, str)
+                else "ephemeral"
+            )
 
             if container_id or container_mode == "persistent":
                 step_started = time.perf_counter()
                 browser_enabled = bool(config.get("browser_enabled"))
                 _, container_id = await self.target_resolver.resolve_executor_target(
-                    session_id=session_id,
+                    session_id=active_session_id,
                     user_id=user_id,
                     browser_enabled=browser_enabled,
                     container_mode=container_mode,
@@ -205,7 +222,7 @@ class TaskService:
                         "step": "task_create_get_or_create_container",
                         "duration_ms": int((time.perf_counter() - step_started) * 1000),
                         "task_id": task_id,
-                        "session_id": session_id,
+                        "session_id": active_session_id,
                         "user_id": user_id,
                         "container_id": container_id,
                         "container_mode": container_mode,
@@ -219,7 +236,7 @@ class TaskService:
                 TaskDispatcher.dispatch,
                 args=[
                     task_id,
-                    session_id,
+                    active_session_id,
                     prompt,
                     config,
                     sdk_session_id,
@@ -236,7 +253,7 @@ class TaskService:
                     "step": "task_create_scheduler_add_job",
                     "duration_ms": int((time.perf_counter() - step_started) * 1000),
                     "task_id": task_id,
-                    "session_id": session_id,
+                    "session_id": active_session_id,
                     "user_id": user_id,
                 },
             )
@@ -248,14 +265,14 @@ class TaskService:
                     "step": "task_create_total",
                     "duration_ms": int((time.perf_counter() - started) * 1000),
                     "task_id": task_id,
-                    "session_id": session_id,
+                    "session_id": active_session_id,
                     "user_id": user_id,
                 },
             )
 
             return TaskCreateResponse(
                 task_id=task_id,
-                session_id=session_id,
+                session_id=active_session_id,
                 status="scheduled",
                 container_id=container_id,
             )
@@ -318,7 +335,7 @@ class TaskService:
 
         try:
             session_data = await backend_client.get_session(session_id)
-            return SessionStatusResponse(**session_data)
+            return SessionStatusResponse.model_validate(session_data)
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:

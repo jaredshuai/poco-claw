@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime
 from types import SimpleNamespace
+from typing import get_args, get_origin
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -12,7 +13,7 @@ from app.schemas.task import (
     TaskCreateResponse,
     TaskStatusResponse,
 )
-from app.services.task_service import TaskService
+from app.services.task_service import TaskBackendClient, TaskService
 
 
 class FixedIdGenerator:
@@ -721,6 +722,46 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
             result = asyncio.run(service.get_session_status("session-123"))
 
             assert result.session_id == "session-123"
+
+
+class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
+    """Regression tests for TaskService backend boundary annotations."""
+
+    def test_backend_client_create_session_config_is_dict_str_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskBackendClient.create_session)
+        config_type = hints.get("config")
+
+        assert get_origin(config_type) is dict
+        assert get_args(config_type) == (str, object)
+
+    def test_backend_client_create_session_return_is_dict_str_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskBackendClient.create_session)
+        return_type = hints.get("return")
+
+        assert get_origin(return_type) is dict
+        assert get_args(return_type) == (str, object)
+
+    def test_backend_client_get_session_return_is_dict_str_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskBackendClient.get_session)
+        return_type = hints.get("return")
+
+        assert get_origin(return_type) is dict
+        assert get_args(return_type) == (str, object)
+
+    def test_create_task_config_is_dict_str_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskService.create_task)
+        config_type = hints.get("config")
+
+        assert get_origin(config_type) is dict
+        assert get_args(config_type) == (str, object)
 
 
 if __name__ == "__main__":

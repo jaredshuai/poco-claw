@@ -247,6 +247,23 @@ class TestBackendClientCreateSession:
 
                 assert result["session_id"] == "sess-123"
 
+    async def test_create_session_non_dict_data_returns_empty_dict(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": "not a dict"}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.create_session("user-123", {"model": "claude"})
+
+                assert result == {}
+
 
 @pytest.mark.asyncio
 class TestBackendClientGetSession:
@@ -277,6 +294,39 @@ class TestBackendClientGetSession:
             args, kwargs = request.call_args
             assert args[:2] == ("GET", "/api/v1/sessions/sess-123")
             assert "headers" in kwargs
+
+
+def test_backend_client_create_session_config_is_dict_str_object() -> None:
+    """Regression: BackendClient.create_session config is dict[str, object], not bare dict."""
+    import typing
+
+    hints = typing.get_type_hints(BackendClient.create_session)
+    config_type = hints.get("config")
+
+    assert get_origin(config_type) is dict
+    assert get_args(config_type) == (str, object)
+
+
+def test_backend_client_create_session_return_is_dict_str_object() -> None:
+    """Regression: BackendClient.create_session returns dict[str, object], not bare dict."""
+    import typing
+
+    hints = typing.get_type_hints(BackendClient.create_session)
+    return_type = hints.get("return")
+
+    assert get_origin(return_type) is dict
+    assert get_args(return_type) == (str, object)
+
+
+def test_backend_client_get_session_return_is_dict_str_object() -> None:
+    """Regression: BackendClient.get_session returns dict[str, object], not dict[str, Any]."""
+    import typing
+
+    hints = typing.get_type_hints(BackendClient.get_session)
+    return_type = hints.get("return")
+
+    assert get_origin(return_type) is dict
+    assert get_args(return_type) == (str, object)
 
 
 @pytest.mark.asyncio

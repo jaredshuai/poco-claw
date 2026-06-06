@@ -1,4 +1,5 @@
 from inspect import signature
+from collections.abc import Mapping
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -228,8 +229,62 @@ class MemoryService:
         )
         return self._get_instance().get_all(**params)
 
-    def get_memory(self, memory_id: str) -> Any:
-        return self._get_instance().get(memory_id)
+    @staticmethod
+    def _iter_memory_items(value: Any) -> list[Mapping[str, Any]]:
+        if isinstance(value, Mapping):
+            for key in ("results", "memories"):
+                items = value.get(key)
+                if isinstance(items, list):
+                    return [item for item in items if isinstance(item, Mapping)]
+            if "id" in value or "memory_id" in value:
+                return [value]
+            return []
+
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, Mapping)]
+
+        return []
+
+    @staticmethod
+    def _memory_item_id(value: Mapping[str, Any]) -> str | None:
+        for key in ("id", "memory_id"):
+            item_id = value.get(key)
+            if item_id is not None:
+                return str(item_id)
+        return None
+
+    def _get_instance_for_owned_memory(self, *, memory_id: str, user_id: str) -> Any:
+        clean_memory_id = memory_id.strip()
+        clean_user_id = user_id.strip()
+        if not clean_memory_id:
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message="memory_id must be a non-empty string",
+            )
+        if not clean_user_id:
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message="user_id must be a non-empty string",
+            )
+
+        instance = self._get_instance()
+        params = self._build_scope(user_id=clean_user_id, run_id=None)
+        scoped_memories = instance.get_all(**params)
+        for item in self._iter_memory_items(scoped_memories):
+            if self._memory_item_id(item) == clean_memory_id:
+                return instance
+
+        raise AppException(
+            error_code=ErrorCode.NOT_FOUND,
+            message="Memory not found",
+        )
+
+    def get_memory(self, *, memory_id: str, user_id: str) -> Any:
+        instance = self._get_instance_for_owned_memory(
+            memory_id=memory_id,
+            user_id=user_id,
+        )
+        return instance.get(memory_id)
 
     def search_memories(self, *, user_id: str, request: MemorySearchRequest) -> Any:
         params: dict[str, Any] = self._build_scope(
@@ -240,7 +295,7 @@ class MemoryService:
             params["filters"] = request.filters
         return self._get_instance().search(query=request.query, **params)
 
-    def update_memory(self, *, memory_id: str, text: str) -> Any:
+    def update_memory(self, *, memory_id: str, user_id: str, text: str) -> Any:
         clean_text = text.strip()
         if not clean_text:
             raise AppException(
@@ -248,7 +303,10 @@ class MemoryService:
                 message="text must be a non-empty string",
             )
 
-        instance = self._get_instance()
+        instance = self._get_instance_for_owned_memory(
+            memory_id=memory_id,
+            user_id=user_id,
+        )
         try:
             update_params = signature(instance.update).parameters
         except (TypeError, ValueError):
@@ -258,11 +316,19 @@ class MemoryService:
             return instance.update(memory_id=memory_id, text=clean_text)
         return instance.update(memory_id=memory_id, data=clean_text)
 
-    def get_memory_history(self, *, memory_id: str) -> Any:
-        return self._get_instance().history(memory_id=memory_id)
+    def get_memory_history(self, *, memory_id: str, user_id: str) -> Any:
+        instance = self._get_instance_for_owned_memory(
+            memory_id=memory_id,
+            user_id=user_id,
+        )
+        return instance.history(memory_id=memory_id)
 
-    def delete_memory(self, *, memory_id: str) -> None:
-        self._get_instance().delete(memory_id=memory_id)
+    def delete_memory(self, *, memory_id: str, user_id: str) -> None:
+        instance = self._get_instance_for_owned_memory(
+            memory_id=memory_id,
+            user_id=user_id,
+        )
+        instance.delete(memory_id=memory_id)
 
     def delete_all_memories(
         self,

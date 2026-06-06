@@ -1,18 +1,40 @@
 """Tests for memories API actor boundary."""
 
 import asyncio
+from types import SimpleNamespace
 import uuid
 from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 from app.api.v1 import memories
 from app.core.identity import Actor
+from app.core.errors.exception_handlers import setup_exception_handlers
 from app.schemas.memory import (
     MemoryCreateJobEnqueueResponse,
     MemoryCreateJobResponse,
     MemoryCreateRequest,
     MemoryMessage,
     MemorySearchRequest,
+    MemoryUpdateRequest,
 )
+
+
+def _api_client() -> TestClient:
+    app = FastAPI()
+    setup_exception_handlers(app, debug=False)
+    app.include_router(memories.router)
+    return TestClient(app)
+
+
+def _settings() -> SimpleNamespace:
+    return SimpleNamespace(
+        allow_default_user=False,
+        internal_api_token="internal-token",
+        trusted_user_header_token="trusted-user-token",
+    )
 
 
 def test_create_memories_uses_actor_user_id_and_passes_request():
@@ -235,6 +257,158 @@ def test_search_memories_uses_actor_user_id_and_passes_request():
         assert call_args[1]["request"] is request
         mock_success.assert_called_once_with(
             data=mock_result, message="Memories searched successfully"
+        )
+        assert result is not None
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "json_body"),
+    (
+        ("GET", "/memories/mem-1", None),
+        ("PUT", "/memories/mem-1", {"text": "updated"}),
+        ("GET", "/memories/mem-1/history", None),
+        ("DELETE", "/memories/mem-1", None),
+    ),
+)
+def test_memory_by_id_endpoints_require_actor_identity(
+    method: str,
+    path: str,
+    json_body: dict[str, str] | None,
+):
+    """Single-memory endpoints reject callers without a trusted actor."""
+    client = _api_client()
+
+    with (
+        patch("app.core.deps.get_settings", return_value=_settings()),
+        patch.object(memories.memory_service, "get_memory") as mock_get,
+        patch.object(memories.memory_service, "update_memory") as mock_update,
+        patch.object(memories.memory_service, "get_memory_history") as mock_history,
+        patch.object(memories.memory_service, "delete_memory") as mock_delete,
+    ):
+        response = client.request(method, path, json=json_body)
+
+    assert response.status_code == 403
+    assert "User identity is required" in response.json()["message"]
+    mock_get.assert_not_called()
+    mock_update.assert_not_called()
+    mock_history.assert_not_called()
+    mock_delete.assert_not_called()
+
+
+def test_get_memory_uses_actor_user_id():
+    """get_memory should use actor.user_id when calling the service."""
+    actor = Actor(user_id="get-user-888", auth_source="test")
+    mock_result = {"id": "mem-1", "memory": "test memory"}
+
+    with (
+        patch.object(
+            memories.memory_service,
+            "get_memory",
+            return_value=mock_result,
+        ) as mock_get,
+        patch.object(memories.Response, "success") as mock_success,
+    ):
+        mock_success.return_value = object()
+
+        result = asyncio.run(memories.get_memory(memory_id="mem-1", actor=actor))
+
+        mock_get.assert_called_once_with(
+            memory_id="mem-1",
+            user_id="get-user-888",
+        )
+        mock_success.assert_called_once_with(
+            data=mock_result, message="Memory retrieved successfully"
+        )
+        assert result is not None
+
+
+def test_update_memory_uses_actor_user_id_and_passes_request_text():
+    """update_memory should use actor.user_id when calling the service."""
+    actor = Actor(user_id="update-user-999", auth_source="test")
+    request = MemoryUpdateRequest(text="updated memory")
+    mock_result = {"id": "mem-2", "memory": "updated memory"}
+
+    with (
+        patch.object(
+            memories.memory_service,
+            "update_memory",
+            return_value=mock_result,
+        ) as mock_update,
+        patch.object(memories.Response, "success") as mock_success,
+    ):
+        mock_success.return_value = object()
+
+        result = asyncio.run(
+            memories.update_memory(
+                memory_id="mem-2",
+                request=request,
+                actor=actor,
+            )
+        )
+
+        mock_update.assert_called_once_with(
+            memory_id="mem-2",
+            user_id="update-user-999",
+            text="updated memory",
+        )
+        mock_success.assert_called_once_with(
+            data=mock_result, message="Memory updated successfully"
+        )
+        assert result is not None
+
+
+def test_get_memory_history_uses_actor_user_id():
+    """get_memory_history should use actor.user_id when calling the service."""
+    actor = Actor(user_id="history-user-000", auth_source="test")
+    mock_result = [{"event": "created"}]
+
+    with (
+        patch.object(
+            memories.memory_service,
+            "get_memory_history",
+            return_value=mock_result,
+        ) as mock_history,
+        patch.object(memories.Response, "success") as mock_success,
+    ):
+        mock_success.return_value = object()
+
+        result = asyncio.run(
+            memories.get_memory_history(memory_id="mem-3", actor=actor)
+        )
+
+        mock_history.assert_called_once_with(
+            memory_id="mem-3",
+            user_id="history-user-000",
+        )
+        mock_success.assert_called_once_with(
+            data=mock_result,
+            message="Memory history retrieved successfully",
+        )
+        assert result is not None
+
+
+def test_delete_memory_uses_actor_user_id():
+    """delete_memory should use actor.user_id when calling the service."""
+    actor = Actor(user_id="delete-user-101", auth_source="test")
+
+    with (
+        patch.object(
+            memories.memory_service,
+            "delete_memory",
+            return_value=None,
+        ) as mock_delete,
+        patch.object(memories.Response, "success") as mock_success,
+    ):
+        mock_success.return_value = object()
+
+        result = asyncio.run(memories.delete_memory(memory_id="mem-4", actor=actor))
+
+        mock_delete.assert_called_once_with(
+            memory_id="mem-4",
+            user_id="delete-user-101",
+        )
+        mock_success.assert_called_once_with(
+            data={"id": "mem-4"}, message="Memory deleted successfully"
         )
         assert result is not None
 

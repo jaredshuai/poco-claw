@@ -703,7 +703,11 @@ def test_internal_memory_update_accepts_valid_token_and_service():
             )
 
     assert response.status_code == 200
-    update_memory.assert_called_once_with(memory_id="mem-1", text="updated")
+    update_memory.assert_called_once_with(
+        memory_id="mem-1",
+        user_id="user-1",
+        text="updated",
+    )
 
 
 def test_internal_memory_delete_requires_service_identity():
@@ -745,7 +749,7 @@ def test_internal_memory_delete_accepts_valid_token_and_service():
             )
 
     assert response.status_code == 200
-    delete_memory.assert_called_once_with(memory_id="mem-1")
+    delete_memory.assert_called_once_with(memory_id="mem-1", user_id="user-1")
 
 
 def test_internal_memory_delete_all_requires_service_identity():

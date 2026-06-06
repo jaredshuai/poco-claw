@@ -105,9 +105,9 @@ async def search_memories_internal(
 async def get_memory_internal(
     memory_id: str,
     _token: None = Depends(require_internal_token),
-    _user_id: str = Depends(get_user_id_by_session_id),
+    user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
-    result = memory_service.get_memory(memory_id)
+    result = memory_service.get_memory(memory_id=memory_id, user_id=user_id)
     return Response.success(data=result, message="Memory retrieved successfully")
 
 
@@ -116,9 +116,13 @@ async def update_memory_internal(
     memory_id: str,
     request: InternalMemoryUpdateRequest,
     _token: None = Depends(require_executor_manager),
-    _user_id: str = Depends(get_user_id_by_session_id),
+    user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
-    result = memory_service.update_memory(memory_id=memory_id, text=request.text)
+    result = memory_service.update_memory(
+        memory_id=memory_id,
+        user_id=user_id,
+        text=request.text,
+    )
     return Response.success(data=result, message="Memory updated successfully")
 
 
@@ -126,9 +130,12 @@ async def update_memory_internal(
 async def get_memory_history_internal(
     memory_id: str,
     _token: None = Depends(require_internal_token),
-    _user_id: str = Depends(get_user_id_by_session_id),
+    user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
-    result = memory_service.get_memory_history(memory_id=memory_id)
+    result = memory_service.get_memory_history(
+        memory_id=memory_id,
+        user_id=user_id,
+    )
     return Response.success(
         data=result, message="Memory history retrieved successfully"
     )
@@ -138,9 +145,9 @@ async def get_memory_history_internal(
 async def delete_memory_internal(
     memory_id: str,
     _token: None = Depends(require_executor_manager),
-    _user_id: str = Depends(get_user_id_by_session_id),
+    user_id: str = Depends(get_user_id_by_session_id),
 ) -> JSONResponse:
-    memory_service.delete_memory(memory_id=memory_id)
+    memory_service.delete_memory(memory_id=memory_id, user_id=user_id)
     return Response.success(
         data={"id": memory_id}, message="Memory deleted successfully"
     )

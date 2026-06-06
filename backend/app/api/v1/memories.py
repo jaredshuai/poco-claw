@@ -116,8 +116,14 @@ async def search_memories(
 
 
 @router.get("/{memory_id}", response_model=ResponseSchema[Any])
-async def get_memory(memory_id: str) -> JSONResponse:
-    result = memory_service.get_memory(memory_id)
+async def get_memory(
+    memory_id: str,
+    actor: Actor = Depends(get_current_actor),
+) -> JSONResponse:
+    result = memory_service.get_memory(
+        memory_id=memory_id,
+        user_id=actor.user_id,
+    )
     return Response.success(data=result, message="Memory retrieved successfully")
 
 
@@ -125,22 +131,39 @@ async def get_memory(memory_id: str) -> JSONResponse:
 async def update_memory(
     memory_id: str,
     request: MemoryUpdateRequest,
+    actor: Actor = Depends(get_current_actor),
 ) -> JSONResponse:
-    result = memory_service.update_memory(memory_id=memory_id, text=request.text)
+    result = memory_service.update_memory(
+        memory_id=memory_id,
+        user_id=actor.user_id,
+        text=request.text,
+    )
     return Response.success(data=result, message="Memory updated successfully")
 
 
 @router.get("/{memory_id}/history", response_model=ResponseSchema[Any])
-async def get_memory_history(memory_id: str) -> JSONResponse:
-    result = memory_service.get_memory_history(memory_id=memory_id)
+async def get_memory_history(
+    memory_id: str,
+    actor: Actor = Depends(get_current_actor),
+) -> JSONResponse:
+    result = memory_service.get_memory_history(
+        memory_id=memory_id,
+        user_id=actor.user_id,
+    )
     return Response.success(
         data=result, message="Memory history retrieved successfully"
     )
 
 
 @router.delete("/{memory_id}", response_model=ResponseSchema[dict[str, str]])
-async def delete_memory(memory_id: str) -> JSONResponse:
-    memory_service.delete_memory(memory_id=memory_id)
+async def delete_memory(
+    memory_id: str,
+    actor: Actor = Depends(get_current_actor),
+) -> JSONResponse:
+    memory_service.delete_memory(
+        memory_id=memory_id,
+        user_id=actor.user_id,
+    )
     return Response.success(
         data={"id": memory_id}, message="Memory deleted successfully"
     )

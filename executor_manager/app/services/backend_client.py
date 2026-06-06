@@ -146,7 +146,9 @@ class BackendClient:
             retry_connect_errors=2,
         )
 
-    async def forward_callback(self, callback_data: dict) -> dict[str, Any]:
+    async def forward_callback(
+        self, callback_data: Mapping[str, object]
+    ) -> Mapping[str, object]:
         """Forward Executor callback to Backend and return the callback response."""
         response = await self._request(
             "POST",
@@ -156,8 +158,7 @@ class BackendClient:
             retry_connect_errors=3,
         )
         data = response.json()
-        result = data.get("data", {})
-        return result if isinstance(result, dict) else {}
+        return self._data_mapping(data) or {}
 
     async def claim_run(
         self,

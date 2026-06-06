@@ -1,9 +1,10 @@
 import importlib.util
 import sys
 import unittest
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args, get_origin
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from app.schemas.callback import (
     McpStatus,
     WorkspaceState,
 )
-from app.services.callback_service import CallbackService
+from app.services.callback_service import CallbackBackendClient, CallbackService
 
 
 def _load_callback_service_module_from_source():
@@ -83,6 +84,24 @@ def test_callback_service_providers_have_no_mutable_globals() -> None:
 
     assert not hasattr(callback_service, "backend_client")
     assert not hasattr(callback_service, "workspace_export_service")
+
+
+def _assert_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert "dict" not in str(annotation)
+    assert get_origin(annotation) is Mapping
+    assert get_args(annotation) == (str, object)
+
+
+def test_callback_backend_client_forward_callback_port_is_mapping_str_object() -> None:
+    """Regression: callback forwarding port uses Mapping[str, object]."""
+    import typing
+
+    hints = typing.get_type_hints(CallbackBackendClient.forward_callback)
+
+    _assert_mapping_str_object(hints.get("callback_data"))
+    _assert_mapping_str_object(hints.get("return"))
 
 
 def test_callback_service_defers_default_runtime_adapters() -> None:

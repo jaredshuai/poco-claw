@@ -395,6 +395,44 @@ class TestBackendClientForwardCallback:
 
                 assert result == {}
 
+    async def test_forward_callback_returns_empty_mapping_for_non_mapping_data(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": ["raw", "payload"]}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.forward_callback({"event": "completed"})
+
+                assert result == {}
+
+    async def test_forward_callback_returns_empty_mapping_for_non_string_mapping_keys(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {123: "received"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.forward_callback({"event": "completed"})
+
+                assert result == {}
+
 
 @pytest.mark.asyncio
 class TestBackendClientClaimRun:
@@ -524,6 +562,16 @@ def _assert_mapping_str_object(annotation: object) -> None:
     assert "dict" not in str(annotation)
     assert get_origin(annotation) is Mapping
     assert get_args(annotation) == (str, object)
+
+
+def test_backend_client_forward_callback_port_is_mapping_str_object() -> None:
+    """Regression: forward_callback port uses Mapping[str, object], not Any or dict."""
+    import typing
+
+    hints = typing.get_type_hints(BackendClient.forward_callback)
+
+    _assert_mapping_str_object(hints.get("callback_data"))
+    _assert_mapping_str_object(hints.get("return"))
 
 
 def test_backend_client_start_fail_run_return_is_mapping_str_object() -> None:

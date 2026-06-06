@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Protocol
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 class CallbackBackendClient(Protocol):
     async def forward_callback(
-        self, callback_data: dict[str, Any]
-    ) -> dict[str, Any]: ...
+        self, callback_data: Mapping[str, object]
+    ) -> Mapping[str, object]: ...
 
     async def record_mcp_transition(
         self,

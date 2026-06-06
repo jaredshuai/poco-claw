@@ -191,12 +191,12 @@ class ConfigResolver:
     async def resolve(
         self,
         user_id: str,
-        config_snapshot: dict,
+        config_snapshot: dict[str, object],
         *,
         session_id: str | None = None,
         task_id: str | None = None,
         run_id: str | None = None,
-    ) -> dict:
+    ) -> dict[str, object]:
         started = time.perf_counter()
         ctx = {
             "user_id": user_id,
@@ -395,7 +395,9 @@ class ConfigResolver:
         return resolved
 
     @staticmethod
-    def _resolve_git_token(config_snapshot: dict, env_map: dict[str, str]) -> dict:
+    def _resolve_git_token(
+        config_snapshot: dict[str, object], env_map: dict[str, str]
+    ) -> dict[str, object]:
         """Resolve git token for private GitHub repos.
 
         We only store the env var key (git_token_env_key) in persisted snapshots.
@@ -430,7 +432,7 @@ class ConfigResolver:
 
     def _resolve_model_env_overrides(
         self,
-        config_snapshot: dict,
+        config_snapshot: dict[str, object],
         env_map: dict[str, str],
         *,
         user_id: str,
@@ -550,7 +552,7 @@ class ConfigResolver:
         return settings if isinstance(settings, dict) else {}
 
     async def _resolve_effective_mcp_config(
-        self, user_id: str, config_snapshot: dict
+        self, user_id: str, config_snapshot: dict[str, object]
     ) -> dict[str, object]:
         """Resolve MCP config for execution.
 
@@ -575,7 +577,7 @@ class ConfigResolver:
         return mcp_config if isinstance(mcp_config, dict) else {}
 
     async def _resolve_effective_skill_files(
-        self, user_id: str, config_snapshot: dict
+        self, user_id: str, config_snapshot: dict[str, object]
     ) -> dict[str, object]:
         """Resolve skills for execution.
 
@@ -593,7 +595,7 @@ class ConfigResolver:
         return legacy if isinstance(legacy, dict) else {}
 
     async def _resolve_effective_plugin_files(
-        self, user_id: str, config_snapshot: dict
+        self, user_id: str, config_snapshot: dict[str, object]
     ) -> dict[str, object]:
         """Resolve plugins for execution.
 
@@ -611,7 +613,7 @@ class ConfigResolver:
         return legacy if isinstance(legacy, dict) else {}
 
     async def _resolve_effective_subagents(
-        self, user_id: str, config_snapshot: dict
+        self, user_id: str, config_snapshot: dict[str, object]
     ) -> dict[str, object]:
         subagent_ids: list[int] | None
         if "subagent_ids" not in config_snapshot:
@@ -681,7 +683,9 @@ class ConfigResolver:
         return ids
 
     @staticmethod
-    def _build_hook_specs(execution_settings: dict) -> list[dict]:
+    def _build_hook_specs(
+        execution_settings: dict[str, object],
+    ) -> list[dict[str, object]]:
         hooks = execution_settings.get("hooks")
         if not isinstance(hooks, dict):
             return []
@@ -689,7 +693,7 @@ class ConfigResolver:
         if not isinstance(pipeline, list):
             return []
 
-        normalized: list[dict] = []
+        normalized: list[dict[str, object]] = []
         for raw_spec in pipeline:
             if not isinstance(raw_spec, dict):
                 continue
@@ -726,8 +730,10 @@ class ConfigResolver:
         return normalized
 
     @staticmethod
-    def _resolve_mcp(mcp_config: dict, env_map: dict[str, str]) -> dict:
-        resolved: dict = {}
+    def _resolve_mcp(
+        mcp_config: dict[str, object], env_map: dict[str, str]
+    ) -> dict[str, object]:
+        resolved: dict[str, object] = {}
         for name, config in mcp_config.items():
             if not isinstance(config, dict):
                 resolved[name] = config
@@ -736,8 +742,10 @@ class ConfigResolver:
         return resolved
 
     @staticmethod
-    def _resolve_skills(skills: dict, env_map: dict[str, str]) -> dict:
-        resolved: dict = {}
+    def _resolve_skills(
+        skills: dict[str, object], env_map: dict[str, str]
+    ) -> dict[str, object]:
+        resolved: dict[str, object] = {}
         for name, config in (skills or {}).items():
             if not isinstance(config, dict):
                 continue
@@ -748,8 +756,10 @@ class ConfigResolver:
         return resolved
 
     @staticmethod
-    def _resolve_plugins(plugins: dict, env_map: dict[str, str]) -> dict:
-        resolved: dict = {}
+    def _resolve_plugins(
+        plugins: dict[str, object], env_map: dict[str, str]
+    ) -> dict[str, object]:
+        resolved: dict[str, object] = {}
         for name, config in (plugins or {}).items():
             if not isinstance(config, dict):
                 continue

@@ -32,6 +32,74 @@ def test_config_resolver_raw_payload_normalizers_use_object_not_any() -> None:
         assert "Any" not in str(annotation)
 
 
+def test_config_resolver_resolve_contract_is_dict_str_object() -> None:
+    """Regression: ConfigResolver.resolve should match its typed dispatch port."""
+    hints = get_type_hints(ConfigResolver.resolve)
+
+    config_snapshot_hint = hints.get("config_snapshot")
+    assert get_origin(config_snapshot_hint) is dict
+    assert get_args(config_snapshot_hint) == (str, object)
+    assert "Any" not in str(config_snapshot_hint)
+
+    return_hint = hints.get("return")
+    assert get_origin(return_hint) is dict
+    assert get_args(return_hint) == (str, object)
+    assert "Any" not in str(return_hint)
+
+
+def test_config_resolver_config_snapshot_helpers_use_dict_str_object() -> None:
+    """Regression: internal config snapshot helpers keep the same typed boundary."""
+    helpers = [
+        ConfigResolver._resolve_git_token,
+        ConfigResolver._resolve_model_env_overrides,
+        ConfigResolver._resolve_effective_mcp_config,
+        ConfigResolver._resolve_effective_skill_files,
+        ConfigResolver._resolve_effective_plugin_files,
+        ConfigResolver._resolve_effective_subagents,
+    ]
+
+    for helper in helpers:
+        hints = get_type_hints(helper)
+        config_snapshot_hint = hints.get("config_snapshot")
+
+        assert get_origin(config_snapshot_hint) is dict
+        assert get_args(config_snapshot_hint) == (str, object)
+        assert "Any" not in str(config_snapshot_hint)
+
+
+def test_config_resolver_render_helpers_use_structured_dicts() -> None:
+    """Regression: config render helpers should not expose bare dict annotations."""
+    dict_helpers = [
+        (ConfigResolver._resolve_git_token, "return"),
+        (ConfigResolver._resolve_mcp, "mcp_config"),
+        (ConfigResolver._resolve_mcp, "return"),
+        (ConfigResolver._resolve_skills, "skills"),
+        (ConfigResolver._resolve_skills, "return"),
+        (ConfigResolver._resolve_plugins, "plugins"),
+        (ConfigResolver._resolve_plugins, "return"),
+    ]
+
+    for helper, annotation_name in dict_helpers:
+        hints = get_type_hints(helper)
+        annotation = hints.get(annotation_name)
+
+        assert get_origin(annotation) is dict
+        assert get_args(annotation) == (str, object)
+        assert "Any" not in str(annotation)
+
+    hook_hints = get_type_hints(ConfigResolver._build_hook_specs)
+    execution_settings_hint = hook_hints.get("execution_settings")
+    assert get_origin(execution_settings_hint) is dict
+    assert get_args(execution_settings_hint) == (str, object)
+
+    hook_return_hint = hook_hints.get("return")
+    assert get_origin(hook_return_hint) is list
+    (hook_item_hint,) = get_args(hook_return_hint)
+    assert get_origin(hook_item_hint) is dict
+    assert get_args(hook_item_hint) == (str, object)
+    assert "Any" not in str(hook_return_hint)
+
+
 class TestResolveEnvValue(unittest.TestCase):
     """Test _resolve_env_value function."""
 

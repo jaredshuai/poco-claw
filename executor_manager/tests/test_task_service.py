@@ -16,13 +16,22 @@ from app.schemas.task import (
     TaskStatusResponse,
 )
 from app.services.task_service import (
+    BackendTaskClient,
     TaskBackendClient,
     TaskDispatcherTargetResolver,
     TaskScheduler,
     TaskSchedulerJob,
     TaskService,
+    TaskSessionCreation,
     TaskTargetResolver,
 )
+
+
+def _session_creation(
+    session_id: str = "new-session-123",
+    sdk_session_id: str | None = "sdk-123",
+) -> TaskSessionCreation:
+    return TaskSessionCreation(session_id=session_id, sdk_session_id=sdk_session_id)
 
 
 class FixedIdGenerator:
@@ -130,12 +139,7 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         mock_settings = MagicMock()
         mock_settings.anthropic_api_key = "test-key"
         mock_backend_client = MagicMock()
-        mock_backend_client.create_session = AsyncMock(
-            return_value={
-                "session_id": "new-session-123",
-                "sdk_session_id": "sdk-123",
-            }
-        )
+        mock_backend_client.create_session = AsyncMock(return_value=_session_creation())
         with patch(
             "app.services.task_service.get_settings", return_value=mock_settings
         ):
@@ -175,12 +179,7 @@ class TestTaskServiceCreateTask(unittest.TestCase):
         mock_settings = MagicMock()
         mock_settings.anthropic_api_key = "test-key"
         mock_backend_client = MagicMock()
-        mock_backend_client.create_session = AsyncMock(
-            return_value={
-                "session_id": "new-session-123",
-                "sdk_session_id": "sdk-123",
-            }
-        )
+        mock_backend_client.create_session = AsyncMock(return_value=_session_creation())
         mock_scheduler = MagicMock()
         mock_target_resolver = MagicMock()
         mock_target_resolver.resolve_executor_target = AsyncMock(
@@ -783,14 +782,40 @@ class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
         assert get_origin(config_type) is dict
         assert get_args(config_type) == (str, object)
 
-    def test_backend_client_create_session_return_is_dict_str_object(self) -> None:
+    def test_backend_client_create_session_return_is_named_session_creation(
+        self,
+    ) -> None:
         import typing
 
         hints = typing.get_type_hints(TaskBackendClient.create_session)
         return_type = hints.get("return")
 
-        assert get_origin(return_type) is dict
-        assert get_args(return_type) == (str, object)
+        assert return_type is TaskSessionCreation
+
+    def test_backend_task_client_normalizes_raw_create_session_payload(self) -> None:
+        raw_backend_client = MagicMock()
+        raw_backend_client.create_session = AsyncMock(
+            return_value={
+                "session_id": "session-from-backend",
+                "sdk_session_id": "sdk-from-backend",
+            }
+        )
+
+        client = BackendTaskClient(raw_backend_client)
+
+        import asyncio
+
+        result = asyncio.run(
+            client.create_session(
+                user_id="user-123",
+                config={"browser_enabled": False},
+            )
+        )
+
+        assert result == TaskSessionCreation(
+            session_id="session-from-backend",
+            sdk_session_id="sdk-from-backend",
+        )
 
     def test_backend_client_get_session_return_is_dict_str_object(self) -> None:
         import typing

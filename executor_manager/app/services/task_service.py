@@ -1,6 +1,7 @@
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
@@ -22,22 +23,53 @@ from app.services.id_generator import IdGenerator, UuidIdGenerator
 logger = logging.getLogger(__name__)
 
 
-class TaskBackendSettings(Protocol):
-    backend_url: str
+@dataclass(frozen=True)
+class TaskSessionCreation:
+    session_id: str
+    sdk_session_id: str | None
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> "TaskSessionCreation":
+        raw_session_id = payload.get("session_id")
+        if not isinstance(raw_session_id, str):
+            raise ValueError("Backend session response missing session_id")
+        raw_sdk_session_id = payload.get("sdk_session_id")
+        return cls(
+            session_id=raw_session_id,
+            sdk_session_id=(
+                raw_sdk_session_id if isinstance(raw_sdk_session_id, str) else None
+            ),
+        )
+
+
+class TaskBackendRawClient(Protocol):
+    async def create_session(
+        self, user_id: str, config: dict[str, object]
+    ) -> Mapping[str, object]: ...
+
+    async def get_session(self, session_id: str) -> dict[str, object]: ...
 
 
 class TaskBackendClient(Protocol):
-    @property
-    def settings(self) -> TaskBackendSettings: ...
+    async def create_session(
+        self, user_id: str, config: dict[str, object]
+    ) -> TaskSessionCreation: ...
 
-    @staticmethod
-    def _trace_headers() -> dict[str, str]: ...
+    async def get_session(self, session_id: str) -> dict[str, object]: ...
+
+
+class BackendTaskClient:
+    def __init__(self, backend_client: TaskBackendRawClient) -> None:
+        self.backend_client = backend_client
 
     async def create_session(
         self, user_id: str, config: dict[str, object]
-    ) -> dict[str, object]: ...
+    ) -> TaskSessionCreation:
+        payload = await self.backend_client.create_session(user_id, config)
+        return TaskSessionCreation.from_payload(payload)
 
-    async def get_session(self, session_id: str) -> dict[str, object]: ...
+    async def get_session(self, session_id: str) -> dict[str, object]:
+        return await self.backend_client.get_session(session_id)
 
 
 class TaskSchedulerJob(Protocol):
@@ -65,7 +97,7 @@ class TaskTargetResolver(Protocol):
 def build_backend_client() -> TaskBackendClient:
     from app.services.backend_client import BackendClient
 
-    return BackendClient()
+    return BackendTaskClient(BackendClient())
 
 
 def build_task_scheduler() -> TaskScheduler:
@@ -180,14 +212,8 @@ class TaskService:
                 session_info = await backend_client.create_session(
                     user_id=user_id, config=config
                 )
-                raw_session_id = session_info.get("session_id")
-                if not isinstance(raw_session_id, str):
-                    raise ValueError("Backend session response missing session_id")
-                raw_sdk_session_id = session_info.get("sdk_session_id")
-                sdk_session_id = (
-                    raw_sdk_session_id if isinstance(raw_sdk_session_id, str) else None
-                )
-                active_session_id = raw_session_id
+                sdk_session_id = session_info.sdk_session_id
+                active_session_id = session_info.session_id
                 logger.info(
                     "timing",
                     extra={

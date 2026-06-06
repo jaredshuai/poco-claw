@@ -77,37 +77,38 @@ class BackendClient:
         }
 
     @staticmethod
-    def _data_mapping(data: object) -> dict[str, object] | None:
+    def _string_key_mapping(data: object) -> dict[str, object] | None:
         if not isinstance(data, Mapping):
-            return None
-        result = data.get("data")
-        if not isinstance(result, Mapping):
             return None
 
         normalized: dict[str, object] = {}
-        for key, value in result.items():
+        for key, value in data.items():
             if not isinstance(key, str):
                 return None
             normalized[key] = value
         return normalized
 
-    @staticmethod
-    def _data_mapping_list(data: object) -> list[Mapping[str, object]]:
-        if not isinstance(data, Mapping):
+    @classmethod
+    def _data_mapping(cls, data: object) -> dict[str, object] | None:
+        payload = cls._string_key_mapping(data)
+        if payload is None:
+            return None
+        return cls._string_key_mapping(payload.get("data"))
+
+    @classmethod
+    def _data_mapping_list(cls, data: object) -> list[Mapping[str, object]]:
+        payload = cls._string_key_mapping(data)
+        if payload is None:
             return []
-        result = data.get("data")
+        result = payload.get("data")
         if not isinstance(result, list):
             return []
 
         normalized: list[Mapping[str, object]] = []
         for item in result:
-            if not isinstance(item, Mapping):
+            mapped = cls._string_key_mapping(item)
+            if mapped is None:
                 return []
-            mapped: dict[str, object] = {}
-            for key, value in item.items():
-                if not isinstance(key, str):
-                    return []
-                mapped[key] = value
             normalized.append(mapped)
         return normalized
 
@@ -277,7 +278,7 @@ class BackendClient:
         folder_path: str,
         skill_name: str | None,
         workspace_files_prefix: str,
-    ) -> dict[str, Any]:
+    ) -> Mapping[str, object]:
         response = await self._request(
             "POST",
             "/api/v1/internal/skills/submit-from-workspace",
@@ -290,7 +291,7 @@ class BackendClient:
             headers=self._internal_headers(),
         )
         data = response.json()
-        return data if isinstance(data, dict) else {}
+        return self._string_key_mapping(data) or {}
 
     async def resolve_plugin_config(
         self, user_id: str, plugin_ids: list[int]

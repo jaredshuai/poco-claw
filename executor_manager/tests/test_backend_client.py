@@ -600,6 +600,17 @@ def test_backend_client_start_fail_run_return_is_mapping_str_object() -> None:
     _assert_mapping_str_object(fail_hints.get("return"))
 
 
+def test_backend_client_submit_skill_from_workspace_return_is_mapping_str_object() -> (
+    None
+):
+    """Regression: skill submission adapter returns Mapping[str, object]."""
+    import typing
+
+    hints = typing.get_type_hints(BackendClient.submit_skill_from_workspace)
+
+    _assert_mapping_str_object(hints.get("return"))
+
+
 @pytest.mark.asyncio
 class TestBackendClientRunOperations:
     """Test BackendClient run operations: start_run, fail_run."""
@@ -1006,6 +1017,31 @@ class TestBackendClientResolveSkillConfig:
             },
             headers={"X-Internal-Token": "token-123"},
         )
+
+    async def test_submit_skill_from_workspace_rejects_raw_top_level_payloads(
+        self,
+    ) -> None:
+        settings = SimpleNamespace(
+            backend_url="http://backend",
+            internal_api_token="token-123",
+        )
+        client = BackendClient(settings=settings, http_client=MagicMock())
+
+        async def call_with_response(response_data: object) -> Mapping[str, object]:
+            mock_response = MagicMock()
+            mock_response.json.return_value = response_data
+            with patch.object(
+                client, "_request", AsyncMock(return_value=mock_response)
+            ):
+                return await client.submit_skill_from_workspace(
+                    "session-123",
+                    folder_path="/staged/skill-folder",
+                    skill_name="my-skill",
+                    workspace_files_prefix="files/prefix/",
+                )
+
+        assert await call_with_response(["raw", "payload"]) == {}
+        assert await call_with_response({123: "skill-job-123"}) == {}
 
 
 @pytest.mark.asyncio

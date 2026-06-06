@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import Protocol
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 
 from app.core.deps import require_callback_token
 from app.schemas.response import Response, ResponseSchema
+from app.schemas.workspace import WorkspaceExportResult
 from app.services.backend_client import BackendClient
 from app.services.workspace_export_service import WorkspaceExportService
 
@@ -23,7 +25,7 @@ class SkillsUploadBackendClient(Protocol):
         folder_path: str,
         skill_name: str | None,
         workspace_files_prefix: str,
-    ) -> dict[str, Any]: ...
+    ) -> Mapping[str, object]: ...
 
 
 class SkillsUploadWorkspaceExportService(Protocol):
@@ -31,7 +33,9 @@ class SkillsUploadWorkspaceExportService(Protocol):
         self, session_id: str, *, folder_path: str
     ) -> str: ...
 
-    def export_workspace_folder(self, session_id: str, *, folder_path: str) -> Any: ...
+    def export_workspace_folder(
+        self, session_id: str, *, folder_path: str
+    ) -> WorkspaceExportResult: ...
 
 
 def build_backend_client() -> SkillsUploadBackendClient:
@@ -109,17 +113,21 @@ async def submit_skill(
             workspace_files_prefix=workspace_files_prefix,
         )
     except httpx.HTTPStatusError as exc:
-        detail = exc.response.text
+        detail: object = exc.response.text
         try:
             payload = exc.response.json()
-            detail = payload.get("message") or payload.get("detail") or detail
+            if isinstance(payload, Mapping):
+                detail = payload.get("message") or payload.get("detail") or detail
         except Exception:
             pass
         raise HTTPException(
             status_code=exc.response.status_code, detail=detail
         ) from exc
 
+    message = payload.get("message")
+    if not isinstance(message, str) or not message:
+        message = "Skill submission queued successfully"
     return Response.success(
         data=payload.get("data"),
-        message=payload.get("message", "Skill submission queued successfully"),
+        message=message,
     )

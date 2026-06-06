@@ -4,7 +4,9 @@ from contextlib import contextmanager
 import importlib.util
 import sys
 import unittest
+from collections.abc import Mapping
 from pathlib import Path
+from typing import get_args, get_origin
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -130,6 +132,35 @@ def test_skills_upload_providers_have_no_mutable_globals() -> None:
     assert not hasattr(skills_upload, "workspace_export_service")
 
 
+def _assert_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert "dict" not in str(annotation)
+    assert get_origin(annotation) is Mapping
+    assert get_args(annotation) == (str, object)
+
+
+def test_skills_upload_ports_are_structured() -> None:
+    """Regression: route ports avoid Any/raw dict and use concrete export result."""
+    import typing
+
+    from app.api.v1.skills_upload import (
+        SkillsUploadBackendClient,
+        SkillsUploadWorkspaceExportService,
+    )
+    from app.schemas.workspace import WorkspaceExportResult
+
+    backend_hints = typing.get_type_hints(
+        SkillsUploadBackendClient.submit_skill_from_workspace
+    )
+    export_hints = typing.get_type_hints(
+        SkillsUploadWorkspaceExportService.export_workspace_folder
+    )
+
+    _assert_mapping_str_object(backend_hints.get("return"))
+    assert export_hints.get("return") is WorkspaceExportResult
+
+
 class TestSkillsUploadEndpoints(unittest.TestCase):
     """Test /api/v1/skills endpoints."""
 
@@ -187,6 +218,61 @@ class TestSkillsUploadEndpoints(unittest.TestCase):
             data = response.json()
             assert data["code"] == 0
             assert data["data"]["job_id"] == "skill-job-123"
+
+    def test_submit_skill_defaults_non_string_backend_message(self) -> None:
+        """Test route only forwards string backend messages."""
+        from app.main import app
+
+        mock_export_result = MagicMock()
+        mock_export_result.workspace_export_status = "ready"
+        mock_export_result.workspace_files_prefix = "files/prefix/"
+        mock_export_result.error = None
+
+        mock_export_service = MagicMock()
+        mock_export_service.stage_skill_submission_folder = MagicMock(
+            return_value="/staged/skill-folder"
+        )
+        mock_export_service.export_workspace_folder = MagicMock(
+            return_value=mock_export_result
+        )
+
+        mock_client = MagicMock()
+        mock_client.submit_skill_from_workspace = AsyncMock(
+            return_value={
+                "data": {"job_id": "skill-job-123"},
+                "message": {"raw": "payload"},
+            }
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.callback_token = "callback-token"
+
+        with (
+            _dependency_overrides(
+                app,
+                backend=mock_client,
+                exporter=mock_export_service,
+            ),
+            patch(
+                "app.core.deps.get_settings",
+                return_value=mock_settings,
+            ),
+        ):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/skills/submit",
+                json={
+                    "session_id": "session-123",
+                    "folder_path": "/workspace/skill-folder",
+                    "skill_name": "my-skill",
+                },
+                headers={"Authorization": "Bearer callback-token"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message"] == "Skill submission queued successfully"
+        assert data["data"]["job_id"] == "skill-job-123"
 
     def test_submit_skill_delegates_backend_internal_auth_to_client(self) -> None:
         """Test skill submission does not build internal auth headers in the route."""

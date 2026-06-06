@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+import uuid
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -22,12 +23,14 @@ from app.api.v1 import (  # noqa: E402
     internal_permission_audit,
     internal_runs,
     internal_scheduled_tasks,
+    internal_user_input_requests,
     runs,
 )
 from app.core.deps import get_db  # noqa: E402
 from app.core.errors.exception_handlers import setup_exception_handlers  # noqa: E402
 from app.schemas.callback import CallbackResponse, CallbackStatus  # noqa: E402
 from app.schemas.scheduled_task import ScheduledTaskDispatchResponse  # noqa: E402
+from app.schemas.user_input_request import UserInputRequestResponse  # noqa: E402
 
 
 def _client() -> TestClient:
@@ -38,12 +41,28 @@ def _client() -> TestClient:
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
     app.include_router(internal_scheduled_tasks.router)
+    app.include_router(internal_user_input_requests.router)
     app.include_router(callback.router)
     return TestClient(app)
 
 
 def _settings():
     return SimpleNamespace(internal_api_token="internal-token")
+
+
+def _user_input_response() -> UserInputRequestResponse:
+    return UserInputRequestResponse(
+        id=uuid.UUID("00000000-0000-0000-0000-000000000101"),
+        session_id=uuid.UUID("00000000-0000-0000-0000-000000000102"),
+        tool_name="AskUserQuestion",
+        tool_input={"question": "Proceed?"},
+        status="pending",
+        answers=None,
+        expires_at=datetime(2026, 1, 1, tzinfo=UTC),
+        answered_at=None,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
 
 
 def test_run_claim_requires_internal_token():
@@ -357,6 +376,109 @@ def test_internal_scheduled_task_dispatch_accepts_valid_token_and_service():
 
     assert response.status_code == 200
     dispatch_due.assert_called_once_with(db, limit=10)
+
+
+def test_internal_user_input_create_requires_service_identity():
+    """User input request creation with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    payload = {
+        "session_id": "00000000-0000-0000-0000-000000000102",
+        "tool_name": "AskUserQuestion",
+        "tool_input": {"question": "Proceed?"},
+    }
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_user_input_requests.user_input_service.create_request",
+            return_value=_user_input_response(),
+        ) as create_request:
+            response = client.post(
+                "/internal/user-input-requests",
+                json=payload,
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    create_request.assert_not_called()
+
+
+def test_internal_user_input_create_accepts_valid_token_and_service():
+    """User input request creation accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+    payload = {
+        "session_id": "00000000-0000-0000-0000-000000000102",
+        "tool_name": "AskUserQuestion",
+        "tool_input": {"question": "Proceed?"},
+    }
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_user_input_requests.user_input_service.create_request",
+            return_value=_user_input_response(),
+        ) as create_request:
+            response = client.post(
+                "/internal/user-input-requests",
+                json=payload,
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    create_request.assert_called_once()
+    assert create_request.call_args.args[0] is db
+
+
+def test_internal_user_input_get_requires_service_identity():
+    """User input request retrieval with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_user_input_requests.user_input_service.get_request",
+            return_value=_user_input_response(),
+        ) as get_request:
+            response = client.get(
+                "/internal/user-input-requests/00000000-0000-0000-0000-000000000101",
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    get_request.assert_not_called()
+
+
+def test_internal_user_input_get_accepts_valid_token_and_service():
+    """User input request retrieval accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_user_input_requests.user_input_service.get_request",
+            return_value=_user_input_response(),
+        ) as get_request:
+            response = client.get(
+                "/internal/user-input-requests/00000000-0000-0000-0000-000000000101",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    get_request.assert_called_once_with(
+        db, request_id="00000000-0000-0000-0000-000000000101"
+    )
 
 
 def test_callback_requires_internal_token():

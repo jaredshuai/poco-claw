@@ -6,7 +6,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
-from typing import get_args, get_origin
+from typing import Any, get_args, get_origin, get_type_hints
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -33,6 +33,15 @@ def _assert_dict_str_object(annotation: object) -> None:
     assert "Any" not in str(annotation)
     assert get_origin(annotation) is dict
     assert get_args(annotation) == (str, object)
+
+
+def _assert_optional_dict_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    union_args = get_args(annotation)
+    assert type(None) in union_args
+    dict_hint = next(arg for arg in union_args if get_origin(arg) is dict)
+    assert get_args(dict_hint) == (str, object)
 
 
 def _load_memories_module_from_source():
@@ -130,6 +139,32 @@ def test_memories_backend_client_protocol_ports_are_structured() -> None:
     for method_name in ("create_memory", "search_memories", "update_memory"):
         hints = typing.get_type_hints(getattr(MemoriesBackendClient, method_name))
         _assert_dict_str_object(hints.get("payload"))
+
+
+def test_memory_schema_payload_fields_do_not_expose_any() -> None:
+    """Regression: memory DTO payload fields should use object, not Any."""
+    from app.schemas.memory import (
+        MemoryCreateJobResponse,
+        MemoryCreateRequest,
+        MemorySearchRequest,
+        MemoryUpdateRequest,
+    )
+
+    create_hints = get_type_hints(MemoryCreateRequest)
+    search_hints = get_type_hints(MemorySearchRequest)
+    update_hints = get_type_hints(MemoryUpdateRequest)
+    job_hints = get_type_hints(MemoryCreateJobResponse)
+
+    _assert_optional_dict_str_object(create_hints["metadata"])
+    _assert_optional_dict_str_object(search_hints["filters"])
+    _assert_optional_dict_str_object(update_hints["metadata"])
+
+    result_hint = job_hints["result"]
+    result_args = get_args(result_hint)
+    assert type(None) in result_args
+    assert object in result_args
+    assert Any not in result_args
+    assert "Any" not in str(result_hint)
 
 
 class TestMemoriesEndpoints(unittest.TestCase):

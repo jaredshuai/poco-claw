@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +20,7 @@ class MemoryCreateRequest(BaseModel):
         min_length=1,
         description="Conversation messages used to extract and store memories.",
     )
-    metadata: dict[str, Any] | None = None
+    metadata: dict[str, object] | None = None
 
 
 class MemorySearchRequest(BaseModel):
@@ -29,7 +28,7 @@ class MemorySearchRequest(BaseModel):
 
     session_id: str = Field(..., description="Session identifier.")
     query: str = Field(..., description="Search query.")
-    filters: dict[str, Any] | None = None
+    filters: dict[str, object] | None = None
 
 
 class MemoryUpdateRequest(BaseModel):
@@ -37,7 +36,7 @@ class MemoryUpdateRequest(BaseModel):
 
     session_id: str = Field(..., description="Session identifier.")
     text: str = Field(..., min_length=1, description="Updated memory text.")
-    metadata: dict[str, Any] | None = Field(
+    metadata: dict[str, object] | None = Field(
         default=None,
         description="Optional metadata for update operations.",
     )
@@ -56,7 +55,7 @@ class MemoryCreateJobResponse(BaseModel):
     job_id: uuid.UUID
     status: str
     progress: int = 0
-    result: Any | None = None
+    result: object | None = None
     error: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

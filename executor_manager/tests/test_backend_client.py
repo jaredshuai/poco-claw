@@ -135,6 +135,24 @@ class TestBackendClientTraceHeaders(unittest.TestCase):
         }
 
 
+def test_backend_client_request_kwargs_are_typed_backend_request_kwargs() -> None:
+    """Regression: _request kwargs should use an explicit request kwargs type, not Any."""
+    import typing
+    from app.services.backend_client import BackendRequestKwargs
+
+    hints = typing.get_type_hints(BackendClient._request)
+    kwargs_hint = hints.get("kwargs")
+
+    assert kwargs_hint is not None
+    assert "Any" not in str(kwargs_hint)
+    assert typing.get_origin(kwargs_hint) is typing.Unpack
+    assert typing.get_args(kwargs_hint) == (BackendRequestKwargs,)
+
+    request_kwargs_hints = typing.get_type_hints(BackendRequestKwargs)
+    assert {"headers", "json", "params"} <= set(request_kwargs_hints)
+    assert "Any" not in str(request_kwargs_hints)
+
+
 @pytest.mark.asyncio
 class TestBackendClientRequest:
     """Test BackendClient._request method."""

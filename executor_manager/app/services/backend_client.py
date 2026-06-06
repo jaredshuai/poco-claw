@@ -1,6 +1,6 @@
 import asyncio
-from collections.abc import Callable, Mapping
-from typing import Any, Protocol
+from collections.abc import Callable, Mapping, Sequence
+from typing import Protocol, TypedDict, Unpack
 
 import httpx
 
@@ -16,6 +16,18 @@ from app.core.observability.request_context import (
 class BackendClientSettings(Protocol):
     backend_url: str
     internal_api_token: str
+
+
+BackendQueryParamPrimitive = str | int | float | bool | None
+BackendQueryParamValue = (
+    BackendQueryParamPrimitive | Sequence[BackendQueryParamPrimitive]
+)
+
+
+class BackendRequestKwargs(TypedDict, total=False):
+    headers: Mapping[str, str]
+    json: object
+    params: Mapping[str, BackendQueryParamValue]
 
 
 def build_backend_http_client(base_url: str) -> httpx.AsyncClient:
@@ -118,7 +130,7 @@ class BackendClient:
         path: str,
         *,
         retry_connect_errors: int = 0,
-        **kwargs: Any,
+        **kwargs: Unpack[BackendRequestKwargs],
     ) -> httpx.Response:
         attempt = 0
         while True:

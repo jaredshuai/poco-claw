@@ -47,7 +47,7 @@ class TaskBackendRawClient(Protocol):
         self, user_id: str, config: dict[str, object]
     ) -> Mapping[str, object]: ...
 
-    async def get_session(self, session_id: str) -> dict[str, object]: ...
+    async def get_session(self, session_id: str) -> Mapping[str, object]: ...
 
 
 class TaskBackendClient(Protocol):
@@ -55,7 +55,7 @@ class TaskBackendClient(Protocol):
         self, user_id: str, config: dict[str, object]
     ) -> TaskSessionCreation: ...
 
-    async def get_session(self, session_id: str) -> dict[str, object]: ...
+    async def get_session(self, session_id: str) -> SessionStatusResponse: ...
 
 
 class BackendTaskClient:
@@ -68,8 +68,9 @@ class BackendTaskClient:
         payload = await self.backend_client.create_session(user_id, config)
         return TaskSessionCreation.from_payload(payload)
 
-    async def get_session(self, session_id: str) -> dict[str, object]:
-        return await self.backend_client.get_session(session_id)
+    async def get_session(self, session_id: str) -> SessionStatusResponse:
+        payload = await self.backend_client.get_session(session_id)
+        return SessionStatusResponse.model_validate(payload)
 
 
 class TaskSchedulerJob(Protocol):
@@ -366,8 +367,7 @@ class TaskService:
         backend_client = self.backend_client_factory()
 
         try:
-            session_data = await backend_client.get_session(session_id)
-            return SessionStatusResponse.model_validate(session_data)
+            return await backend_client.get_session(session_id)
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:

@@ -34,6 +34,22 @@ def _session_creation(
     return TaskSessionCreation(session_id=session_id, sdk_session_id=sdk_session_id)
 
 
+def _session_status(
+    session_id: str = "session-123",
+    user_id: str = "user-123",
+    sdk_session_id: str | None = "sdk-123",
+    status: str = "running",
+) -> SessionStatusResponse:
+    return SessionStatusResponse(
+        session_id=session_id,
+        user_id=user_id,
+        sdk_session_id=sdk_session_id,
+        status=status,
+        created_at=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+        updated_at=datetime.fromisoformat("2026-01-01T01:00:00+00:00"),
+    )
+
+
 class FixedIdGenerator:
     def __init__(self, *ids: str) -> None:
         self._ids = list(ids)
@@ -587,16 +603,7 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
         mock_settings = MagicMock()
         mock_settings.anthropic_api_key = "test-key"
         mock_backend_client = MagicMock()
-        mock_backend_client.get_session = AsyncMock(
-            return_value={
-                "session_id": "session-123",
-                "user_id": "user-123",
-                "sdk_session_id": "sdk-123",
-                "status": "running",
-                "created_at": "2026-01-01T00:00:00Z",
-                "updated_at": "2026-01-01T01:00:00Z",
-            }
-        )
+        mock_backend_client.get_session = AsyncMock(return_value=_session_status())
         with patch(
             "app.services.task_service.get_settings", return_value=mock_settings
         ):
@@ -817,14 +824,36 @@ class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
             sdk_session_id="sdk-from-backend",
         )
 
-    def test_backend_client_get_session_return_is_dict_str_object(self) -> None:
+    def test_backend_client_get_session_return_is_session_status_response(self) -> None:
         import typing
 
         hints = typing.get_type_hints(TaskBackendClient.get_session)
         return_type = hints.get("return")
 
-        assert get_origin(return_type) is dict
-        assert get_args(return_type) == (str, object)
+        assert return_type is SessionStatusResponse
+
+    def test_backend_task_client_normalizes_raw_get_session_payload(self) -> None:
+        raw_backend_client = MagicMock()
+        raw_backend_client.get_session = AsyncMock(
+            return_value={
+                "session_id": "session-from-backend",
+                "user_id": "user-from-backend",
+                "sdk_session_id": "sdk-from-backend",
+                "status": "running",
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T01:00:00Z",
+            }
+        )
+
+        client = BackendTaskClient(raw_backend_client)
+
+        import asyncio
+
+        result = asyncio.run(client.get_session("session-from-backend"))
+
+        assert isinstance(result, SessionStatusResponse)
+        assert result.session_id == "session-from-backend"
+        assert result.user_id == "user-from-backend"
 
     def test_create_task_config_is_dict_str_object(self) -> None:
         import typing

@@ -518,6 +518,25 @@ def test_backend_client_claim_run_return_is_mapping_str_object_or_none() -> None
     assert get_args(mapping_type) == (str, object)
 
 
+def _assert_mapping_str_object(annotation: object) -> None:
+    assert annotation is not None
+    assert "Any" not in str(annotation)
+    assert "dict" not in str(annotation)
+    assert get_origin(annotation) is Mapping
+    assert get_args(annotation) == (str, object)
+
+
+def test_backend_client_start_fail_run_return_is_mapping_str_object() -> None:
+    """Regression: start/fail run adapters return Mapping[str, object], not bare dict."""
+    import typing
+
+    start_hints = typing.get_type_hints(BackendClient.start_run)
+    fail_hints = typing.get_type_hints(BackendClient.fail_run)
+
+    _assert_mapping_str_object(start_hints.get("return"))
+    _assert_mapping_str_object(fail_hints.get("return"))
+
+
 @pytest.mark.asyncio
 class TestBackendClientRunOperations:
     """Test BackendClient run operations: start_run, fail_run."""
@@ -612,6 +631,42 @@ class TestBackendClientRunOperations:
                 )
 
                 assert result["status"] == "failed"
+
+    async def test_start_run_returns_empty_mapping_for_non_mapping_data(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": ["raw", "state"]}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.start_run("run-123", "worker-1")
+
+                assert result == {}
+
+    async def test_fail_run_returns_empty_mapping_for_non_string_mapping_keys(
+        self,
+    ) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {123: "failed"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.fail_run("run-123", "worker-1")
+
+                assert result == {}
 
 
 @pytest.mark.asyncio

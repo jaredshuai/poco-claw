@@ -76,6 +76,21 @@ class BackendClient:
             "X-User-Id": user_id,
         }
 
+    @staticmethod
+    def _data_mapping(data: object) -> dict[str, object] | None:
+        if not isinstance(data, Mapping):
+            return None
+        result = data.get("data")
+        if not isinstance(result, Mapping):
+            return None
+
+        normalized: dict[str, object] = {}
+        for key, value in result.items():
+            if not isinstance(key, str):
+                return None
+            normalized[key] = value
+        return normalized
+
     async def _request(
         self,
         method: str,
@@ -166,22 +181,13 @@ class BackendClient:
             retry_connect_errors=2,
         )
         data = response.json()
-        result = data.get("data") if isinstance(data, Mapping) else None
-        if not isinstance(result, Mapping):
-            return None
-
-        normalized: dict[str, object] = {}
-        for key, value in result.items():
-            if not isinstance(key, str):
-                return None
-            normalized[key] = value
-        return normalized
+        return self._data_mapping(data)
 
     async def start_run(
         self, run_id: object, worker_id: str, lease_seconds: int | None = None
-    ) -> dict:
+    ) -> Mapping[str, object]:
         """Mark run as running."""
-        payload: dict = {"worker_id": worker_id}
+        payload: dict[str, object] = {"worker_id": worker_id}
         if lease_seconds is not None:
             payload["lease_seconds"] = lease_seconds
         response = await self._request(
@@ -192,11 +198,11 @@ class BackendClient:
             retry_connect_errors=2,
         )
         data = response.json()
-        return data["data"]
+        return self._data_mapping(data) or {}
 
     async def fail_run(
         self, run_id: object, worker_id: str, error_message: str | None = None
-    ) -> dict:
+    ) -> Mapping[str, object]:
         """Mark run as failed."""
         response = await self._request(
             "POST",
@@ -206,7 +212,7 @@ class BackendClient:
             retry_connect_errors=2,
         )
         data = response.json()
-        return data["data"]
+        return self._data_mapping(data) or {}
 
     async def get_env_map(self, user_id: str) -> dict[str, str]:
         response = await self._request(

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 from app.services.container_pool import (
     ContainerPool,
     DockerClientProtocol,
+    DockerContainer,
     DockerContainersAPI,
     DockerImagesAPI,
     build_container_docker_client,
@@ -362,6 +363,48 @@ def test_docker_containers_api_protocol_declares_required_members() -> None:
     assert "get" in annotations or hasattr(DockerContainersAPI, "get")
     assert "run" in annotations or hasattr(DockerContainersAPI, "run")
     assert "list" in annotations or hasattr(DockerContainersAPI, "list")
+
+
+def test_docker_containers_api_returns_docker_container_not_any() -> None:
+    """Regression: Docker container API returns typed container protocol objects."""
+    get_hints = get_type_hints(DockerContainersAPI.get)
+    run_hints = get_type_hints(DockerContainersAPI.run)
+    list_hints = get_type_hints(DockerContainersAPI.list)
+
+    assert get_hints["return"] is DockerContainer
+    assert run_hints["return"] is DockerContainer
+    assert "Any" not in str(get_hints["return"])
+    assert "Any" not in str(run_hints["return"])
+
+    list_return_hint = list_hints["return"]
+    assert get_origin(list_return_hint) is list
+    assert get_args(list_return_hint) == (DockerContainer,)
+    assert "Any" not in str(list_return_hint)
+
+
+def test_docker_containers_api_payload_annotations_use_object_not_any() -> None:
+    """Regression: Docker API payload values avoid Any at the port boundary."""
+    run_hints = get_type_hints(DockerContainersAPI.run)
+    list_hints = get_type_hints(DockerContainersAPI.list)
+
+    assert run_hints["kwargs"] is object
+    assert "Any" not in str(run_hints["kwargs"])
+
+    filters_hint = list_hints["filters"]
+    assert "Any" not in str(filters_hint)
+    assert "dict[str, object]" in str(filters_hint)
+
+
+def test_docker_container_protocol_declares_runtime_members() -> None:
+    """Verify DockerContainer captures the runtime members ContainerPool needs."""
+    annotations = getattr(DockerContainer, "__annotations__", {})
+
+    for member in ("id", "labels", "name", "ports", "attrs", "status"):
+        assert member in annotations
+        assert "Any" not in str(annotations[member])
+
+    for method_name in ("reload", "remove", "stop"):
+        assert hasattr(DockerContainer, method_name)
 
 
 def test_docker_images_api_protocol_declares_required_members() -> None:

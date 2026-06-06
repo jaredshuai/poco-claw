@@ -2,8 +2,7 @@ import logging
 import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from typing import TYPE_CHECKING, Any, cast
-from typing import Protocol
+from typing import Protocol, cast
 
 import docker
 import docker.errors
@@ -15,9 +14,6 @@ from app.core.settings import Settings, get_settings, resolve_executor_task_leas
 from app.schemas.task import ContainerInfoResponse, ContainerStatsResponse
 from app.services.workspace_manager import WorkspaceManager
 
-if TYPE_CHECKING:
-    from docker.models.containers import Container
-
 logger = logging.getLogger(__name__)
 
 
@@ -25,16 +21,29 @@ class ContainerHealthClient(Protocol):
     def get(self, url: str) -> httpx.Response: ...
 
 
+class DockerContainer(Protocol):
+    id: str
+    labels: dict[str, object]
+    name: str
+    ports: dict[str, object]
+    attrs: dict[str, object]
+    status: str
+
+    def reload(self) -> None: ...
+    def remove(self, *, force: bool = False) -> None: ...
+    def stop(self, *, timeout: int = 10) -> None: ...
+
+
 class DockerContainersAPI(Protocol):
-    def get(self, name: str) -> Any: ...
-    def run(self, **kwargs: Any) -> Any: ...
+    def get(self, name: str) -> DockerContainer: ...
+    def run(self, **kwargs: object) -> DockerContainer: ...
     def list(
-        self, all: bool = False, filters: dict[str, Any] | None = None
-    ) -> list[Any]: ...
+        self, all: bool = False, filters: dict[str, object] | None = None
+    ) -> list[DockerContainer]: ...
 
 
 class DockerImagesAPI(Protocol):
-    def get(self, name: str) -> Any: ...
+    def get(self, name: str) -> object: ...
 
 
 class DockerClientProtocol(Protocol):
@@ -89,7 +98,7 @@ class ContainerPool:
             else build_container_health_client
         )
 
-        self.containers: dict[str, "Container"] = {}
+        self.containers: dict[str, DockerContainer] = {}
         self.session_to_container: dict[str, str] = {}
 
     @property
@@ -300,7 +309,7 @@ class ContainerPool:
             settings=self.settings,
             browser_enabled=browser_enabled,
         )
-        run_kwargs: dict[str, Any] = {
+        run_kwargs: dict[str, object] = {
             "image": image,
             "name": container_name,
             "environment": environment,
@@ -313,7 +322,7 @@ class ContainerPool:
         }
         if memory_limit is not None:
             run_kwargs["mem_limit"] = memory_limit
-        container = self.docker_client.containers.run(**cast(Any, run_kwargs))
+        container = self.docker_client.containers.run(**run_kwargs)
         logger.info(
             "timing",
             extra={
@@ -439,7 +448,7 @@ class ContainerPool:
             return False
 
     @staticmethod
-    def _extract_host_port(container: "Container") -> str | None:
+    def _extract_host_port(container: DockerContainer) -> str | None:
         port_info = getattr(container, "ports", None) or {}
         bindings = port_info.get("8000/tcp") if isinstance(port_info, dict) else None
         if isinstance(bindings, list) and bindings:
@@ -460,7 +469,7 @@ class ContainerPool:
 
     def _wait_for_port_mapping(
         self,
-        container: "Container",
+        container: DockerContainer,
         timeout: int = 30,
     ) -> str:
         started = time.perf_counter()
@@ -509,14 +518,14 @@ class ContainerPool:
         )
 
     @staticmethod
-    def _is_browser_enabled_container(container: "Container") -> bool:
+    def _is_browser_enabled_container(container: DockerContainer) -> bool:
         labels = getattr(container, "labels", None) or {}
         raw = str(labels.get("browser_enabled", "")).strip().lower()
         return raw in {"true", "1", "yes"}
 
     def _wait_for_container_ready(
         self,
-        container: "Container",
+        container: DockerContainer,
         timeout: int = 30,
     ) -> None:
         """Wait for container to start."""
@@ -671,7 +680,7 @@ class ContainerPool:
         logger.info(f"Cancelling task for session {session_id}")
 
         container_id = self.session_to_container.pop(session_id, None)
-        containers_to_stop: list["Container"] = []
+        containers_to_stop: list[DockerContainer] = []
         seen: set[str] = set()
 
         tracked = self.containers.pop(container_id, None) if container_id else None
@@ -681,7 +690,7 @@ class ContainerPool:
             if isinstance(cid, str) and cid:
                 seen.add(cid)
 
-        def _extend_unique(found: list["Container"]) -> None:
+        def _extend_unique(found: list[DockerContainer]) -> None:
             for c in found:
                 cid = getattr(c, "id", None)
                 if not isinstance(cid, str) or not cid:

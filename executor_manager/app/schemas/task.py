@@ -25,11 +25,11 @@ class TaskConfig(BaseModel):
     browser_enabled: bool = False
     # Built-in memory capability toggle (Memory MCP is injected internally by the executor).
     memory_enabled: bool = False
-    mcp_config: dict = Field(default_factory=dict)
+    mcp_config: dict[str, object] = Field(default_factory=dict)
     mcp_server_ids: list[int] = Field(default_factory=list)
-    skill_files: dict = Field(default_factory=dict)
+    skill_files: dict[str, object] = Field(default_factory=dict)
     skill_ids: list[int] = Field(default_factory=list)
-    plugin_files: dict = Field(default_factory=dict)
+    plugin_files: dict[str, object] = Field(default_factory=dict)
     plugin_ids: list[int] = Field(default_factory=list)
     input_files: list[InputFile] = Field(default_factory=list)
     user_id: str = ""
@@ -70,7 +70,7 @@ class SessionStatusResponse(BaseModel):
     session_id: str
     user_id: str
     sdk_session_id: str | None = None
-    config_snapshot: dict | None = None
+    config_snapshot: dict[str, object] | None = None
     workspace_archive_url: str | None = None
     status: str
     created_at: datetime

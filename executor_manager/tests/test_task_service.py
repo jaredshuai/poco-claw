@@ -10,6 +10,7 @@ from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.schemas.task import (
     SessionStatusResponse,
+    TaskConfig,
     TaskCreateResponse,
     TaskStatusResponse,
 )
@@ -731,6 +732,35 @@ class TestTaskServiceGetSessionStatus(unittest.TestCase):
 
 class TestTaskServiceBoundaryAnnotations(unittest.TestCase):
     """Regression tests for TaskService backend boundary annotations."""
+
+    def test_task_config_payload_fields_are_dict_str_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(TaskConfig)
+
+        for field_name in ("mcp_config", "skill_files", "plugin_files"):
+            field_type = hints.get(field_name)
+
+            assert field_type is not None
+            assert field_type is not dict
+            assert "Any" not in str(field_type)
+            assert get_origin(field_type) is dict
+            assert get_args(field_type) == (str, object)
+
+    def test_session_status_config_snapshot_is_optional_dict_str_object(self) -> None:
+        import typing
+
+        hints = typing.get_type_hints(SessionStatusResponse)
+        field_type = hints.get("config_snapshot")
+
+        assert field_type is not None
+        assert field_type is not dict
+        assert "Any" not in str(field_type)
+        args = get_args(field_type)
+        assert type(None) in args
+        dict_type = next((arg for arg in args if get_origin(arg) is dict), None)
+        assert dict_type is not None
+        assert get_args(dict_type) == (str, object)
 
     def test_backend_client_create_session_config_is_dict_str_object(self) -> None:
         import typing

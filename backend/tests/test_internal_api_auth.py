@@ -1461,6 +1461,50 @@ def test_internal_memory_delete_all_accepts_valid_token_and_service():
     delete_all_memories.assert_called_once_with(user_id="user-1")
 
 
+def test_internal_system_env_var_list_requires_service_identity():
+    """System env-var listing with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.list_system_env_vars",
+            return_value=[_system_env_var_response()],
+        ) as list_system_env_vars:
+            response = client.get(
+                "/internal/system-env-vars",
+                headers={"X-Internal-Token": "internal-token"},
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    list_system_env_vars.assert_not_called()
+
+
+def test_internal_system_env_var_list_accepts_valid_token_and_service():
+    """System env-var listing accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_env_vars.env_var_service.list_system_env_vars",
+            return_value=[_system_env_var_response()],
+        ) as list_system_env_vars:
+            response = client.get(
+                "/internal/system-env-vars",
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                },
+            )
+
+    assert response.status_code == 200
+    list_system_env_vars.assert_called_once_with(db)
+
+
 def test_internal_system_env_var_create_requires_service_identity():
     """System env-var creation with valid token but missing service header fails."""
     client = _client()

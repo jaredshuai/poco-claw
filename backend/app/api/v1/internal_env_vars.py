@@ -6,7 +6,6 @@ from app.core.deps import (
     get_db,
     get_internal_actor,
     require_executor_manager,
-    require_internal_token,
 )
 from app.core.identity import Actor
 from app.schemas.env_var import (
@@ -37,7 +36,7 @@ async def get_env_map(
     response_model=ResponseSchema[list[SystemEnvVarResponse]],
 )
 async def list_system_env_vars(
-    _: None = Depends(require_internal_token),
+    _: None = Depends(require_executor_manager),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     result = env_var_service.list_system_env_vars(db)

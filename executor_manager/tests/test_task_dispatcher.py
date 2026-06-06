@@ -6,6 +6,7 @@ import pytest
 
 import app.scheduler.task_dispatcher as task_dispatcher_module
 from app.scheduler.task_dispatcher import (
+    ContainerPoolCapability,
     ExecutorClientLegacyTaskDispatchGateway,
     LegacyTaskDispatchExecutorGateway,
     TaskDispatchDependencies,
@@ -13,6 +14,7 @@ from app.scheduler.task_dispatcher import (
     build_task_dispatch_config_resolver,
     build_task_dispatch_dependencies,
 )
+from app.schemas.task import ContainerStatsResponse
 from app.services.run_dispatch_execution_context import RunDispatchExecutionContext
 
 
@@ -1977,6 +1979,15 @@ def test_task_dispatcher_dispatch_config_is_dict_str_object() -> None:
     assert config_hint is not None
     assert "Any" not in str(config_hint)
     _assert_dict_str_object(config_hint)
+
+
+def test_container_pool_capability_stats_port_returns_response_dto() -> None:
+    """Assert scheduler container stats port returns ContainerStatsResponse, not Any."""
+    hints = typing.get_type_hints(ContainerPoolCapability.get_container_stats)
+    return_hint = hints.get("return")
+
+    assert return_hint is ContainerStatsResponse
+    assert "Any" not in str(return_hint)
 
 
 def _assert_task_dispatch_settings_annotation(annotation: object) -> None:

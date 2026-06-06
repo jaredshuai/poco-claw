@@ -1,4 +1,4 @@
-from typing import Any, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -19,7 +19,7 @@ class ExecutorContainerPool(Protocol):
 
     async def delete_container(self, container_id: str) -> None: ...
 
-    def get_container_stats(self) -> Any: ...
+    def get_container_stats(self) -> ContainerStatsResponse: ...
 
 
 def get_container_pool() -> ExecutorContainerPool:

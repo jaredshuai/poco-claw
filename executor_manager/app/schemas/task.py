@@ -91,10 +91,19 @@ class ContainerDeleteRequest(BaseModel):
     reason: str | None = "Task completed"
 
 
+class ContainerInfoResponse(BaseModel):
+    """Single executor container summary."""
+
+    container_id: str
+    name: str
+    status: str
+    mode: str
+
+
 class ContainerStatsResponse(BaseModel):
     """Container statistics response."""
 
     total_active: int
     persistent_containers: int
     ephemeral_containers: int
-    containers: list[dict]
+    containers: list[ContainerInfoResponse] = Field(default_factory=list)

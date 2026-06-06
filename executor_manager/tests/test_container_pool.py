@@ -10,6 +10,7 @@ from app.services.container_pool import (
     DockerImagesAPI,
     build_container_docker_client,
 )
+from app.schemas.task import ContainerInfoResponse, ContainerStatsResponse
 
 
 def test_init_with_defaults_defers_runtime_adapter_construction() -> None:
@@ -289,6 +290,69 @@ def test_container_pool_docker_client_setter_value_annotation_uses_docker_client
     assert value_hint is DockerClientProtocol, (
         f"Expected DockerClientProtocol, got {value_hint}"
     )
+
+
+def test_container_pool_get_container_stats_returns_container_stats_response() -> None:
+    """Verify container stats are returned as a typed response DTO."""
+    pool = ContainerPool(
+        docker_client=MagicMock(),
+        settings=SimpleNamespace(),
+        workspace_manager=MagicMock(),
+    )
+    pool.containers = {
+        "container-1": SimpleNamespace(
+            labels={
+                "container_id": "container-1",
+                "container_mode": "persistent",
+            },
+            name="executor-1",
+            status="running",
+        ),
+        "container-2": SimpleNamespace(
+            labels={
+                "container_id": "container-2",
+                "container_mode": "ephemeral",
+            },
+            name="executor-2",
+            status="exited",
+        ),
+        "container-3": SimpleNamespace(
+            labels={
+                "container_id": 123,
+                "container_mode": ["invalid"],
+            },
+            name="executor-3",
+            status=None,
+        ),
+    }
+
+    stats = pool.get_container_stats()
+
+    assert isinstance(stats, ContainerStatsResponse)
+    assert stats.total_active == 3
+    assert stats.persistent_containers == 1
+    assert stats.ephemeral_containers == 2
+    assert stats.containers[0].container_id == "container-1"
+    assert stats.containers[2].container_id == "executor-3"
+    assert stats.containers[2].mode == "ephemeral"
+    assert stats.containers[2].status == ""
+
+
+def test_container_pool_get_container_stats_return_annotation_uses_response_dto() -> (
+    None
+):
+    """Verify get_container_stats is typed as ContainerStatsResponse, not Any."""
+    hints = get_type_hints(ContainerPool.get_container_stats)
+
+    assert hints.get("return") is ContainerStatsResponse
+
+
+def test_container_stats_response_containers_field_uses_container_info_dto() -> None:
+    """Verify container stats do not expose raw dict entries."""
+    field = ContainerStatsResponse.model_fields["containers"]
+
+    assert field.annotation == list[ContainerInfoResponse]
+    assert "dict" not in str(field.annotation)
 
 
 def test_docker_containers_api_protocol_declares_required_members() -> None:

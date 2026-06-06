@@ -12,6 +12,7 @@ import httpx
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.core.settings import Settings, get_settings, resolve_executor_task_lease_secret
+from app.schemas.task import ContainerInfoResponse, ContainerStatsResponse
 from app.services.workspace_manager import WorkspaceManager
 
 if TYPE_CHECKING:
@@ -766,29 +767,50 @@ class ContainerPool:
                 for sid in bound_sessions:
                     self.session_to_container.pop(sid, None)
 
-    def get_container_stats(self) -> dict[str, int | list[dict]]:
+    @staticmethod
+    def _string_value(value: object, default: str) -> str:
+        if isinstance(value, str) and value.strip():
+            return value
+        return default
+
+    def get_container_stats(self) -> ContainerStatsResponse:
         """Get container statistics."""
         persistent = 0
         ephemeral = 0
 
         for container in self.containers.values():
-            mode = container.labels.get("container_mode", "ephemeral")
+            labels = getattr(container, "labels", None)
+            raw_mode = (
+                labels.get("container_mode") if isinstance(labels, dict) else None
+            )
+            mode = self._string_value(raw_mode, "ephemeral")
             if mode == "persistent":
                 persistent += 1
             else:
                 ephemeral += 1
 
-        return {
-            "total_active": len(self.containers),
-            "persistent_containers": persistent,
-            "ephemeral_containers": ephemeral,
-            "containers": [
-                {
-                    "container_id": c.labels.get("container_id", c.name),
-                    "name": c.name,
-                    "status": c.status,
-                    "mode": c.labels.get("container_mode", "ephemeral"),
-                }
-                for c in self.containers.values()
-            ],
-        }
+        containers: list[ContainerInfoResponse] = []
+        for container in self.containers.values():
+            labels = getattr(container, "labels", None)
+            raw_container_id = (
+                labels.get("container_id") if isinstance(labels, dict) else None
+            )
+            raw_mode = (
+                labels.get("container_mode") if isinstance(labels, dict) else None
+            )
+            name = self._string_value(getattr(container, "name", None), "")
+            containers.append(
+                ContainerInfoResponse(
+                    container_id=self._string_value(raw_container_id, name),
+                    name=name,
+                    status=self._string_value(getattr(container, "status", None), ""),
+                    mode=self._string_value(raw_mode, "ephemeral"),
+                )
+            )
+
+        return ContainerStatsResponse(
+            total_active=len(self.containers),
+            persistent_containers=persistent,
+            ephemeral_containers=ephemeral,
+            containers=containers,
+        )

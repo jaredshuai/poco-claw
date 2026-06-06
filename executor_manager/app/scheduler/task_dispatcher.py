@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 from app.core.settings import get_settings
 from app.core.observability.request_context import (
@@ -52,6 +52,7 @@ from app.services.task_dispatch_state_gateway import (
     BackendTaskDispatchStateGateway,
     TaskDispatchStateGateway,
 )
+from app.schemas.task import ContainerStatsResponse
 
 
 class TaskDispatchSettings(
@@ -141,7 +142,7 @@ class ContainerPoolCapability(Protocol):
 
     async def delete_container(self, container_id: str) -> None: ...
 
-    def get_container_stats(self) -> Any: ...
+    def get_container_stats(self) -> ContainerStatsResponse: ...
 
     async def on_task_complete(self, session_id: str) -> None: ...
 

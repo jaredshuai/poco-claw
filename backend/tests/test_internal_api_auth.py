@@ -26,6 +26,7 @@ from app.api.v1 import (  # noqa: E402
     internal_permission_audit,
     internal_runs,
     internal_scheduled_tasks,
+    internal_skill_config,
     internal_skills,
     internal_user_input_requests,
     runs,
@@ -50,6 +51,7 @@ def _client() -> TestClient:
     app.include_router(internal_mcp_transitions.router)
     app.include_router(internal_permission_audit.router)
     app.include_router(internal_scheduled_tasks.router)
+    app.include_router(internal_skill_config.router)
     app.include_router(internal_skills.router)
     app.include_router(internal_user_input_requests.router)
     app.include_router(callback.router)
@@ -296,6 +298,60 @@ def test_internal_mcp_config_resolve_accepts_valid_token_and_service():
         db=db,
         user_id="user-1",
         server_ids=[1, 2],
+    )
+
+
+def test_internal_skill_config_resolve_requires_service_identity():
+    """Skill config resolve with valid token but missing service header fails."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_skill_config.service.resolve_user_skill_files",
+            return_value={"skills": []},
+        ) as resolve_user_skill_files:
+            response = client.post(
+                "/internal/skill-config/resolve",
+                json={"skill_ids": [1, 2]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 403
+    assert "Service identity required" in response.json()["message"]
+    resolve_user_skill_files.assert_not_called()
+
+
+def test_internal_skill_config_resolve_accepts_valid_token_and_service():
+    """Skill config resolve accepts executor_manager service identity."""
+    client = _client()
+    db = MagicMock()
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.core.deps.get_settings", return_value=_settings()):
+        with patch(
+            "app.api.v1.internal_skill_config.service.resolve_user_skill_files",
+            return_value={"skills": []},
+        ) as resolve_user_skill_files:
+            response = client.post(
+                "/internal/skill-config/resolve",
+                json={"skill_ids": [1, 2]},
+                headers={
+                    "X-Internal-Token": "internal-token",
+                    "X-Internal-Service": "executor_manager",
+                    "X-User-Id": "user-1",
+                },
+            )
+
+    assert response.status_code == 200
+    resolve_user_skill_files.assert_called_once_with(
+        db=db,
+        user_id="user-1",
+        skill_ids=[1, 2],
     )
 
 

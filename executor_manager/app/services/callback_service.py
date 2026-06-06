@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import Any, Protocol
 
 from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
+from app.schemas.workspace import WorkspaceExportResult
 from app.services.backend_client import BackendClient
 from app.services.clock import Clock, SystemClock
 from app.services.workspace_export_service import (
@@ -50,7 +51,7 @@ class CallbackBackendClient(Protocol):
 
 
 class CallbackWorkspaceExportService(Protocol):
-    def export_workspace(self, session_id: str) -> Any: ...
+    def export_workspace(self, session_id: str) -> WorkspaceExportResult: ...
 
 
 class CallbackRuntimeCleanup(Protocol):

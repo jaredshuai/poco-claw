@@ -4,7 +4,7 @@ import unittest
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, get_args, get_origin
+from typing import Any, get_args, get_origin, get_type_hints
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -16,7 +16,12 @@ from app.schemas.callback import (
     McpStatus,
     WorkspaceState,
 )
-from app.services.callback_service import CallbackBackendClient, CallbackService
+from app.schemas.workspace import WorkspaceExportResult
+from app.services.callback_service import (
+    CallbackBackendClient,
+    CallbackService,
+    CallbackWorkspaceExportService,
+)
 
 
 def _load_callback_service_module_from_source():
@@ -96,12 +101,20 @@ def _assert_mapping_str_object(annotation: object) -> None:
 
 def test_callback_backend_client_forward_callback_port_is_mapping_str_object() -> None:
     """Regression: callback forwarding port uses Mapping[str, object]."""
-    import typing
-
-    hints = typing.get_type_hints(CallbackBackendClient.forward_callback)
+    hints = get_type_hints(CallbackBackendClient.forward_callback)
 
     _assert_mapping_str_object(hints.get("callback_data"))
     _assert_mapping_str_object(hints.get("return"))
+
+
+def test_callback_workspace_export_service_return_is_workspace_export_result() -> None:
+    """Regression: CallbackWorkspaceExportService.export_workspace return is WorkspaceExportResult, not Any."""
+    hints = get_type_hints(CallbackWorkspaceExportService.export_workspace)
+    return_annotation = hints.get("return")
+
+    assert return_annotation is not None
+    assert "Any" not in str(return_annotation)
+    assert return_annotation is WorkspaceExportResult
 
 
 def test_callback_service_defers_default_runtime_adapters() -> None:

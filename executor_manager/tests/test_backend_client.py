@@ -1,5 +1,6 @@
 import types
 import unittest
+from collections.abc import Mapping
 from types import SimpleNamespace
 from typing import get_origin, get_args
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -460,6 +461,61 @@ class TestBackendClientClaimRun:
                 result = await client.claim_run("worker-1")
 
                 assert result is None
+
+    async def test_claim_run_returns_none_for_non_mapping_data(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": ["raw", "payload"]}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.claim_run("worker-1")
+
+                assert result is None
+
+    async def test_claim_run_returns_none_for_non_string_mapping_keys(self) -> None:
+        with patch("app.services.backend_client.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(backend_url="http://backend")
+
+            client = BackendClient()
+
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"data": {123: "run-123"}}
+            mock_response.raise_for_status = MagicMock()
+
+            with patch.object(
+                client._client, "request", AsyncMock(return_value=mock_response)
+            ):
+                result = await client.claim_run("worker-1")
+
+                assert result is None
+
+
+def test_backend_client_claim_run_return_is_mapping_str_object_or_none() -> None:
+    """Regression: BackendClient.claim_run returns Mapping[str, object] | None."""
+    import typing
+
+    hints = typing.get_type_hints(BackendClient.claim_run)
+    return_type = hints.get("return")
+
+    assert return_type is not None
+    assert "Any" not in str(return_type)
+    assert "dict" not in str(return_type)
+
+    args = get_args(return_type)
+    mapping_type = next(
+        (arg for arg in args if get_origin(arg) is Mapping),
+        None,
+    )
+
+    assert mapping_type is not None
+    assert get_args(mapping_type) == (str, object)
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 import httpx
@@ -149,9 +149,12 @@ class BackendClient:
         worker_id: str,
         lease_seconds: int = 30,
         schedule_modes: list[str] | None = None,
-    ) -> dict | None:
+    ) -> Mapping[str, object] | None:
         """Claim next run from backend queue."""
-        payload: dict = {"worker_id": worker_id, "lease_seconds": lease_seconds}
+        payload: dict[str, object] = {
+            "worker_id": worker_id,
+            "lease_seconds": lease_seconds,
+        }
         if schedule_modes:
             payload["schedule_modes"] = schedule_modes
 
@@ -163,7 +166,16 @@ class BackendClient:
             retry_connect_errors=2,
         )
         data = response.json()
-        return data.get("data")
+        result = data.get("data") if isinstance(data, Mapping) else None
+        if not isinstance(result, Mapping):
+            return None
+
+        normalized: dict[str, object] = {}
+        for key, value in result.items():
+            if not isinstance(key, str):
+                return None
+            normalized[key] = value
+        return normalized
 
     async def start_run(
         self, run_id: object, worker_id: str, lease_seconds: int | None = None

@@ -35,6 +35,7 @@ def _make_claim(
 def _make_dispatch_service(
     *,
     runtime: object | None = None,
+    computer_provider: object | None = None,
     config_preparer: object | None = None,
     state_gateway: object | None = None,
     executor_gateway: object | None = None,
@@ -97,6 +98,7 @@ def _make_dispatch_service(
         "subagent_stager": subagent_stager,
         "container_pool": container_pool,
         "runtime": runtime,
+        "computer_provider": computer_provider,
         "config_preparer": config_preparer,
     }
     if state_gateway is not None:
@@ -997,3 +999,73 @@ async def test_dispatch_claim_rejects_dict_payload_with_type_error() -> None:
 
     with pytest.raises(TypeError, match="dispatch_claim requires RunDispatchClaim"):
         await service.dispatch_claim(raw_payload, worker_id="worker-1")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_uses_computer_provider_when_injected() -> None:
+    """When computer_provider is injected, dispatch goes through acquire/release."""
+    from app.services.computer_provider import (
+        ComputerCapability,
+        ComputerInstance,
+    )
+
+    provider = MagicMock()
+    provider.acquire = AsyncMock(
+        return_value=ComputerInstance(
+            instance_id="docker-123",
+            executor_endpoint="http://provider-executor.local",
+            provider="docker",
+            capabilities={
+                ComputerCapability.SHELL,
+                ComputerCapability.FILESYSTEM,
+                ComputerCapability.BROWSER,
+            },
+        )
+    )
+    provider.release = AsyncMock()
+
+    # runtime must NOT be called when computer_provider is set
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        side_effect=AssertionError("runtime should stay behind computer_provider")
+    )
+    runtime.cancel_runtime = AsyncMock(
+        side_effect=AssertionError("runtime cancel should stay behind computer_provider")
+    )
+
+    service = _make_dispatch_service(runtime=runtime, computer_provider=provider)
+    service.config_resolver.resolve.return_value = {
+        "skill_files": {},
+        "plugin_files": {},
+        "input_files": [],
+        "browser_enabled": True,
+    }
+
+    claim = _make_claim(
+        config_snapshot={
+            "container_mode": "ephemeral",
+            "container_id": "reuse-id-1",
+            "browser_enabled": True,
+        },
+    )
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    # acquire called with correct capability translation
+    provider.acquire.assert_awaited_once()
+    call_kwargs = provider.acquire.await_args.kwargs
+    assert call_kwargs["session_id"] == "sess-123"
+    assert call_kwargs["user_id"] == "user-123"
+    assert ComputerCapability.BROWSER in call_kwargs["requires"]
+    assert ComputerCapability.SHELL in call_kwargs["requires"]
+    assert call_kwargs["reuse_id"] == "reuse-id-1"
+
+    # executor received the provider's endpoint
+    service.executor_client.execute_task.assert_awaited_once()
+    assert (
+        service.executor_client.execute_task.call_args.kwargs["executor_url"]
+        == "http://provider-executor.local"
+    )
+
+    # release not called on success
+    provider.release.assert_not_awaited()

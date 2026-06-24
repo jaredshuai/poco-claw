@@ -8,6 +8,11 @@ from app.scheduler.task_dispatcher import TaskDispatcher
 from app.services.attachment_stager import AttachmentStager
 from app.services.backend_client import BackendClient
 from app.services.claude_md_stager import ClaudeMdStager
+from app.services.computer_provider import (
+    ComputerCapability,
+    ComputerInstance,
+    ComputerProvider,
+)
 from app.services.config_resolver import ConfigBackendClient
 from app.services.config_resolver import ConfigResolver
 from app.services.config_resolver import ConfigResolverSettings
@@ -132,6 +137,7 @@ class RunDispatchService:
         subagent_stager: SubagentStagerPort | None = None,
         container_pool: RunDispatchContainerPool | None = None,
         runtime: RunDispatchRuntime | None = None,
+        computer_provider: ComputerProvider | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
@@ -153,6 +159,7 @@ class RunDispatchService:
         subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
+        computer_provider_factory: Callable[[], ComputerProvider] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
@@ -177,6 +184,8 @@ class RunDispatchService:
         )
         self._runtime = runtime
         self._runtime_factory = runtime_factory
+        self._computer_provider = computer_provider
+        self._computer_provider_factory = computer_provider_factory
         self._config_preparer = config_preparer
         self._config_preparer_factory = config_preparer_factory
         self._state_gateway = state_gateway
@@ -257,6 +266,16 @@ class RunDispatchService:
     @runtime.setter
     def runtime(self, value: RunDispatchRuntime) -> None:
         self._runtime = value
+
+    @property
+    def computer_provider(self) -> ComputerProvider | None:
+        if self._computer_provider is None and self._computer_provider_factory is not None:
+            self._computer_provider = self._computer_provider_factory()
+        return self._computer_provider
+
+    @computer_provider.setter
+    def computer_provider(self, value: ComputerProvider | None) -> None:
+        self._computer_provider = value
 
     @property
     def config_preparer(self) -> RunDispatchConfigPreparer:
@@ -419,6 +438,7 @@ class RunDispatchService:
         slash_command_stager: SlashCommandStagerPort | None = None,
         subagent_stager: SubagentStagerPort | None = None,
         runtime: RunDispatchRuntime | None = None,
+        computer_provider: ComputerProvider | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
@@ -440,6 +460,7 @@ class RunDispatchService:
         subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
+        computer_provider_factory: Callable[[], ComputerProvider] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
@@ -480,6 +501,8 @@ class RunDispatchService:
             container_pool_factory=container_factory,
             runtime=runtime,
             runtime_factory=runtime_factory,
+            computer_provider=computer_provider,
+            computer_provider_factory=computer_provider_factory,
             config_preparer=config_preparer,
             config_preparer_factory=config_preparer_factory,
             state_gateway=state_gateway,
@@ -546,15 +569,30 @@ class RunDispatchService:
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))
-            runtime_allocation = await self.runtime.allocate_runtime(
-                session_id=session_id,
-                user_id=user_id,
-                browser_enabled=browser_enabled,
-                container_mode=container_mode,
-                container_id=container_id,
-            )
-            executor_url = runtime_allocation.executor_url
-            container_id = runtime_allocation.container_id
+
+            provider = self.computer_provider
+            if provider is not None:
+                requires = {ComputerCapability.SHELL, ComputerCapability.FILESYSTEM}
+                if browser_enabled:
+                    requires.add(ComputerCapability.BROWSER)
+                instance = await provider.acquire(
+                    session_id=session_id,
+                    user_id=user_id,
+                    requires=requires,
+                    reuse_id=container_id,
+                )
+                executor_url = instance.executor_endpoint
+                container_id = instance.instance_id or None
+            else:
+                runtime_allocation = await self.runtime.allocate_runtime(
+                    session_id=session_id,
+                    user_id=user_id,
+                    browser_enabled=browser_enabled,
+                    container_mode=container_mode,
+                    container_id=container_id,
+                )
+                executor_url = runtime_allocation.executor_url
+                container_id = runtime_allocation.container_id
             runtime_allocated = True
             logger.info(
                 "timing",
@@ -644,7 +682,10 @@ class RunDispatchService:
 
             try:
                 if runtime_allocated:
-                    await self.runtime.cancel_runtime(session_id)
+                    if self._computer_provider is not None:
+                        await self._computer_provider.release(session_id)
+                    else:
+                        await self.runtime.cancel_runtime(session_id)
             except Exception as cancel_err:
                 logger.error(
                     f"Failed to cancel task for session {session_id}: {cancel_err}"

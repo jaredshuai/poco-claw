@@ -108,7 +108,7 @@ class OfficeForceSaveUseCase:
             db, edit_session.edit_session_id
         )
         if active is not None:
-            raise OfficeSaveInProgressError(active.save_request_id)
+            raise OfficeSaveInProgressError(str(active.save_request_id))
 
         save_request = self.editing_store.create_save_request(db, edit_session)
         try:

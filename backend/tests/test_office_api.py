@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import os
+import secrets
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -491,8 +492,56 @@ class TestOfficeEditingFlow:
             base_es = make_edit_session(
                 session_id="00000000-0000-0000-0000-000000000002"
             )
-            base_sr = make_save_request(edit_session_id=base_es.id)
-            mock_store.create_edit_session.return_value = base_es
+            base_sr = make_save_request(
+                edit_session_id=base_es.id, status="pending"
+            )
+
+            self._last_es = base_es
+            self._save_status = "pending"
+            self._base_sr = make_save_request(
+                edit_session_id=base_es.id, status="pending"
+            )
+
+            def _create_es(*a, **kw):
+                es = make_edit_session(
+                    session_id=str(kw.get("session_id", base_es.session_id)),
+                    document_key=str(kw.get("document_key", base_es.document_key)),
+                    callback_token=secrets.token_urlsafe(16),
+                )
+                self._last_es = es
+                self._base_sr.edit_session_id = es.id
+                return es
+
+            def _make_matching_sr(*a, **kw):
+                sr = make_save_request(
+                    edit_session_id=self._last_es.id,
+                    status=self._save_status,
+                )
+                sr.id = self._base_sr.id
+                return sr
+
+            mock_store.create_edit_session.side_effect = _create_es
+            mock_store.get_edit_session.side_effect = (
+                lambda *a, **kw: self._last_es
+            )
+            mock_store.resolve_by_token.side_effect = (
+                lambda *a, **kw: self._last_es
+            )
+            mock_store.get_save_request.side_effect = _make_matching_sr
+            mock_store.create_save_request.side_effect = _make_matching_sr
+            mock_store.try_begin_commit.side_effect = _make_matching_sr
+
+            def _mark_saved(*a, **kw):
+                self._save_status = "saved"
+
+            def _mark_failed(*a, **kw):
+                self._save_status = "failed"
+
+            mock_store.mark_saving = MagicMock()
+            mock_store.mark_staged = MagicMock()
+            mock_store.complete_save_request = MagicMock(side_effect=_mark_saved)
+            mock_store.mark_failed = MagicMock(side_effect=_mark_failed)
+            mock_store.discard_edit_session.return_value = True
             mock_store.get_active_save_request.return_value = None
             mock_store.create_save_request.return_value = base_sr
             # get_edit_session — patched per-test on demand
@@ -504,8 +553,8 @@ class TestOfficeEditingFlow:
     def _set_edit_session(self, session_id: str):
         """Configure the mock store to return a session matching the given id."""
         from tests.office_test_helpers import make_edit_session
-        self._mock_store.get_edit_session.return_value = make_edit_session(
-            session_id=session_id,
+        self._mock_store.get_edit_session.side_effect = (
+            lambda *a, **kw: make_edit_session(session_id=session_id)
         )
 
     def test_edit_viewer_config_returns_edit_session_and_callback_url(self):
@@ -669,10 +718,12 @@ class TestOfficeEditingFlow:
             patch("app.api.v1.office.session_service") as mock_ss,
             patch("app.api.v1.office.command_client") as mock_command,
         ):
+            self._set_edit_session(str(config_request.session_id))
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             first = _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
+            self._mock_store.get_active_save_request.return_value = self._base_sr
             with pytest.raises(HTTPException) as exc:
                 _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 

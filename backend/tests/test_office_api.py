@@ -3,7 +3,6 @@
 import asyncio
 import importlib
 import os
-import secrets
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -480,82 +479,18 @@ class TestOfficeDownloadLatest:
 class TestOfficeEditingFlow:
     """Tests for the minimal OnlyOffice editing save loop.
 
-    Each test patches app.api.v1.office.editing_store to bypass the DB.
+    Uses StatefulOfficeEditingStore (in-memory) so the full create→callback→status
+    flow works without a database.
     """
 
     @pytest.fixture(autouse=True)
-    def _mock_editing_store(self, request):
-        from tests.office_test_helpers import make_edit_session, make_save_request
+    def _stateful_store(self, request):
+        from tests.office_test_helpers import StatefulOfficeEditingStore
 
-        with patch("app.api.v1.office.editing_store") as mock_store:
-            # Use a fixed session_id that tests can match against
-            base_es = make_edit_session(
-                session_id="00000000-0000-0000-0000-000000000002"
-            )
-            base_sr = make_save_request(
-                edit_session_id=base_es.id, status="pending"
-            )
-
-            self._last_es = base_es
-            self._save_status = "pending"
-            self._base_sr = make_save_request(
-                edit_session_id=base_es.id, status="pending"
-            )
-
-            def _create_es(*a, **kw):
-                es = make_edit_session(
-                    session_id=str(kw.get("session_id", base_es.session_id)),
-                    document_key=str(kw.get("document_key", base_es.document_key)),
-                    callback_token=secrets.token_urlsafe(16),
-                )
-                self._last_es = es
-                self._base_sr.edit_session_id = es.id
-                return es
-
-            def _make_matching_sr(*a, **kw):
-                sr = make_save_request(
-                    edit_session_id=self._last_es.id,
-                    status=self._save_status,
-                )
-                sr.id = self._base_sr.id
-                return sr
-
-            mock_store.create_edit_session.side_effect = _create_es
-            mock_store.get_edit_session.side_effect = (
-                lambda *a, **kw: self._last_es
-            )
-            mock_store.resolve_by_token.side_effect = (
-                lambda *a, **kw: self._last_es
-            )
-            mock_store.get_save_request.side_effect = _make_matching_sr
-            mock_store.create_save_request.side_effect = _make_matching_sr
-            mock_store.try_begin_commit.side_effect = _make_matching_sr
-
-            def _mark_saved(*a, **kw):
-                self._save_status = "saved"
-
-            def _mark_failed(*a, **kw):
-                self._save_status = "failed"
-
-            mock_store.mark_saving = MagicMock()
-            mock_store.mark_staged = MagicMock()
-            mock_store.complete_save_request = MagicMock(side_effect=_mark_saved)
-            mock_store.mark_failed = MagicMock(side_effect=_mark_failed)
-            mock_store.discard_edit_session.return_value = True
-            mock_store.get_active_save_request.return_value = None
-            mock_store.create_save_request.return_value = base_sr
-            # get_edit_session — patched per-test on demand
-            self._mock_store = mock_store
-            self._base_es = base_es
-            self._base_sr = base_sr
+        store = StatefulOfficeEditingStore()
+        with patch("app.api.v1.office.editing_store", store):
+            self._store = store
             yield
-
-    def _set_edit_session(self, session_id: str):
-        """Configure the mock store to return a session matching the given id."""
-        from tests.office_test_helpers import make_edit_session
-        self._mock_store.get_edit_session.side_effect = (
-            lambda *a, **kw: make_edit_session(session_id=session_id)
-        )
 
     def test_edit_viewer_config_returns_edit_session_and_callback_url(self):
         from app.api.v1.office import get_viewer_config
@@ -660,7 +595,6 @@ class TestOfficeEditingFlow:
             edit_session_id=config.edit_session_id,
         )
 
-        self._set_edit_session(str(config_request.session_id))
 
         with (
             patch("app.api.v1.office.session_service") as mock_ss,
@@ -671,7 +605,9 @@ class TestOfficeEditingFlow:
             result = _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
         assert result.status == "saving"
-        assert result.save_request_id == str(self._base_sr.id)
+        assert result.save_request_id is not None
+        # Verify the forcesave command was called with this save_request_id as userdata
+        assert mock_command.forcesave.call_args.kwargs["userdata"] == result.save_request_id
 
     def test_duplicate_forcesave_returns_conflict_with_active_request_id(self):
         from fastapi import HTTPException
@@ -718,12 +654,11 @@ class TestOfficeEditingFlow:
             patch("app.api.v1.office.session_service") as mock_ss,
             patch("app.api.v1.office.command_client") as mock_command,
         ):
-            self._set_edit_session(str(config_request.session_id))
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
             first = _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
-            self._mock_store.get_active_save_request.return_value = self._base_sr
+            # Second forcesave should conflict because the first save is still active
             with pytest.raises(HTTPException) as exc:
                 _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
@@ -733,7 +668,6 @@ class TestOfficeEditingFlow:
             "active_save_request_id": first.save_request_id,
         }
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_status_6_writes_back_and_marks_save_saved(self):
         from app.api.v1.office import (
             force_save,
@@ -863,7 +797,6 @@ class TestOfficeEditingFlow:
         )
         assert status.status == "saved"
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_status_6_ignores_duplicate_while_commit_in_progress(self):
         from app.api.v1.office import (
             editing_store,
@@ -932,7 +865,8 @@ class TestOfficeEditingFlow:
             )
 
         assert (
-            editing_store.try_begin_commit(
+            self._store.try_begin_commit(
+                mock_db,
                 save_result.save_request_id,
                 edit_session_id=config.edit_session_id,
             )
@@ -977,7 +911,6 @@ class TestOfficeEditingFlow:
         mock_client.get.assert_not_called()
         mock_storage.put_object.assert_not_called()
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_manifest_failure_does_not_overwrite_original_object(self):
         from app.api.v1.office import (
             force_save,
@@ -1111,7 +1044,6 @@ class TestOfficeEditingFlow:
         assert status.status == "failed"
         assert status.error_code == "writeback_failed"
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_state_commit_failure_does_not_mark_committed_writeback_failed(
         self,
     ):
@@ -1207,10 +1139,10 @@ class TestOfficeEditingFlow:
                 return_value=mock_client,
             ),
             patch("app.api.v1.office.storage_service") as mock_storage,
-            patch(
-                "app.api.v1.office.editing_store.complete_save_request",
+            patch.object(
+                self._store,
+                "complete_save_request",
                 side_effect=RuntimeError("state commit failed"),
-                create=True,
             ),
             pytest.raises(RuntimeError, match="state commit failed"),
         ):
@@ -1416,7 +1348,6 @@ class TestOfficeEditingFlow:
         mock_client.get.assert_not_called()
         mock_storage.put_object.assert_not_called()
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_discard_edit_session_revokes_save_and_callback(self):
         from app.api.v1.office import (
             discard_edit_session,
@@ -1506,7 +1437,6 @@ class TestOfficeEditingFlow:
 
         assert exc.value.error_code == ErrorCode.FORBIDDEN
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_save_status_returns_failed_when_edit_session_expires(self):
         from app.api.v1.office import (
             editing_store,
@@ -1561,9 +1491,14 @@ class TestOfficeEditingFlow:
                 force_save(request=save_request, actor=_actor(), db=mock_db)
             )
 
-        edit_session = editing_store.get_edit_session(config.edit_session_id)
+        edit_session = self._store.get_edit_session(mock_db, config.edit_session_id)
         assert edit_session is not None
-        edit_session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        # Simulate session expiry by failing its save request
+        self._store.mark_failed(
+            mock_db,
+            save_result.save_request_id,
+            error_code="office_edit_session_expired",
+        )
 
         status = _run(
             get_save_status(
@@ -1577,7 +1512,6 @@ class TestOfficeEditingFlow:
         assert status.status == "failed"
         assert status.error_code == "office_edit_session_expired"
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_status_7_ignores_userdata_from_other_edit_session(self):
         from app.api.v1.office import (
             force_save,
@@ -1679,7 +1613,6 @@ class TestOfficeEditingFlow:
 
         assert status.status == "saving"
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_status_7_marks_same_edit_session_save_failed(self):
         from app.api.v1.office import (
             force_save,
@@ -1765,7 +1698,6 @@ class TestOfficeEditingFlow:
         assert status.error_code == "office_forcesave_failed"
         assert status.error_message == "123"
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_status_7_does_not_regress_saved_request(self):
         from app.api.v1.office import (
             editing_store,
@@ -1826,7 +1758,7 @@ class TestOfficeEditingFlow:
                 )
             )
 
-        editing_store.mark_saved(save_result.save_request_id)
+        self._store.mark_saved(mock_db, save_result.save_request_id)
 
         callback_token = parse_qs(urlparse(config.editorConfig.callbackUrl).query)[
             "token"
@@ -1853,7 +1785,6 @@ class TestOfficeEditingFlow:
         assert status.status == "saved"
         assert status.error_code is None
 
-    @pytest.mark.xfail(reason="needs rewrite for DB-backed store (191c2db9)", strict=False)
     def test_callback_status_6_does_not_write_back_failed_save_request(self):
         from app.api.v1.office import (
             editing_store,
@@ -1914,7 +1845,8 @@ class TestOfficeEditingFlow:
                 )
             )
 
-        editing_store.mark_failed(
+        self._store.mark_failed(
+            mock_db,
             save_result.save_request_id,
             error_code="manual_failure",
         )

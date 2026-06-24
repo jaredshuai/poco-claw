@@ -5,16 +5,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from sqlalchemy.orm import Session
+
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.services.office_editing_service import OfficeEditSession
+from app.models.office_edit_session import OfficeEditSession
 from app.utils.workspace_manifest import normalize_manifest_path
 
 
 class OfficeDiscardEditingStore(Protocol):
-    def get_edit_session(self, edit_session_id: str) -> OfficeEditSession | None: ...
+    def get_edit_session(
+        self, db: Session, edit_session_id: object
+    ) -> OfficeEditSession | None: ...
 
-    def discard_edit_session(self, edit_session_id: str) -> bool: ...
+    def discard_edit_session(
+        self, db: Session, edit_session_id: object
+    ) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -40,6 +46,7 @@ class OfficeDiscardEditSessionUseCase:
 
     def execute(
         self,
+        db: Session,
         command: OfficeDiscardEditSessionCommand,
     ) -> OfficeDiscardEditSessionResult:
         if command.session_user_id != command.user_id:
@@ -48,7 +55,9 @@ class OfficeDiscardEditSessionUseCase:
                 message="Session does not belong to the user",
             )
 
-        edit_session = self.editing_store.get_edit_session(command.edit_session_id)
+        edit_session = self.editing_store.get_edit_session(
+            db, command.edit_session_id
+        )
         if (
             edit_session is None
             or edit_session.session_id != command.session_id
@@ -61,7 +70,7 @@ class OfficeDiscardEditSessionUseCase:
                 message="Invalid or expired Office edit session",
             )
 
-        self.editing_store.discard_edit_session(edit_session.edit_session_id)
+        self.editing_store.discard_edit_session(db, edit_session.edit_session_id)
         return OfficeDiscardEditSessionResult(
-            edit_session_id=edit_session.edit_session_id,
+            edit_session_id=str(edit_session.edit_session_id),
         )

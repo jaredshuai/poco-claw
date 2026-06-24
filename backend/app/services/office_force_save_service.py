@@ -5,9 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from sqlalchemy.orm import Session
+
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.services.office_editing_service import OfficeEditSession, OfficeSaveRequest
+from app.models.office_edit_session import OfficeEditSession
+from app.models.office_save_request import OfficeSaveRequest
 from app.utils.workspace_manifest import normalize_manifest_path
 
 
@@ -16,27 +19,32 @@ class OfficeForceSaveCommandClient(Protocol):
 
 
 class OfficeForceSaveEditingStore(Protocol):
-    def get_edit_session(self, edit_session_id: str) -> OfficeEditSession | None: ...
+    def get_edit_session(
+        self, db: Session, edit_session_id: object
+    ) -> OfficeEditSession | None: ...
 
     def get_active_save_request(
         self,
-        edit_session_id: str,
+        db: Session,
+        edit_session_id: object,
     ) -> OfficeSaveRequest | None: ...
 
     def create_save_request(
         self,
+        db: Session,
         session: OfficeEditSession,
     ) -> OfficeSaveRequest: ...
 
     def mark_failed(
         self,
-        save_request_id: str,
+        db: Session,
+        save_request_id: object,
         *,
         error_code: str,
         error_message: str | None = None,
     ) -> None: ...
 
-    def mark_saving(self, save_request_id: str) -> None: ...
+    def mark_saving(self, db: Session, save_request_id: object) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -72,14 +80,18 @@ class OfficeForceSaveUseCase:
         self.editing_store = editing_store
         self.command_client = command_client
 
-    async def execute(self, command: OfficeForceSaveCommand) -> OfficeForceSaveResult:
+    async def execute(
+        self, db: Session, command: OfficeForceSaveCommand
+    ) -> OfficeForceSaveResult:
         if command.session_user_id != command.user_id:
             raise AppException(
                 error_code=ErrorCode.FORBIDDEN,
                 message="Session does not belong to the user",
             )
 
-        edit_session = self.editing_store.get_edit_session(command.edit_session_id)
+        edit_session = self.editing_store.get_edit_session(
+            db, command.edit_session_id
+        )
         if (
             edit_session is None
             or edit_session.session_id != command.session_id
@@ -93,24 +105,27 @@ class OfficeForceSaveUseCase:
             )
 
         active = self.editing_store.get_active_save_request(
-            edit_session.edit_session_id
+            db, edit_session.edit_session_id
         )
         if active is not None:
             raise OfficeSaveInProgressError(active.save_request_id)
 
-        save_request = self.editing_store.create_save_request(edit_session)
+        save_request = self.editing_store.create_save_request(db, edit_session)
         try:
             await self.command_client.forcesave(
                 document_key=edit_session.document_key,
-                userdata=save_request.save_request_id,
+                userdata=str(save_request.save_request_id),
             )
         except Exception as exc:
             self.editing_store.mark_failed(
+                db,
                 save_request.save_request_id,
                 error_code="office_command_rejected",
                 error_message=str(exc),
             )
             raise
 
-        self.editing_store.mark_saving(save_request.save_request_id)
-        return OfficeForceSaveResult(save_request_id=save_request.save_request_id)
+        self.editing_store.mark_saving(db, save_request.save_request_id)
+        return OfficeForceSaveResult(
+            save_request_id=str(save_request.save_request_id)
+        )

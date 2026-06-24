@@ -186,6 +186,7 @@ async def get_viewer_config(
         storage_service=get_storage_service(),
         editing_store=editing_store,
     ).execute(
+        db,
         OfficeViewerConfigCommand(
             session_id=str(request.session_id),
             session_user_id=db_session.user_id,
@@ -246,6 +247,7 @@ async def force_save(
             editing_store=editing_store,
             command_client=command_client,
         ).execute(
+            db,
             OfficeForceSaveCommand(
                 session_id=str(request.session_id),
                 session_user_id=db_session.user_id,
@@ -277,8 +279,8 @@ async def get_save_status(
     db: Session = Depends(get_db),
 ) -> OfficeSaveStatusResponse:
     """Return a short-lived Office save request status."""
-    del db
     result = OfficeSaveStatusUseCase(editing_store=editing_store).execute(
+        db,
         OfficeSaveStatusQuery(
             session_id=str(session_id),
             save_request_id=save_request_id,
@@ -304,6 +306,7 @@ async def discard_edit_session(
     """Discard an active Office edit session and revoke its callback token."""
     db_session = session_service.get_session(db, request.session_id)
     result = OfficeDiscardEditSessionUseCase(editing_store=editing_store).execute(
+        db,
         OfficeDiscardEditSessionCommand(
             session_id=str(request.session_id),
             session_user_id=db_session.user_id,
@@ -323,6 +326,7 @@ async def office_callback(
     request: dict = Body(...),
     token: str = Query(...),
     authorization: Annotated[str | None, Header()] = None,
+    db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """Handle OnlyOffice save callbacks without browser-session auth."""
     callback_payload = _decode_callback_payload(request, authorization)
@@ -339,6 +343,7 @@ async def office_callback(
         editing_store=editing_store,
         validate_download_url=_validate_callback_download_url,
     ).handle(
+        db,
         token=token,
         callback=callback,
     )

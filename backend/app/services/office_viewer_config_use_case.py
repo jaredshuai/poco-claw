@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 from urllib.parse import quote
 
+from sqlalchemy.orm import Session
+
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.models.office_edit_session import OfficeEditSession
 from app.schemas.office import OfficeViewerConfigResponse
 from app.services.id_generator import IdGenerator, UuidIdGenerator
-from app.services.office_editing_service import OfficeEditSession
 from app.services.office_viewer_service import build_viewer_config
 from app.services.office_workspace_file_resolver import (
     OfficeWorkspaceFile,
@@ -38,6 +40,7 @@ class OfficeViewerConfigStorage(Protocol):
 class OfficeViewerConfigEditingStore(Protocol):
     def create_edit_session(
         self,
+        db: Session,
         *,
         session_id: str,
         user_id: str,
@@ -46,7 +49,7 @@ class OfficeViewerConfigEditingStore(Protocol):
         mime_type: str | None,
         manifest_key: str | None,
         document_key: str,
-        edit_session_id: str | None = None,
+        edit_session_id: object | None = None,
     ) -> OfficeEditSession: ...
 
 
@@ -81,7 +84,11 @@ class OfficeViewerConfigUseCase:
         self.editing_store = editing_store
         self.id_generator = id_generator or UuidIdGenerator()
 
-    def execute(self, command: OfficeViewerConfigCommand) -> OfficeViewerConfigResponse:
+    def execute(
+        self,
+        db: Session,
+        command: OfficeViewerConfigCommand,
+    ) -> OfficeViewerConfigResponse:
         if command.session_user_id != command.user_id:
             raise AppException(
                 error_code=ErrorCode.FORBIDDEN,
@@ -127,6 +134,7 @@ class OfficeViewerConfigUseCase:
             expires_in=command.presign_expires_in,
         )
         return self._build_config(
+            db,
             command=command,
             workspace_file=workspace_file,
             metadata=metadata,
@@ -136,6 +144,7 @@ class OfficeViewerConfigUseCase:
 
     def _build_config(
         self,
+        db: Session,
         *,
         command: OfficeViewerConfigCommand,
         workspace_file: OfficeWorkspaceFile,
@@ -178,6 +187,7 @@ class OfficeViewerConfigUseCase:
             return config
 
         edit_session = self.editing_store.create_edit_session(
+            db,
             session_id=command.session_id,
             user_id=command.user_id,
             file_path=command.file_path,
@@ -201,7 +211,7 @@ class OfficeViewerConfigUseCase:
             ),
             user_id=command.user_id,
         )
-        config.edit_session_id = edit_session.edit_session_id
+        config.edit_session_id = str(edit_session.edit_session_id)
         return config
 
 

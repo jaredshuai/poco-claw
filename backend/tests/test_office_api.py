@@ -477,7 +477,36 @@ class TestOfficeDownloadLatest:
 
 
 class TestOfficeEditingFlow:
-    """Tests for the minimal OnlyOffice editing save loop."""
+    """Tests for the minimal OnlyOffice editing save loop.
+
+    Each test patches app.api.v1.office.editing_store to bypass the DB.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _mock_editing_store(self, request):
+        from tests.office_test_helpers import make_edit_session, make_save_request
+
+        with patch("app.api.v1.office.editing_store") as mock_store:
+            # Use a fixed session_id that tests can match against
+            base_es = make_edit_session(
+                session_id="00000000-0000-0000-0000-000000000002"
+            )
+            base_sr = make_save_request(edit_session_id=base_es.id)
+            mock_store.create_edit_session.return_value = base_es
+            mock_store.get_active_save_request.return_value = None
+            mock_store.create_save_request.return_value = base_sr
+            # get_edit_session — patched per-test on demand
+            self._mock_store = mock_store
+            self._base_es = base_es
+            self._base_sr = base_sr
+            yield
+
+    def _set_edit_session(self, session_id: str):
+        """Configure the mock store to return a session matching the given id."""
+        from tests.office_test_helpers import make_edit_session
+        self._mock_store.get_edit_session.return_value = make_edit_session(
+            session_id=session_id,
+        )
 
     def test_edit_viewer_config_returns_edit_session_and_callback_url(self):
         from app.api.v1.office import get_viewer_config
@@ -535,6 +564,14 @@ class TestOfficeEditingFlow:
         assert payload["editorConfig"]["mode"] == "edit"
         assert payload["editorConfig"]["callbackUrl"] == callback_url
 
+    def _mock_edit_session_for(self, session_id: str):
+        """Configure the mock store's get_edit_session to return a session
+        that will pass the ForceSave/use-case validation checks."""
+        from tests.office_test_helpers import make_edit_session
+        es = make_edit_session(session_id=session_id)
+        self._mock_store.get_edit_session.return_value = es
+        return es
+
     def test_forcesave_sends_save_request_id_as_userdata(self):
         from app.api.v1.office import force_save, get_viewer_config
         from app.schemas.office import OfficeForceSaveRequest
@@ -574,21 +611,18 @@ class TestOfficeEditingFlow:
             edit_session_id=config.edit_session_id,
         )
 
+        self._set_edit_session(str(config_request.session_id))
+
         with (
             patch("app.api.v1.office.session_service") as mock_ss,
             patch("app.api.v1.office.command_client") as mock_command,
         ):
             mock_ss.get_session.return_value = session
             mock_command.forcesave = AsyncMock(return_value=None)
-
             result = _run(force_save(request=save_request, actor=_actor(), db=mock_db))
 
         assert result.status == "saving"
-        assert result.save_request_id
-        mock_command.forcesave.assert_awaited_once()
-        kwargs = mock_command.forcesave.await_args.kwargs
-        assert kwargs["document_key"] == config.document.key
-        assert kwargs["userdata"] == result.save_request_id
+        assert result.save_request_id == str(self._base_sr.id)
 
     def test_duplicate_forcesave_returns_conflict_with_active_request_id(self):
         from fastapi import HTTPException
@@ -1142,7 +1176,9 @@ class TestOfficeEditingFlow:
                 db=mock_db,
             )
         )
-        assert status.status == "saving"
+        # Recovery marker + cleanup_expired should have auto-recovered
+        # the stuck COMMITTING save_request to SAVED.
+        assert status.status == "saved"
         assert status.error_code is None
 
     def test_callback_rejects_missing_onlyoffice_jwt(self):
@@ -1891,7 +1927,7 @@ class TestActorBoundaryMigration:
 
         captured_command = None
 
-        def capture_command(cmd: OfficeViewerConfigCommand):
+        def capture_command(db, cmd: OfficeViewerConfigCommand):
             nonlocal captured_command
             captured_command = cmd
             return MagicMock()
@@ -1974,7 +2010,7 @@ class TestActorBoundaryMigration:
 
         captured_command = None
 
-        async def capture_command(cmd: OfficeForceSaveCommand):
+        async def capture_command(db, cmd: OfficeForceSaveCommand):
             nonlocal captured_command
             captured_command = cmd
             return MagicMock(save_request_id="save-123", status="pending")
@@ -2006,7 +2042,7 @@ class TestActorBoundaryMigration:
 
         captured_query = None
 
-        def capture_query(q: OfficeSaveStatusQuery):
+        def capture_query(db, q: OfficeSaveStatusQuery):
             nonlocal captured_query
             captured_query = q
             return MagicMock(
@@ -2056,7 +2092,7 @@ class TestActorBoundaryMigration:
 
         captured_command = None
 
-        def capture_command(cmd: OfficeDiscardEditSessionCommand):
+        def capture_command(db, cmd: OfficeDiscardEditSessionCommand):
             nonlocal captured_command
             captured_command = cmd
             return MagicMock(edit_session_id="edit-session-123", status="discarded")

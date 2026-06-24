@@ -51,6 +51,26 @@ async def test_docker_provider_acquire_maps_browser_capability() -> None:
 
 
 @pytest.mark.asyncio
+async def test_docker_provider_acquire_passes_mode_through() -> None:
+    """mode='persistent' is forwarded to the pool as container_mode."""
+    pool = MagicMock()
+    pool.get_or_create_container = AsyncMock(
+        return_value=("http://localhost:9003", "exec-persist1")
+    )
+    provider = DockerComputerProvider(pool)
+
+    await provider.acquire(
+        session_id="sess-3",
+        user_id="user-3",
+        requires={ComputerCapability.SHELL},
+        mode="persistent",
+    )
+
+    call_kwargs = pool.get_or_create_container.await_args.kwargs
+    assert call_kwargs["container_mode"] == "persistent"
+
+
+@pytest.mark.asyncio
 async def test_docker_provider_acquire_without_browser() -> None:
     """No BROWSER capability → browser_enabled=False, caps lack BROWSER."""
     pool = MagicMock()

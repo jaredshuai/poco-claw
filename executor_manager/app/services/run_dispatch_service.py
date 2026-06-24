@@ -580,6 +580,7 @@ class RunDispatchService:
                     user_id=user_id,
                     requires=requires,
                     reuse_id=container_id,
+                    mode=container_mode,
                 )
                 executor_url = instance.executor_endpoint
                 container_id = instance.instance_id or None

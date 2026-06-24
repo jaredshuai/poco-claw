@@ -59,6 +59,7 @@ class ComputerProvider(Protocol):
         user_id: str,
         requires: set[ComputerCapability],
         reuse_id: str | None = None,
+        mode: str = "ephemeral",
     ) -> ComputerInstance:
         """Provision or reuse an environment satisfying ``requires``.
 
@@ -67,6 +68,8 @@ class ComputerProvider(Protocol):
             user_id: Owning user (for workspace isolation / quotas).
             requires: Minimum capability set the environment must satisfy.
             reuse_id: Opaque handle of an existing environment to reuse.
+            mode: Lifecycle mode — ``"ephemeral"`` (released after task)
+                or ``"persistent"`` (kept alive for reuse across tasks).
 
         Returns:
             A ``ComputerInstance`` describing the ready environment.
@@ -74,5 +77,11 @@ class ComputerProvider(Protocol):
         ...
 
     async def release(self, session_id: str) -> None:
-        """Release the environment tied to ``session_id``."""
+        """Release the environment tied to ``session_id``.
+
+        Called on dispatch **failure** to clean up a partially-allocated
+        environment.  On the success path the environment stays alive
+        and is released later by the task-completion lifecycle
+        (``on_task_complete`` / callback-driven cleanup).
+        """
         ...

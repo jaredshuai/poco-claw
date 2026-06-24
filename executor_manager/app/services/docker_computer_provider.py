@@ -34,13 +34,14 @@ class DockerComputerProvider:
         user_id: str,
         requires: set[ComputerCapability],
         reuse_id: str | None = None,
+        mode: str = "ephemeral",
     ) -> ComputerInstance:
         browser_enabled = ComputerCapability.BROWSER in requires
         executor_url, container_id = await self._pool.get_or_create_container(
             session_id=session_id,
             user_id=user_id,
             browser_enabled=browser_enabled,
-            container_mode="ephemeral",
+            container_mode=mode,
             container_id=reuse_id,
         )
 

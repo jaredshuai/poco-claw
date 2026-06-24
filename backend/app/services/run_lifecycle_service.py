@@ -3,11 +3,14 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
+from app.core.errors.error_codes import ErrorCode
+from app.core.errors.exceptions import AppException
 from app.models.agent_run import AgentRun
 from app.models.agent_session import AgentSession
 from app.repositories.scheduled_task_repository import ScheduledTaskRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.clock import Clock, SystemClock
+from app.services.run_lifecycle_event_service import RunLifecycleEventService
 from app.services.session_queue_service import SessionQueueService
 
 
@@ -114,7 +117,53 @@ class RunLifecycleService:
                 transition_applied=False,
             )
 
+        # --- Status-only hard guards (no worker_id needed) ---
         now = self._clock.now_utc()
+        from_status = db_run.status
+
+        if status == "completed" and from_status != "running":
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message=(
+                    f"Run cannot be completed from status '{from_status}'; "
+                    f"only 'running' runs can complete"
+                ),
+            )
+
+        if status == "failed" and from_status not in ["claimed", "running"]:
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message=(
+                    f"Run cannot be failed from status '{from_status}'; "
+                    f"only 'claimed' or 'running' runs can fail"
+                ),
+            )
+
+        if status == "canceled" and from_status not in ["queued", "claimed", "running"]:
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message=(
+                    f"Run cannot be canceled from status '{from_status}'; "
+                    f"only 'queued', 'claimed', or 'running' runs can cancel"
+                ),
+            )
+
+        # --- Record lifecycle event ---
+        event_service = RunLifecycleEventService()
+        event_service.record_event(
+            db,
+            run_id=db_run.id,
+            session_id=db_run.session_id,
+            event_type="status_transition",
+            event_source="run_lifecycle_service",
+            from_status=from_status,
+            to_status=status,
+            claimed_by=db_run.claimed_by,
+            context={
+                "error_message": error_message,
+            },
+        )
+
         db_run.status = status
         if db_run.finished_at is None:
             db_run.finished_at = now

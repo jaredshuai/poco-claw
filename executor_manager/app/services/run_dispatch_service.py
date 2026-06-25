@@ -10,7 +10,6 @@ from app.services.backend_client import BackendClient
 from app.services.claude_md_stager import ClaudeMdStager
 from app.services.computer_provider import (
     ComputerCapability,
-    ComputerInstance,
     ComputerProvider,
 )
 from app.services.config_resolver import ConfigBackendClient
@@ -117,6 +116,21 @@ def build_run_dispatch_subagent_stager() -> SubAgentStager:
 
 def build_run_dispatch_container_pool() -> RunDispatchContainerPool:
     return TaskDispatcher.get_container_pool()
+
+
+def build_docker_computer_provider(
+    container_pool: RunDispatchContainerPool,
+) -> ComputerProvider:
+    """Default ``ComputerProvider`` adapter.
+
+    Wraps the existing Docker-backed ``ContainerPool`` so production dispatch
+    flows through the provider-neutral ``ComputerProvider`` port (§5.3) instead
+    of the legacy ``RunDispatchRuntime`` path.  Future Kubernetes / E2B / Cua
+    providers replace this factory without touching call sites.
+    """
+    from app.services.docker_computer_provider import DockerComputerProvider
+
+    return DockerComputerProvider(container_pool)
 
 
 class RunDispatchService:
@@ -269,7 +283,10 @@ class RunDispatchService:
 
     @property
     def computer_provider(self) -> ComputerProvider | None:
-        if self._computer_provider is None and self._computer_provider_factory is not None:
+        if (
+            self._computer_provider is None
+            and self._computer_provider_factory is not None
+        ):
             self._computer_provider = self._computer_provider_factory()
         return self._computer_provider
 
@@ -491,6 +508,41 @@ class RunDispatchService:
         )
         subagent_factory = subagent_stager_factory or build_run_dispatch_subagent_stager
         container_factory = container_pool_factory or build_run_dispatch_container_pool
+
+        # Default runtime allocation path: when no explicit ``runtime`` override
+        # is given (the backward-compat path for non-Docker backends / tests),
+        # dispatch must flow through the ``ComputerProvider`` port (§5.3) rather
+        # than the legacy ``RunDispatchRuntime``.  The default provider wraps the
+        # same container pool the service uses, so behavior is identical for the
+        # Docker backend — the port simply stops being dead code.  Per §10 this
+        # marks the compat period: ``runtime=`` remains an explicit escape hatch,
+        # but the provider is now the production default.
+        resolved_runtime_factory = runtime_factory
+        if runtime is None and resolved_runtime_factory is None:
+            # caller did not ask for the legacy runtime path → default to provider
+            resolved_container_pool = container_pool
+            resolved_computer_provider = computer_provider
+            resolved_computer_provider_factory = computer_provider_factory
+            if (
+                resolved_computer_provider is None
+                and resolved_computer_provider_factory is None
+            ):
+
+                def _default_docker_provider_factory(
+                    pool: RunDispatchContainerPool = resolved_container_pool,
+                    pool_factory: Callable[
+                        [], RunDispatchContainerPool
+                    ] = container_factory,
+                ) -> ComputerProvider:
+                    # resolve the pool lazily — explicit pool wins, else factory
+                    resolved = pool if pool is not None else pool_factory()
+                    return build_docker_computer_provider(resolved)
+
+                resolved_computer_provider_factory = _default_docker_provider_factory
+        else:
+            resolved_computer_provider = computer_provider
+            resolved_computer_provider_factory = computer_provider_factory
+
         return cls(
             settings=resolved_settings,
             backend_client=backend_client,
@@ -500,9 +552,9 @@ class RunDispatchService:
             container_pool=container_pool,
             container_pool_factory=container_factory,
             runtime=runtime,
-            runtime_factory=runtime_factory,
-            computer_provider=computer_provider,
-            computer_provider_factory=computer_provider_factory,
+            runtime_factory=resolved_runtime_factory,
+            computer_provider=resolved_computer_provider,
+            computer_provider_factory=resolved_computer_provider_factory,
             config_preparer=config_preparer,
             config_preparer_factory=config_preparer_factory,
             state_gateway=state_gateway,

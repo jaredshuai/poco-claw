@@ -1030,7 +1030,9 @@ async def test_dispatch_claim_uses_computer_provider_when_injected() -> None:
         side_effect=AssertionError("runtime should stay behind computer_provider")
     )
     runtime.cancel_runtime = AsyncMock(
-        side_effect=AssertionError("runtime cancel should stay behind computer_provider")
+        side_effect=AssertionError(
+            "runtime cancel should stay behind computer_provider"
+        )
     )
 
     service = _make_dispatch_service(runtime=runtime, computer_provider=provider)
@@ -1069,3 +1071,148 @@ async def test_dispatch_claim_uses_computer_provider_when_injected() -> None:
 
     # release not called on success
     provider.release.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# create_default: ComputerProvider is the default runtime allocation path
+# ---------------------------------------------------------------------------
+
+
+def test_create_default_wires_docker_computer_provider_as_default() -> None:
+    """create_default must default to a DockerComputerProvider over the legacy
+    runtime path, so the ComputerProvider port actually drives production
+    dispatch instead of being dead code (§5.3 / §10)."""
+    from app.services.docker_computer_provider import DockerComputerProvider
+
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    container_pool = MagicMock()
+
+    service = RunDispatchService.create_default(
+        settings=settings,
+        container_pool=container_pool,
+    )
+
+    assert service.computer_provider is not None
+    assert isinstance(service.computer_provider, DockerComputerProvider)
+
+
+def test_create_default_does_not_construct_legacy_runtime_by_default() -> None:
+    """When create_default wires the ComputerProvider, it must NOT also build the
+    legacy RunDispatchRuntime — that path is reserved for explicit injection
+    (backward compatibility for callers that still pass ``runtime=``)."""
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    container_pool = MagicMock()
+
+    with patch(
+        "app.services.run_dispatch_service.ContainerPoolRunDispatchRuntime",
+        side_effect=AssertionError(
+            "legacy runtime must not be constructed when ComputerProvider is default"
+        ),
+    ):
+        service = RunDispatchService.create_default(
+            settings=settings,
+            container_pool=container_pool,
+        )
+
+    assert service.computer_provider is not None
+
+
+def test_create_default_docker_provider_wraps_provided_container_pool() -> None:
+    """The default DockerComputerProvider must wrap the SAME container pool
+    instance used by the service, so no second Docker-aware leaf is created."""
+    from app.services.docker_computer_provider import DockerComputerProvider
+
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    container_pool = MagicMock()
+
+    service = RunDispatchService.create_default(
+        settings=settings,
+        container_pool=container_pool,
+    )
+
+    assert isinstance(service.computer_provider, DockerComputerProvider)
+    # the adapter must hold the same pool the service holds
+    assert service.computer_provider._pool is service.container_pool
+
+
+def test_create_default_allows_explicit_runtime_override_over_default_provider() -> (
+    None
+):
+    """Explicit runtime injection must still win, preserving backward
+    compatibility for callers/tests that pass ``runtime=`` directly."""
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+    )
+    runtime = MagicMock()
+
+    service = RunDispatchService.create_default(
+        settings=settings,
+        container_pool=MagicMock(),
+        runtime=runtime,
+    )
+
+    # when runtime is explicitly injected, computer_provider stays unset so the
+    # dispatch path uses the legacy runtime
+    assert service.computer_provider is None
+    assert service.runtime is runtime
+
+
+@pytest.mark.asyncio
+async def test_default_computer_provider_dispatches_through_acquire() -> None:
+    """End-to-end: create_default produces a service whose dispatch_claim goes
+    through ComputerProvider.acquire (not legacy runtime.allocate_runtime)."""
+    settings = SimpleNamespace(
+        callback_base_url="http://manager.local",
+        callback_token="callback-token",
+        executor_task_lease_secret="lease-secret",
+        task_timeout_seconds=3600,
+    )
+    container_pool = MagicMock()
+    container_pool.get_or_create_container = AsyncMock(
+        return_value=("http://executor.local", "container-123")
+    )
+    container_pool.cancel_task = AsyncMock()
+
+    service = RunDispatchService.create_default(
+        settings=settings,
+        container_pool=container_pool,
+        backend_client=MagicMock(
+            resolve_slash_commands=AsyncMock(return_value={}),
+            get_claude_md=AsyncMock(return_value={}),
+            record_mcp_transition=AsyncMock(),
+            start_run=AsyncMock(),
+            fail_run=AsyncMock(),
+        ),
+        executor_client=MagicMock(execute_task=AsyncMock()),
+        config_resolver=MagicMock(
+            resolve=AsyncMock(
+                return_value={"skill_files": {}, "plugin_files": {}, "input_files": []}
+            )
+        ),
+    )
+
+    claim = _make_claim()
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    # the provider path (acquire) was taken, not legacy runtime
+    container_pool.get_or_create_container.assert_awaited_once()
+    service.executor_client.execute_task.assert_awaited_once()
+    assert (
+        service.executor_client.execute_task.call_args.kwargs["executor_url"]
+        == "http://executor.local"
+    )

@@ -529,7 +529,7 @@ class RunDispatchService:
             ):
 
                 def _default_docker_provider_factory(
-                    pool: RunDispatchContainerPool = resolved_container_pool,
+                    pool: RunDispatchContainerPool | None = resolved_container_pool,
                     pool_factory: Callable[
                         [], RunDispatchContainerPool
                     ] = container_factory,

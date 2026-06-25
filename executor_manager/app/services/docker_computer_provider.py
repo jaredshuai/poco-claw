@@ -60,3 +60,6 @@ class DockerComputerProvider:
 
     async def release(self, session_id: str) -> None:
         await self._pool.cancel_task(session_id)
+
+    async def on_task_complete(self, session_id: str) -> None:
+        await self._pool.on_task_complete(session_id)

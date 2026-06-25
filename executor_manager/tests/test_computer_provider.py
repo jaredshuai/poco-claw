@@ -109,6 +109,17 @@ async def test_docker_provider_release_delegates_to_cancel_task() -> None:
     pool.cancel_task.assert_awaited_once_with("sess-1")
 
 
+@pytest.mark.asyncio
+async def test_docker_provider_on_task_complete_delegates_to_pool_completion() -> None:
+    pool = MagicMock()
+    pool.on_task_complete = AsyncMock()
+    provider = DockerComputerProvider(pool)
+
+    await provider.on_task_complete("sess-1")
+
+    pool.on_task_complete.assert_awaited_once_with("sess-1")
+
+
 # ---------------------------------------------------------------------------
 # ComputerProvider protocol structure (static checks)
 # ---------------------------------------------------------------------------
@@ -123,3 +134,8 @@ def test_computer_provider_protocol_has_acquire_and_release() -> None:
 
     acquire_hints = typing.get_type_hints(ComputerProvider.acquire)
     assert acquire_hints["return"] is ComputerInstance
+
+    complete_hints = typing.get_type_hints(ComputerProvider.on_task_complete)
+    assert "session_id" in complete_hints
+    assert complete_hints["session_id"] is str
+    assert "return" not in complete_hints or complete_hints["return"] is type(None)

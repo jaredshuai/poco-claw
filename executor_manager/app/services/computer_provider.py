@@ -85,3 +85,11 @@ class ComputerProvider(Protocol):
         (``on_task_complete`` / callback-driven cleanup).
         """
         ...
+
+    async def on_task_complete(self, session_id: str) -> None:
+        """Apply successful terminal cleanup for ``session_id``.
+
+        This is intentionally separate from ``release``: provider adapters may
+        keep persistent computers alive while stopping ephemeral runtimes.
+        """
+        ...

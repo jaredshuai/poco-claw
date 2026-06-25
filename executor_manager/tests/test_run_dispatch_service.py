@@ -1073,6 +1073,64 @@ async def test_dispatch_claim_uses_computer_provider_when_injected() -> None:
     provider.release.assert_not_awaited()
 
 
+@pytest.mark.asyncio
+async def test_dispatch_claim_releases_provider_when_acquire_raises_mid_flight() -> (
+    None
+):
+    """When provider.acquire() raises after touching the pool, dispatch must
+    still call release() so the partially-allocated environment is cleaned up
+    (CodeRabbit/cubic finding: allocation-mid-failure leak)."""
+    from app.services.computer_provider import ComputerProvider
+
+    provider = MagicMock(spec=ComputerProvider)
+    provider.acquire = AsyncMock(side_effect=RuntimeError("pool touched then died"))
+    provider.release = AsyncMock()
+
+    service = _make_dispatch_service(computer_provider=provider)
+    service.config_resolver.resolve.return_value = {
+        "skill_files": {},
+        "plugin_files": {},
+        "input_files": [],
+        "browser_enabled": False,
+    }
+
+    claim = _make_claim()
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    provider.acquire.assert_awaited_once()
+    provider.release.assert_awaited_once_with("sess-123")
+
+
+@pytest.mark.asyncio
+async def test_dispatch_claim_cancels_runtime_when_allocate_runtime_raises_mid_flight() -> (
+    None
+):
+    """Symmetric to the provider case: a failing allocate_runtime() must still
+    trigger cancel_runtime() so the legacy path does not leak either."""
+    runtime = MagicMock()
+    runtime.allocate_runtime = AsyncMock(
+        side_effect=RuntimeError("allocated then died")
+    )
+    runtime.cancel_runtime = AsyncMock()
+    service = _make_dispatch_service(runtime=runtime)
+    service.container_pool.cancel_task.side_effect = AssertionError(
+        "runtime port should own cancellation, not the pool"
+    )
+    service.config_resolver.resolve.return_value = {
+        "skill_files": {},
+        "plugin_files": {},
+        "input_files": [],
+        "browser_enabled": False,
+    }
+    claim = _make_claim()
+
+    await service.dispatch_claim(claim, worker_id="worker-1")
+
+    runtime.allocate_runtime.assert_awaited_once()
+    runtime.cancel_runtime.assert_awaited_once_with("sess-123")
+
+
 # ---------------------------------------------------------------------------
 # create_default: ComputerProvider is the default runtime allocation path
 # ---------------------------------------------------------------------------

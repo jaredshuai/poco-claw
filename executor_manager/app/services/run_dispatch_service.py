@@ -609,7 +609,8 @@ class RunDispatchService:
             "user_id": user_id,
         }
 
-        runtime_allocated = False
+        allocation_started = False
+        used_provider = False
 
         try:
             resolved_config = await self.config_preparer.prepare_config(
@@ -624,6 +625,8 @@ class RunDispatchService:
 
             provider = self.computer_provider
             if provider is not None:
+                used_provider = True
+                allocation_started = True
                 requires = {ComputerCapability.SHELL, ComputerCapability.FILESYSTEM}
                 if browser_enabled:
                     requires.add(ComputerCapability.BROWSER)
@@ -637,6 +640,7 @@ class RunDispatchService:
                 executor_url = instance.executor_endpoint
                 container_id = instance.instance_id or None
             else:
+                allocation_started = True
                 runtime_allocation = await self.runtime.allocate_runtime(
                     session_id=session_id,
                     user_id=user_id,
@@ -646,7 +650,6 @@ class RunDispatchService:
                 )
                 executor_url = runtime_allocation.executor_url
                 container_id = runtime_allocation.container_id
-            runtime_allocated = True
             logger.info(
                 "timing",
                 extra={
@@ -734,8 +737,8 @@ class RunDispatchService:
                 logger.error(f"Failed to mark run {run_id} as failed: {fail_err}")
 
             try:
-                if runtime_allocated:
-                    if self._computer_provider is not None:
+                if allocation_started:
+                    if used_provider and self._computer_provider is not None:
                         await self._computer_provider.release(session_id)
                     else:
                         await self.runtime.cancel_runtime(session_id)

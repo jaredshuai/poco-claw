@@ -1,5 +1,6 @@
 """Tests for the ComputerProvider port and the DockerComputerProvider adapter."""
 
+import typing
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -118,6 +119,22 @@ async def test_docker_provider_on_task_complete_delegates_to_pool_completion() -
     await provider.on_task_complete("sess-1")
 
     pool.on_task_complete.assert_awaited_once_with("sess-1")
+
+
+def test_run_dispatch_container_pool_protocol_declares_on_task_complete() -> None:
+    """The pool contract that DockerComputerProvider consumes must declare
+    on_task_complete, otherwise non-Docker/test pools that only satisfy the old
+    protocol crash during callback cleanup (CodeRabbit/cubic finding)."""
+    import inspect
+
+    from app.services.run_dispatch_runtime import RunDispatchContainerPool
+
+    assert "on_task_complete" in {
+        name for name, _ in inspect.getmembers(RunDispatchContainerPool)
+    }
+    hints = typing.get_type_hints(RunDispatchContainerPool.on_task_complete)
+    assert "session_id" in hints
+    assert "return" not in hints or hints["return"] is type(None)
 
 
 # ---------------------------------------------------------------------------

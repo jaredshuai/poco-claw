@@ -8,6 +8,10 @@ from app.scheduler.task_dispatcher import TaskDispatcher
 from app.services.attachment_stager import AttachmentStager
 from app.services.backend_client import BackendClient
 from app.services.claude_md_stager import ClaudeMdStager
+from app.services.computer_provider import (
+    ComputerCapability,
+    ComputerProvider,
+)
 from app.services.config_resolver import ConfigBackendClient
 from app.services.config_resolver import ConfigResolver
 from app.services.config_resolver import ConfigResolverSettings
@@ -114,6 +118,21 @@ def build_run_dispatch_container_pool() -> RunDispatchContainerPool:
     return TaskDispatcher.get_container_pool()
 
 
+def build_docker_computer_provider(
+    container_pool: RunDispatchContainerPool,
+) -> ComputerProvider:
+    """Default ``ComputerProvider`` adapter.
+
+    Wraps the existing Docker-backed ``ContainerPool`` so production dispatch
+    flows through the provider-neutral ``ComputerProvider`` port (§5.3) instead
+    of the legacy ``RunDispatchRuntime`` path.  Future Kubernetes / E2B / Cua
+    providers replace this factory without touching call sites.
+    """
+    from app.services.docker_computer_provider import DockerComputerProvider
+
+    return DockerComputerProvider(container_pool)
+
+
 class RunDispatchService:
     """Dispatch claimed runs to executor runtimes."""
 
@@ -132,6 +151,7 @@ class RunDispatchService:
         subagent_stager: SubagentStagerPort | None = None,
         container_pool: RunDispatchContainerPool | None = None,
         runtime: RunDispatchRuntime | None = None,
+        computer_provider: ComputerProvider | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
@@ -153,6 +173,7 @@ class RunDispatchService:
         subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
+        computer_provider_factory: Callable[[], ComputerProvider] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
@@ -177,6 +198,8 @@ class RunDispatchService:
         )
         self._runtime = runtime
         self._runtime_factory = runtime_factory
+        self._computer_provider = computer_provider
+        self._computer_provider_factory = computer_provider_factory
         self._config_preparer = config_preparer
         self._config_preparer_factory = config_preparer_factory
         self._state_gateway = state_gateway
@@ -257,6 +280,19 @@ class RunDispatchService:
     @runtime.setter
     def runtime(self, value: RunDispatchRuntime) -> None:
         self._runtime = value
+
+    @property
+    def computer_provider(self) -> ComputerProvider | None:
+        if (
+            self._computer_provider is None
+            and self._computer_provider_factory is not None
+        ):
+            self._computer_provider = self._computer_provider_factory()
+        return self._computer_provider
+
+    @computer_provider.setter
+    def computer_provider(self, value: ComputerProvider | None) -> None:
+        self._computer_provider = value
 
     @property
     def config_preparer(self) -> RunDispatchConfigPreparer:
@@ -419,6 +455,7 @@ class RunDispatchService:
         slash_command_stager: SlashCommandStagerPort | None = None,
         subagent_stager: SubagentStagerPort | None = None,
         runtime: RunDispatchRuntime | None = None,
+        computer_provider: ComputerProvider | None = None,
         config_preparer: RunDispatchConfigPreparer | None = None,
         state_gateway: RunDispatchStateGateway | None = None,
         executor_gateway: RunDispatchExecutorGateway | None = None,
@@ -440,6 +477,7 @@ class RunDispatchService:
         subagent_stager_factory: Callable[[], SubagentStagerPort] | None = None,
         container_pool_factory: Callable[[], RunDispatchContainerPool] | None = None,
         runtime_factory: Callable[[], RunDispatchRuntime] | None = None,
+        computer_provider_factory: Callable[[], ComputerProvider] | None = None,
         config_preparer_factory: Callable[[], RunDispatchConfigPreparer] | None = None,
         state_gateway_factory: Callable[[], RunDispatchStateGateway] | None = None,
         executor_gateway_factory: Callable[[], RunDispatchExecutorGateway]
@@ -470,6 +508,41 @@ class RunDispatchService:
         )
         subagent_factory = subagent_stager_factory or build_run_dispatch_subagent_stager
         container_factory = container_pool_factory or build_run_dispatch_container_pool
+
+        # Default runtime allocation path: when no explicit ``runtime`` override
+        # is given (the backward-compat path for non-Docker backends / tests),
+        # dispatch must flow through the ``ComputerProvider`` port (§5.3) rather
+        # than the legacy ``RunDispatchRuntime``.  The default provider wraps the
+        # same container pool the service uses, so behavior is identical for the
+        # Docker backend — the port simply stops being dead code.  Per §10 this
+        # marks the compat period: ``runtime=`` remains an explicit escape hatch,
+        # but the provider is now the production default.
+        resolved_runtime_factory = runtime_factory
+        if runtime is None and resolved_runtime_factory is None:
+            # caller did not ask for the legacy runtime path → default to provider
+            resolved_container_pool = container_pool
+            resolved_computer_provider = computer_provider
+            resolved_computer_provider_factory = computer_provider_factory
+            if (
+                resolved_computer_provider is None
+                and resolved_computer_provider_factory is None
+            ):
+
+                def _default_docker_provider_factory(
+                    pool: RunDispatchContainerPool | None = resolved_container_pool,
+                    pool_factory: Callable[
+                        [], RunDispatchContainerPool
+                    ] = container_factory,
+                ) -> ComputerProvider:
+                    # resolve the pool lazily — explicit pool wins, else factory
+                    resolved = pool if pool is not None else pool_factory()
+                    return build_docker_computer_provider(resolved)
+
+                resolved_computer_provider_factory = _default_docker_provider_factory
+        else:
+            resolved_computer_provider = computer_provider
+            resolved_computer_provider_factory = computer_provider_factory
+
         return cls(
             settings=resolved_settings,
             backend_client=backend_client,
@@ -479,7 +552,9 @@ class RunDispatchService:
             container_pool=container_pool,
             container_pool_factory=container_factory,
             runtime=runtime,
-            runtime_factory=runtime_factory,
+            runtime_factory=resolved_runtime_factory,
+            computer_provider=resolved_computer_provider,
+            computer_provider_factory=resolved_computer_provider_factory,
             config_preparer=config_preparer,
             config_preparer_factory=config_preparer_factory,
             state_gateway=state_gateway,
@@ -534,7 +609,8 @@ class RunDispatchService:
             "user_id": user_id,
         }
 
-        runtime_allocated = False
+        allocation_started = False
+        used_provider = False
 
         try:
             resolved_config = await self.config_preparer.prepare_config(
@@ -546,16 +622,34 @@ class RunDispatchService:
 
             step_started = time.perf_counter()
             browser_enabled = bool(resolved_config.get("browser_enabled"))
-            runtime_allocation = await self.runtime.allocate_runtime(
-                session_id=session_id,
-                user_id=user_id,
-                browser_enabled=browser_enabled,
-                container_mode=container_mode,
-                container_id=container_id,
-            )
-            executor_url = runtime_allocation.executor_url
-            container_id = runtime_allocation.container_id
-            runtime_allocated = True
+
+            provider = self.computer_provider
+            if provider is not None:
+                used_provider = True
+                allocation_started = True
+                requires = {ComputerCapability.SHELL, ComputerCapability.FILESYSTEM}
+                if browser_enabled:
+                    requires.add(ComputerCapability.BROWSER)
+                instance = await provider.acquire(
+                    session_id=session_id,
+                    user_id=user_id,
+                    requires=requires,
+                    reuse_id=container_id,
+                    mode=container_mode,
+                )
+                executor_url = instance.executor_endpoint
+                container_id = instance.instance_id or None
+            else:
+                allocation_started = True
+                runtime_allocation = await self.runtime.allocate_runtime(
+                    session_id=session_id,
+                    user_id=user_id,
+                    browser_enabled=browser_enabled,
+                    container_mode=container_mode,
+                    container_id=container_id,
+                )
+                executor_url = runtime_allocation.executor_url
+                container_id = runtime_allocation.container_id
             logger.info(
                 "timing",
                 extra={
@@ -643,8 +737,11 @@ class RunDispatchService:
                 logger.error(f"Failed to mark run {run_id} as failed: {fail_err}")
 
             try:
-                if runtime_allocated:
-                    await self.runtime.cancel_runtime(session_id)
+                if allocation_started:
+                    if used_provider and self._computer_provider is not None:
+                        await self._computer_provider.release(session_id)
+                    else:
+                        await self.runtime.cancel_runtime(session_id)
             except Exception as cancel_err:
                 logger.error(
                     f"Failed to cancel task for session {session_id}: {cancel_err}"

@@ -9,6 +9,7 @@ from app.schemas.callback import AgentCallbackRequest, CallbackReceiveResponse
 from app.schemas.workspace import WorkspaceExportResult
 from app.services.backend_client import BackendClient
 from app.services.clock import Clock, SystemClock
+from app.services.computer_provider import ComputerProvider
 from app.services.workspace_export_service import (
     WorkspaceExportService,
     workspace_manager,
@@ -87,6 +88,23 @@ class TaskDispatcherRuntimeCleanup:
         await TaskDispatcher.on_task_complete(session_id)
 
 
+class ComputerProviderRuntimeCleanup:
+    """Provider-neutral terminal cleanup adapter.
+
+    Routes successful task completion through the ``ComputerProvider`` port
+    (§3.3) so the cleanup lifecycle is owned by the runtime abstraction
+    instead of the Docker-aware ``TaskDispatcher`` leaf.  ``release`` (failure)
+    and ``on_task_complete`` (success) are intentionally separate provider
+    methods because their backend semantics differ.
+    """
+
+    def __init__(self, provider: ComputerProvider) -> None:
+        self._provider = provider
+
+    async def on_task_complete(self, session_id: str) -> None:
+        await self._provider.on_task_complete(session_id)
+
+
 def is_ignored_workspace_path(path: str) -> bool:
     """Check whether a workspace-relative path should be ignored."""
     clean = (path or "").replace("\\", "/").strip()
@@ -121,8 +139,34 @@ class WorkspaceManagerPathFilter:
         return is_ignored_workspace_path(path)
 
 
-def build_callback_runtime_cleanup() -> CallbackRuntimeCleanup:
-    return TaskDispatcherRuntimeCleanup()
+def build_default_computer_provider_for_cleanup() -> ComputerProvider:
+    """Default ``ComputerProvider`` for callback-driven terminal cleanup.
+
+    Mirrors the provider wired by ``RunDispatchService.create_default``: the
+    same Docker-backed ``ContainerPool`` is wrapped so the success-path cleanup
+    lands on the same resource the dispatch path allocated.
+    """
+    from app.services.run_dispatch_service import (
+        build_docker_computer_provider,
+        build_run_dispatch_container_pool,
+    )
+
+    return build_docker_computer_provider(build_run_dispatch_container_pool())
+
+
+def build_callback_runtime_cleanup(
+    provider: ComputerProvider | None = None,
+) -> CallbackRuntimeCleanup:
+    """Default terminal cleanup adapter.
+
+    When a ``ComputerProvider`` is available, cleanup routes through
+    ``ComputerProviderRuntimeCleanup`` so the lifecycle is provider-neutral
+    (§3.3).  Falls back to ``TaskDispatcherRuntimeCleanup`` only when a caller
+    injects it explicitly — the provider path is the production default.
+    """
+    if provider is None:
+        provider = build_default_computer_provider_for_cleanup()
+    return ComputerProviderRuntimeCleanup(provider)
 
 
 def build_callback_workspace_path_filter() -> CallbackWorkspacePathFilter:
@@ -141,6 +185,8 @@ class CallbackService:
         | None = None,
         runtime_cleanup: CallbackRuntimeCleanup | None = None,
         runtime_cleanup_factory: Callable[[], CallbackRuntimeCleanup] | None = None,
+        computer_provider: ComputerProvider | None = None,
+        computer_provider_factory: Callable[[], ComputerProvider] | None = None,
         workspace_path_filter: CallbackWorkspacePathFilter | None = None,
         workspace_path_filter_factory: Callable[[], CallbackWorkspacePathFilter]
         | None = None,
@@ -152,14 +198,26 @@ class CallbackService:
             workspace_export_service_factory or get_workspace_export_service
         )
         self._runtime_cleanup = runtime_cleanup
+        self._computer_provider = computer_provider
+        self._computer_provider_factory = (
+            computer_provider_factory or build_default_computer_provider_for_cleanup
+        )
         self._runtime_cleanup_factory = (
-            runtime_cleanup_factory or build_callback_runtime_cleanup
+            runtime_cleanup_factory or self._default_runtime_cleanup_factory
         )
         self._workspace_path_filter = workspace_path_filter
         self._workspace_path_filter_factory = (
             workspace_path_filter_factory or build_callback_workspace_path_filter
         )
         self._worker_id_provider = worker_id_provider or get_worker_id
+
+    def _resolve_computer_provider(self) -> ComputerProvider:
+        if self._computer_provider is None:
+            self._computer_provider = self._computer_provider_factory()
+        return self._computer_provider
+
+    def _default_runtime_cleanup_factory(self) -> CallbackRuntimeCleanup:
+        return build_callback_runtime_cleanup(self._resolve_computer_provider())
 
     def _get_worker_id(self) -> str:
         return self._worker_id_provider()

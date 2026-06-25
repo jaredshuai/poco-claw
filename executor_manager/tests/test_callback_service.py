@@ -135,11 +135,16 @@ def test_callback_normalizer_inputs_are_object_not_any() -> None:
 
 def test_callback_service_defers_default_runtime_adapters() -> None:
     runtime_cleanup = MagicMock()
+    provider = MagicMock()
     workspace_path_filter = MagicMock()
 
     with (
         patch(
-            "app.services.callback_service.TaskDispatcherRuntimeCleanup",
+            "app.services.callback_service.build_default_computer_provider_for_cleanup",
+            return_value=provider,
+        ) as provider_factory,
+        patch(
+            "app.services.callback_service.ComputerProviderRuntimeCleanup",
             return_value=runtime_cleanup,
         ) as runtime_cleanup_cls,
         patch(
@@ -149,13 +154,15 @@ def test_callback_service_defers_default_runtime_adapters() -> None:
     ):
         service = CallbackService()
 
+        provider_factory.assert_not_called()
         runtime_cleanup_cls.assert_not_called()
         workspace_path_filter_cls.assert_not_called()
 
         assert service.runtime_cleanup is runtime_cleanup
         assert service.workspace_path_filter is workspace_path_filter
 
-    runtime_cleanup_cls.assert_called_once_with()
+    provider_factory.assert_called_once_with()
+    runtime_cleanup_cls.assert_called_once_with(provider)
     workspace_path_filter_cls.assert_called_once_with()
 
 
@@ -494,19 +501,26 @@ class TestProcessCallback(unittest.TestCase):
             return_value={"status": "completed"}
         )
 
-        mock_task_dispatcher = MagicMock()
-        mock_task_dispatcher.on_task_complete = AsyncMock()
+        provider = MagicMock()
+        provider.on_task_complete = AsyncMock()
 
         with (
             patch(
                 "app.services.callback_service.get_backend_client",
                 return_value=mock_backend_client,
             ),
-            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher") as task_dispatcher,
+            patch(
+                "app.services.callback_service.build_default_computer_provider_for_cleanup",
+                return_value=provider,
+            ),
             patch(
                 "app.services.callback_service.asyncio.create_task"
             ) as mock_create_task,
         ):
+            task_dispatcher.on_task_complete.side_effect = AssertionError(
+                "default cleanup should route through ComputerProvider"
+            )
             service = CallbackService()
             callback = self._create_callback(status="completed", progress=100)
             mock_create_task.side_effect = lambda coro: coro.close()
@@ -517,7 +531,7 @@ class TestProcessCallback(unittest.TestCase):
 
             assert result.callback_status == "completed"
             mock_create_task.assert_called_once()
-            mock_task_dispatcher.on_task_complete.assert_called_once()
+            provider.on_task_complete.assert_awaited_once_with("test-session")
 
     def test_process_callback_failed_status(self) -> None:
         """Test callback processing with failed status."""
@@ -526,19 +540,26 @@ class TestProcessCallback(unittest.TestCase):
             return_value={"status": "failed"}
         )
 
-        mock_task_dispatcher = MagicMock()
-        mock_task_dispatcher.on_task_complete = AsyncMock()
+        provider = MagicMock()
+        provider.on_task_complete = AsyncMock()
 
         with (
             patch(
                 "app.services.callback_service.get_backend_client",
                 return_value=mock_backend_client,
             ),
-            patch("app.scheduler.task_dispatcher.TaskDispatcher", mock_task_dispatcher),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher") as task_dispatcher,
+            patch(
+                "app.services.callback_service.build_default_computer_provider_for_cleanup",
+                return_value=provider,
+            ),
             patch(
                 "app.services.callback_service.asyncio.create_task"
             ) as mock_create_task,
         ):
+            task_dispatcher.on_task_complete.side_effect = AssertionError(
+                "default cleanup should route through ComputerProvider"
+            )
             service = CallbackService()
             callback = self._create_callback(status="failed", progress=80)
             mock_create_task.side_effect = lambda coro: coro.close()
@@ -549,7 +570,7 @@ class TestProcessCallback(unittest.TestCase):
 
             assert result.callback_status == "failed"
             mock_create_task.assert_called_once()
-            mock_task_dispatcher.on_task_complete.assert_called_once()
+            provider.on_task_complete.assert_awaited_once_with("test-session")
 
     def test_process_callback_deferred_cleanup(self) -> None:
         """Test callback with session still pending/running defers cleanup."""
@@ -616,6 +637,96 @@ class TestProcessCallback(unittest.TestCase):
         runtime_cleanup.on_task_complete.assert_awaited_once_with("test-session")
         task_dispatcher.on_task_complete.assert_not_called()
         mock_create_task.assert_called_once()
+
+    def test_process_callback_default_cleanup_routes_through_computer_provider(
+        self,
+    ) -> None:
+        """Default runtime cleanup should route through the ComputerProvider port,
+        not the legacy TaskDispatcher leaf (§3.3 / §5.3)."""
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "completed"}
+        )
+        provider = MagicMock()
+        provider.on_task_complete = AsyncMock()
+
+        with (
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher") as task_dispatcher,
+            patch(
+                "app.services.callback_service.asyncio.create_task"
+            ) as mock_create_task,
+            patch(
+                "app.services.callback_service.build_default_computer_provider_for_cleanup",
+                return_value=provider,
+            ),
+        ):
+            task_dispatcher.on_task_complete.side_effect = AssertionError(
+                "default cleanup should route through ComputerProvider, not TaskDispatcher"
+            )
+            service = CallbackService()
+            callback = self._create_callback(status="completed", progress=100)
+            mock_create_task.side_effect = lambda coro: coro.close()
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+        assert result.callback_status == "completed"
+        provider.on_task_complete.assert_awaited_once_with("test-session")
+        mock_create_task.assert_called_once()
+
+    def test_process_callback_explicit_runtime_cleanup_overrides_default_provider(
+        self,
+    ) -> None:
+        """Explicit runtime_cleanup injection must still win over the default
+        ComputerProvider-backed cleanup (backward compatibility)."""
+        mock_backend_client = MagicMock()
+        mock_backend_client.forward_callback = AsyncMock(
+            return_value={"status": "completed"}
+        )
+        runtime_cleanup = MagicMock()
+        runtime_cleanup.on_task_complete = AsyncMock()
+        provider = MagicMock()
+        provider.on_task_complete = AsyncMock(
+            side_effect=AssertionError(
+                "explicit runtime_cleanup should override default provider cleanup"
+            )
+        )
+
+        with (
+            patch(
+                "app.services.callback_service.get_backend_client",
+                return_value=mock_backend_client,
+            ),
+            patch("app.scheduler.task_dispatcher.TaskDispatcher") as task_dispatcher,
+            patch(
+                "app.services.callback_service.asyncio.create_task"
+            ) as mock_create_task,
+            patch(
+                "app.services.callback_service.build_default_computer_provider_for_cleanup",
+                return_value=provider,
+            ),
+        ):
+            task_dispatcher.on_task_complete.side_effect = AssertionError(
+                "explicit runtime_cleanup should win"
+            )
+            service = CallbackService(
+                runtime_cleanup=runtime_cleanup,
+            )
+            callback = self._create_callback(status="completed", progress=100)
+            mock_create_task.side_effect = lambda coro: coro.close()
+
+            import asyncio
+
+            result = asyncio.run(service.process_callback(callback))
+
+        assert result.callback_status == "completed"
+        runtime_cleanup.on_task_complete.assert_awaited_once_with("test-session")
+        provider.on_task_complete.assert_not_awaited()
 
     def test_process_callback_uses_injected_workspace_path_filter(self) -> None:
         """Test state patch filtering uses the injected workspace path boundary."""

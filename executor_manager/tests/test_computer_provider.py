@@ -1,0 +1,158 @@
+"""Tests for the ComputerProvider port and the DockerComputerProvider adapter."""
+
+import typing
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from app.services.computer_provider import (
+    ComputerCapability,
+    ComputerInstance,
+    ComputerProvider,
+)
+from app.services.docker_computer_provider import DockerComputerProvider
+
+
+# ---------------------------------------------------------------------------
+# DockerComputerProvider.acquire
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_docker_provider_acquire_maps_browser_capability() -> None:
+    """BROWSER in requires → browser_enabled=True passed to pool."""
+    pool = MagicMock()
+    pool.get_or_create_container = AsyncMock(
+        return_value=("http://localhost:9001", "exec-abc12345")
+    )
+    provider = DockerComputerProvider(pool)
+
+    instance = await provider.acquire(
+        session_id="sess-1",
+        user_id="user-1",
+        requires={ComputerCapability.SHELL, ComputerCapability.BROWSER},
+        reuse_id="existing-container",
+    )
+
+    assert isinstance(instance, ComputerInstance)
+    assert instance.executor_endpoint == "http://localhost:9001"
+    assert instance.instance_id == "exec-abc12345"
+    assert instance.provider == "docker"
+    assert ComputerCapability.SHELL in instance.capabilities
+    assert ComputerCapability.FILESYSTEM in instance.capabilities
+    assert ComputerCapability.BROWSER in instance.capabilities
+
+    pool.get_or_create_container.assert_awaited_once_with(
+        session_id="sess-1",
+        user_id="user-1",
+        browser_enabled=True,
+        container_mode="ephemeral",
+        container_id="existing-container",
+    )
+
+
+@pytest.mark.asyncio
+async def test_docker_provider_acquire_passes_mode_through() -> None:
+    """mode='persistent' is forwarded to the pool as container_mode."""
+    pool = MagicMock()
+    pool.get_or_create_container = AsyncMock(
+        return_value=("http://localhost:9003", "exec-persist1")
+    )
+    provider = DockerComputerProvider(pool)
+
+    await provider.acquire(
+        session_id="sess-3",
+        user_id="user-3",
+        requires={ComputerCapability.SHELL},
+        mode="persistent",
+    )
+
+    call_kwargs = pool.get_or_create_container.await_args.kwargs
+    assert call_kwargs["container_mode"] == "persistent"
+
+
+@pytest.mark.asyncio
+async def test_docker_provider_acquire_without_browser() -> None:
+    """No BROWSER capability → browser_enabled=False, caps lack BROWSER."""
+    pool = MagicMock()
+    pool.get_or_create_container = AsyncMock(
+        return_value=("http://localhost:9002", "exec-def67890")
+    )
+    provider = DockerComputerProvider(pool)
+
+    instance = await provider.acquire(
+        session_id="sess-2",
+        user_id="user-2",
+        requires={ComputerCapability.SHELL},
+    )
+
+    assert ComputerCapability.BROWSER not in instance.capabilities
+    assert ComputerCapability.SHELL in instance.capabilities
+
+    call_kwargs = pool.get_or_create_container.await_args.kwargs
+    assert call_kwargs["browser_enabled"] is False
+    assert call_kwargs["container_id"] is None
+
+
+# ---------------------------------------------------------------------------
+# DockerComputerProvider.release
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_docker_provider_release_delegates_to_cancel_task() -> None:
+    pool = MagicMock()
+    pool.cancel_task = AsyncMock()
+    provider = DockerComputerProvider(pool)
+
+    await provider.release("sess-1")
+
+    pool.cancel_task.assert_awaited_once_with("sess-1")
+
+
+@pytest.mark.asyncio
+async def test_docker_provider_on_task_complete_delegates_to_pool_completion() -> None:
+    pool = MagicMock()
+    pool.on_task_complete = AsyncMock()
+    provider = DockerComputerProvider(pool)
+
+    await provider.on_task_complete("sess-1")
+
+    pool.on_task_complete.assert_awaited_once_with("sess-1")
+
+
+def test_run_dispatch_container_pool_protocol_declares_on_task_complete() -> None:
+    """The pool contract that DockerComputerProvider consumes must declare
+    on_task_complete, otherwise non-Docker/test pools that only satisfy the old
+    protocol crash during callback cleanup (CodeRabbit/cubic finding)."""
+    import inspect
+
+    from app.services.run_dispatch_runtime import RunDispatchContainerPool
+
+    assert "on_task_complete" in {
+        name for name, _ in inspect.getmembers(RunDispatchContainerPool)
+    }
+    hints = typing.get_type_hints(RunDispatchContainerPool.on_task_complete)
+    assert "session_id" in hints
+    assert "return" not in hints or hints["return"] is type(None)
+
+
+# ---------------------------------------------------------------------------
+# ComputerProvider protocol structure (static checks)
+# ---------------------------------------------------------------------------
+
+
+def test_computer_provider_protocol_has_acquire_and_release() -> None:
+    """The protocol surface must expose acquire + release."""
+    import typing
+
+    assert hasattr(ComputerProvider, "acquire")
+    assert hasattr(ComputerProvider, "release")
+
+    acquire_hints = typing.get_type_hints(ComputerProvider.acquire)
+    assert acquire_hints["return"] is ComputerInstance
+
+    complete_hints = typing.get_type_hints(ComputerProvider.on_task_complete)
+    assert "session_id" in complete_hints
+    assert complete_hints["session_id"] is str
+    assert "return" not in complete_hints or complete_hints["return"] is type(None)

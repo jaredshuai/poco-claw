@@ -21,6 +21,8 @@ class RunDispatchContainerPool(Protocol):
 
     async def cancel_task(self, session_id: str) -> None: ...
 
+    async def on_task_complete(self, session_id: str) -> None: ...
+
 
 class RunDispatchRuntime(Protocol):
     async def allocate_runtime(

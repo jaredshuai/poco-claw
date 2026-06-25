@@ -231,7 +231,7 @@ PR 描述至少包含：
 - `gitleaks`
 - `pr-title`
 
-其中 `eslint`、`markdownlint`、`prettier`、`actionlint` 与 `pr-title` 是跨目录、低成本检查，在 PR 上默认不使用 `paths` 过滤，确保必检 context 能稳定回报状态。服务相关检查仍可按目录约束运行，但分支保护中的必检配置必须与 workflow 触发条件保持一致，避免出现 required context 未产生状态而阻塞合并。
+上述必检 workflow（`eslint`、`markdownlint`、`prettier`、`actionlint`、`pr-title`、`Pyrefly`、`ruff`）在 PR 上默认不使用 `paths` 过滤，确保必检 context 能稳定回报状态，避免出现 required context 未产生状态而阻塞合并。其余非必检 workflow（如 `ci-pytest.yml`、`ci-frontend-build.yml`）仍可通过 `paths` 约束只在相关文件改动时运行。
 
 **仅在上游仓库 `poco-ai/poco-claw` 默认执行的自动化：**
 
@@ -317,7 +317,7 @@ PR 描述至少包含：
 | 贡献流程          | `CONTRIBUTING.md`                                                                      | 已落地                                          |
 | AI 代理约束       | `AGENTS.md`                                                                            | 已落地                                          |
 | 仓库治理          | `docs/repository-governance.md`                                                        | 草案                                            |
-| Python 代码检查   | `ci-ruff.yml`, `ci-pyrefly.yml`, `ci-pytest.yml`, `.pre-commit-config.yaml`            | fork 默认启用                                   |
+| Python 代码检查   | `ci-ruff.yml`, `ci-pyrefly.yml`, `ci-pytest.yml`, `.pre-commit-config.yaml`            | fork 默认启用；`ruff` / `Pyrefly` 为 PR 必检    |
 | Frontend 检查     | `ci-eslint.yml`, `ci-frontend-build.yml`, `ci-prettier.yml`, `.pre-commit-config.yaml` | fork 默认启用；`eslint` / `prettier` 为 PR 必检 |
 | Markdown 检查     | `ci-markdownlint.yml`                                                                  | fork 默认启用；PR 必检                          |
 | PR 标题校验       | `ci-pr-title.yml`                                                                      | fork 默认启用；PR 必检                          |

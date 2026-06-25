@@ -62,7 +62,7 @@ Recommendations:
 - `perf`
 - `revert`
 
-上游仓库默认会通过 GitHub Actions 对 PR 标题进行校验；个人 fork 可能会把该校验收敛为上游专用，因此建议在创建面向上游的 PR 前先自行确认标题格式。
+仓库会通过 GitHub Actions 对 PR 标题进行校验，且该校验为 `main` 分支保护的必检项之一；向 fork 或上游提交 PR 时都需使用符合 Conventional Commits 的标题，否则 PR 标题校验会失败并阻塞合并。
 
 推荐 `scope`：
 

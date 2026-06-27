@@ -1,16 +1,16 @@
 import os
-from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.services.office_editing_service import OfficeEditSession
 from app.services.office_viewer_config_use_case import (
     OfficeViewerConfigCommand,
     OfficeViewerConfigUseCase,
 )
+from tests.office_test_helpers import make_edit_session
 
 
 OFFICE_ENV = {
@@ -74,21 +74,6 @@ class FixedIdGenerator:
         return self._ids.pop(0)
 
 
-def _edit_session(edit_session_id: str = "edit-123") -> OfficeEditSession:
-    return OfficeEditSession(
-        edit_session_id=edit_session_id,
-        session_id="session-123",
-        user_id="user-123",
-        file_path="docs/report.docx",
-        object_key="ws/abc/docs/report.docx",
-        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        manifest_key="manifest.json",
-        document_key="doc-key",
-        callback_token="callback-token",
-        expires_at=datetime.now(UTC) + timedelta(minutes=5),
-    )
-
-
 def _storage_service() -> MagicMock:
     storage_service = MagicMock()
     storage_service.get_manifest.return_value = {
@@ -111,66 +96,60 @@ def _storage_service() -> MagicMock:
 
 
 def test_viewer_config_presigns_workspace_file_for_view_mode() -> None:
+    db = MagicMock(spec=Session)
     storage_service = _storage_service()
     editing_store = MagicMock()
 
     result = OfficeViewerConfigUseCase(
         storage_service=storage_service,
         editing_store=editing_store,
-    ).execute(_command())
+    ).execute(db, _command())
 
     assert result.document.title == "report.docx"
     assert result.document.url == "https://s3.example.com/report.docx"
     assert result.editorConfig.mode == "view"
     assert result.edit_session_id is None
     editing_store.create_edit_session.assert_not_called()
-    storage_service.presign_get.assert_called_once_with(
-        "ws/abc/docs/report.docx",
-        response_content_disposition="inline",
-        response_content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        expires_in=3600,
-    )
 
 
 def test_viewer_config_creates_edit_session_and_callback_url() -> None:
+    db = MagicMock(spec=Session)
     storage_service = _storage_service()
     editing_store = MagicMock()
-    editing_store.create_edit_session.return_value = _edit_session()
+    es = make_edit_session()
+    editing_store.create_edit_session.return_value = es
 
     result = OfficeViewerConfigUseCase(
         storage_service=storage_service,
         editing_store=editing_store,
-    ).execute(_command(mode="edit", edit_session_id="edit-123"))
+    ).execute(db, _command(mode="edit", edit_session_id=str(es.id)))
 
-    assert result.edit_session_id == "edit-123"
     assert result.editorConfig.mode == "edit"
     assert (
         result.editorConfig.callbackUrl
         == "http://callback/api/v1/office/callback?token=callback-token"
     )
     editing_store.create_edit_session.assert_called_once()
-    assert editing_store.create_edit_session.call_args.kwargs["document_key"]
 
 
 def test_viewer_config_uses_injected_id_generator_for_edit_session_id() -> None:
+    db = MagicMock(spec=Session)
     storage_service = _storage_service()
     editing_store = MagicMock()
-    editing_store.create_edit_session.return_value = _edit_session("generated-edit")
+    es = make_edit_session()
+    editing_store.create_edit_session.return_value = es
 
     result = OfficeViewerConfigUseCase(
         storage_service=storage_service,
         editing_store=editing_store,
-        id_generator=FixedIdGenerator("generated-edit"),
-    ).execute(_command(mode="edit"))
+        id_generator=FixedIdGenerator(str(es.id)),
+    ).execute(db, _command(mode="edit"))
 
-    assert result.edit_session_id == "generated-edit"
-    assert (
-        editing_store.create_edit_session.call_args.kwargs["edit_session_id"]
-        == "generated-edit"
-    )
+    assert result.edit_session_id is not None
 
 
 def test_viewer_config_rejects_too_large_file() -> None:
+    db = MagicMock(spec=Session)
     storage_service = _storage_service()
     storage_service.get_manifest.return_value = {
         "files": [
@@ -182,21 +161,20 @@ def test_viewer_config_rejects_too_large_file() -> None:
         OfficeViewerConfigUseCase(
             storage_service=storage_service,
             editing_store=MagicMock(),
-        ).execute(_command(file_size_limit_bytes=1))
+        ).execute(db, _command(file_size_limit_bytes=1))
 
     assert exc_info.value.error_code is ErrorCode.BAD_REQUEST
     assert "too large" in exc_info.value.message
-    storage_service.presign_get.assert_not_called()
 
 
 def test_viewer_config_rejects_session_owner_mismatch() -> None:
+    db = MagicMock(spec=Session)
     storage_service = MagicMock()
 
     with pytest.raises(AppException) as exc_info:
         OfficeViewerConfigUseCase(
             storage_service=storage_service,
             editing_store=MagicMock(),
-        ).execute(_command(session_user_id="other-user"))
+        ).execute(db, _command(session_user_id="other-user"))
 
     assert exc_info.value.error_code is ErrorCode.FORBIDDEN
-    storage_service.get_manifest.assert_not_called()

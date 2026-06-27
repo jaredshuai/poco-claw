@@ -602,6 +602,7 @@ class TestCallbackServiceExtractAndPersistUsage(unittest.TestCase):
         db_session.id = uuid.uuid4()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         service = CallbackService()
         message = {
             "_type": "ResultMessage",
@@ -755,6 +756,7 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         db_session.id = uuid.uuid4()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         service = CallbackService()
         callback = create_callback_request(workspace_files_prefix="files/")
         with patch("app.services.callback_service.RunRepository") as mock_repo:
@@ -770,6 +772,7 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         db_session.id = uuid.uuid4()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         service = CallbackService()
         callback = create_callback_request(workspace_files_prefix="files/")
         with patch("app.services.callback_service.RunRepository") as mock_repo:
@@ -786,6 +789,7 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         db_session.workspace_export_status = "pending"  # Not "ready"
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         terminal_run = MagicMock()
         terminal_run.id = uuid.uuid4()  # Different from db_run
         service = CallbackService()
@@ -808,6 +812,7 @@ class TestCallbackServiceShouldApplyWorkspaceExport(unittest.TestCase):
         db_session.workspace_export_status = "ready"  # Already has ready
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         terminal_run = MagicMock()
         terminal_run.id = uuid.uuid4()  # Different from db_run
         service = CallbackService()
@@ -1153,6 +1158,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         db_run.session_id = db_session.id
         mcp_connection_service = MagicMock()
         service = CallbackService(mcp_connection_service=mcp_connection_service)
@@ -1218,6 +1224,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
             mock_resolve.return_value = (db_session, db_run)
@@ -1235,6 +1242,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
             mock_resolve.return_value = (db_session, db_run)
@@ -1253,6 +1261,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
             mock_resolve.return_value = (db_session, db_run)
@@ -1350,6 +1359,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         db_run.status = "completed"  # Already terminal
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
@@ -1389,6 +1399,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         db_run.status = "completed"  # Already terminal
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
@@ -1427,6 +1438,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         db_run.status = "running"
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
@@ -1478,6 +1490,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
         db_run.status = "running"
+        db_run.status = "running"
         db_run.claimed_by = "worker-2"
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
@@ -1511,6 +1524,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         db_session = create_mock_db_session()
         db_run = MagicMock()
         db_run.id = uuid.uuid4()
+        db_run.status = "running"
         db_run.status = "failed"
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:

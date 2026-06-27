@@ -24,6 +24,8 @@ from app.models.mcp_server import McpServer
 from app.models.message_feedback import MessageFeedback
 from app.models.memory_create_job import MemoryCreateJob
 from app.models.model_provider_setting import UserModelProviderSetting
+from app.models.office_edit_session import OfficeEditSession
+from app.models.office_save_request import OfficeSaveRequest
 from app.models.pending_skill_creation import PendingSkillCreation
 from app.models.plugin import Plugin
 from app.models.plugin_import_job import PluginImportJob
@@ -67,6 +69,8 @@ __all__ = [
     "MessageFeedback",
     "MemoryCreateJob",
     "UserModelProviderSetting",
+    "OfficeEditSession",
+    "OfficeSaveRequest",
     "PendingSkillCreation",
     "Plugin",
     "PluginImportJob",

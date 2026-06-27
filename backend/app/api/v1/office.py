@@ -182,10 +182,11 @@ async def get_viewer_config(
     """
     db_session = session_service.get_session(db, request.session_id)
     settings = get_settings()
-    return OfficeViewerConfigUseCase(
+    result = OfficeViewerConfigUseCase(
         storage_service=get_storage_service(),
         editing_store=editing_store,
     ).execute(
+        db,
         OfficeViewerConfigCommand(
             session_id=str(request.session_id),
             session_user_id=db_session.user_id,
@@ -200,8 +201,13 @@ async def get_viewer_config(
             file_size_limit_bytes=settings.office_file_size_limit_mb * 1024 * 1024,
             presign_expires_in=settings.office_presign_expires_seconds,
             callback_base_url=settings.office_callback_base_url,
-        )
+        ),
     )
+    # The use case flushes the new edit-session row without committing; the
+    # get_db dependency only closes the session, so commit explicitly here to
+    # persist it (mirrors the explicit-commit pattern in sessions.py / session_queue.py).
+    db.commit()
+    return result
 
 
 @router.get("/download-latest")
@@ -246,13 +252,14 @@ async def force_save(
             editing_store=editing_store,
             command_client=command_client,
         ).execute(
+            db,
             OfficeForceSaveCommand(
                 session_id=str(request.session_id),
                 session_user_id=db_session.user_id,
                 user_id=actor.user_id,
                 file_path=request.file_path,
                 edit_session_id=request.edit_session_id,
-            )
+            ),
         )
     except OfficeSaveInProgressError as exc:
         raise HTTPException(
@@ -263,6 +270,7 @@ async def force_save(
             },
         ) from exc
 
+    db.commit()
     return OfficeForceSaveResponse(
         save_request_id=result.save_request_id,
         status=result.status,
@@ -277,13 +285,13 @@ async def get_save_status(
     db: Session = Depends(get_db),
 ) -> OfficeSaveStatusResponse:
     """Return a short-lived Office save request status."""
-    del db
     result = OfficeSaveStatusUseCase(editing_store=editing_store).execute(
+        db,
         OfficeSaveStatusQuery(
             session_id=str(session_id),
             save_request_id=save_request_id,
             user_id=actor.user_id,
-        )
+        ),
     )
 
     return OfficeSaveStatusResponse(
@@ -304,14 +312,16 @@ async def discard_edit_session(
     """Discard an active Office edit session and revoke its callback token."""
     db_session = session_service.get_session(db, request.session_id)
     result = OfficeDiscardEditSessionUseCase(editing_store=editing_store).execute(
+        db,
         OfficeDiscardEditSessionCommand(
             session_id=str(request.session_id),
             session_user_id=db_session.user_id,
             user_id=actor.user_id,
             file_path=request.file_path,
             edit_session_id=request.edit_session_id,
-        )
+        ),
     )
+    db.commit()
     return OfficeDiscardEditSessionResponse(
         edit_session_id=result.edit_session_id,
         status=result.status,
@@ -323,6 +333,7 @@ async def office_callback(
     request: dict = Body(...),
     token: str = Query(...),
     authorization: Annotated[str | None, Header()] = None,
+    db: Session = Depends(get_db),
 ) -> dict[str, int]:
     """Handle OnlyOffice save callbacks without browser-session auth."""
     callback_payload = _decode_callback_payload(request, authorization)
@@ -339,10 +350,11 @@ async def office_callback(
         editing_store=editing_store,
         validate_download_url=_validate_callback_download_url,
     ).handle(
+        db,
         token=token,
         callback=callback,
     )
-
+    db.commit()
     return {"error": 0}
 
 

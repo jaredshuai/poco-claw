@@ -8,16 +8,19 @@ import logging
 from typing import Any
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.core.errors.exceptions import AppException
+from app.models.office_edit_session import OfficeEditSession
 from app.schemas.office import OfficeCallbackRequest
 from app.services.office_editing_service import (
-    OfficeEditSession,
+    SAVE_STATUS_CALLBACK_RECEIVED,
     SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
     SAVE_STATUS_PENDING,
     SAVE_STATUS_SAVED,
     SAVE_STATUS_SAVING,
+    SAVE_STATUS_STAGED,
 )
 from app.services.office_writeback_service import (
     OfficeSaveWritebackService,
@@ -64,36 +67,42 @@ class OfficeCallbackSaveUseCase:
 
     async def handle_callback(
         self,
+        db: Session,
         *,
         edit_session: OfficeEditSession,
         callback: OfficeCallbackRequest,
     ) -> None:
         if callback.status == 6:
             await self.handle_saved_callback(
+                db,
                 edit_session=edit_session,
                 callback=callback,
             )
         elif callback.status == 7:
             await self.handle_failed_callback(
+                db,
                 edit_session=edit_session,
                 callback=callback,
             )
 
     async def handle_saved_callback(
         self,
+        db: Session,
         *,
         edit_session: OfficeEditSession,
         callback: OfficeCallbackRequest,
     ) -> None:
         if not callback.userdata:
             return
-        save_request = self.editing_store.get_save_request(callback.userdata)
+        save_request = self.editing_store.get_save_request(db, callback.userdata)
         if (
             save_request is None
             or save_request.edit_session_id != edit_session.edit_session_id
         ):
             return
         if save_request.status in {
+            SAVE_STATUS_CALLBACK_RECEIVED,
+            SAVE_STATUS_STAGED,
             SAVE_STATUS_COMMITTING,
             SAVE_STATUS_SAVED,
             SAVE_STATUS_FAILED,
@@ -101,6 +110,7 @@ class OfficeCallbackSaveUseCase:
             return
         if not callback.url:
             self.editing_store.mark_failed(
+                db,
                 save_request.save_request_id,
                 error_code="office_callback_missing_url",
             )
@@ -110,6 +120,7 @@ class OfficeCallbackSaveUseCase:
             self.validate_download_url(callback.url)
         except AppException:
             self.editing_store.mark_failed(
+                db,
                 save_request.save_request_id,
                 error_code="untrusted_callback_download_url",
             )
@@ -117,6 +128,7 @@ class OfficeCallbackSaveUseCase:
 
         try:
             claimed_save_request = self.editing_store.try_begin_commit(
+                db,
                 save_request.save_request_id,
                 edit_session_id=edit_session.edit_session_id,
             )
@@ -134,6 +146,7 @@ class OfficeCallbackSaveUseCase:
                 storage_service=self.storage_service,
                 editing_store=self.editing_store,
             ).commit_saved_content(
+                db,
                 edit_session=edit_session,
                 save_request=save_request,
                 content=downloaded.content,
@@ -143,14 +156,15 @@ class OfficeCallbackSaveUseCase:
             logger.exception(
                 "Office writeback committed but save state commit failed",
                 extra={
-                    "save_request_id": save_request.save_request_id,
-                    "edit_session_id": edit_session.edit_session_id,
+                    "save_request_id": str(save_request.save_request_id),
+                    "edit_session_id": str(edit_session.edit_session_id),
                     "session_id": edit_session.session_id,
                 },
             )
             raise
         except Exception as exc:
             self.editing_store.mark_failed(
+                db,
                 save_request.save_request_id,
                 error_code="writeback_failed",
                 error_message=str(exc),
@@ -159,13 +173,14 @@ class OfficeCallbackSaveUseCase:
 
     async def handle_failed_callback(
         self,
+        db: Session,
         *,
         edit_session: OfficeEditSession,
         callback: OfficeCallbackRequest,
     ) -> None:
         if not callback.userdata:
             return
-        save_request = self.editing_store.get_save_request(callback.userdata)
+        save_request = self.editing_store.get_save_request(db, callback.userdata)
         if (
             save_request is None
             or save_request.edit_session_id != edit_session.edit_session_id
@@ -175,6 +190,7 @@ class OfficeCallbackSaveUseCase:
             return
 
         self.editing_store.mark_failed(
+            db,
             save_request.save_request_id,
             error_code="office_forcesave_failed",
             error_message=str(callback.error) if callback.error is not None else None,

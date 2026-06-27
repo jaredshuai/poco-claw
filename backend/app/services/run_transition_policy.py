@@ -63,3 +63,43 @@ class RunTransitionPolicy:
         if db_run.status == "claimed":
             RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
         return RUN_TRANSITION_APPLY
+
+    @staticmethod
+    def evaluate_complete(
+        db_run: Any,
+        worker_id: str,
+        *,
+        now: datetime,
+    ) -> RunTransitionDecision:
+        if db_run.status in TERMINAL_RUN_STATUSES:
+            return RUN_TRANSITION_NOOP
+
+        if db_run.status != "running":
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message=f"Run status cannot be completed: {db_run.status}",
+            )
+
+        RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
+        return RUN_TRANSITION_APPLY
+
+    @staticmethod
+    def evaluate_cancel(
+        db_run: Any,
+        worker_id: str,
+        *,
+        now: datetime,
+    ) -> RunTransitionDecision:
+        if db_run.status in TERMINAL_RUN_STATUSES:
+            return RUN_TRANSITION_NOOP
+
+        if db_run.status not in ["queued", "claimed", "running"]:
+            raise AppException(
+                error_code=ErrorCode.BAD_REQUEST,
+                message=f"Run status cannot be canceled: {db_run.status}",
+            )
+
+        # queued runs have no claimed_by, so skip worker ownership check
+        if db_run.status in ("claimed", "running"):
+            RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
+        return RUN_TRANSITION_APPLY

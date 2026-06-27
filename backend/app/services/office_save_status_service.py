@@ -5,22 +5,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from sqlalchemy.orm import Session
+
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.models.office_save_request import OfficeSaveRequest
 from app.services.office_editing_service import (
-    OfficeSaveRequest,
+    SAVE_STATUS_CALLBACK_RECEIVED,
     SAVE_STATUS_COMMITTING,
     SAVE_STATUS_FAILED,
     SAVE_STATUS_PENDING,
     SAVE_STATUS_SAVED,
     SAVE_STATUS_SAVING,
+    SAVE_STATUS_STAGED,
 )
 
 OfficeSaveStatusValue = Literal["pending", "saving", "saved", "failed"]
 
 
 class OfficeSaveStatusEditingStore(Protocol):
-    def get_save_request(self, save_request_id: str) -> OfficeSaveRequest | None: ...
+    def get_save_request(
+        self, db: Session, save_request_id: object
+    ) -> OfficeSaveRequest | None: ...
 
 
 @dataclass(frozen=True)
@@ -45,8 +51,12 @@ class OfficeSaveStatusUseCase:
     def __init__(self, *, editing_store: OfficeSaveStatusEditingStore) -> None:
         self.editing_store = editing_store
 
-    def execute(self, query: OfficeSaveStatusQuery) -> OfficeSaveStatusResult:
-        save_request = self.editing_store.get_save_request(query.save_request_id)
+    def execute(
+        self,
+        db: Session,
+        query: OfficeSaveStatusQuery,
+    ) -> OfficeSaveStatusResult:
+        save_request = self.editing_store.get_save_request(db, query.save_request_id)
         if save_request is None or save_request.session_id != query.session_id:
             return OfficeSaveStatusResult(
                 save_request_id=query.save_request_id,
@@ -61,7 +71,7 @@ class OfficeSaveStatusUseCase:
             )
 
         return OfficeSaveStatusResult(
-            save_request_id=save_request.save_request_id,
+            save_request_id=str(save_request.save_request_id),
             status=_to_response_status(save_request.status),
             error_code=save_request.error_code,
             error_message=save_request.error_message,
@@ -72,7 +82,11 @@ class OfficeSaveStatusUseCase:
 
 
 def _to_response_status(status: str) -> OfficeSaveStatusValue:
-    if status == SAVE_STATUS_COMMITTING:
+    if status in {
+        SAVE_STATUS_CALLBACK_RECEIVED,
+        SAVE_STATUS_STAGED,
+        SAVE_STATUS_COMMITTING,
+    }:
         return SAVE_STATUS_SAVING
     if status == SAVE_STATUS_SAVED:
         return SAVE_STATUS_SAVED

@@ -8,9 +8,12 @@ import logging
 from pathlib import PurePosixPath
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
-from app.services.office_editing_service import OfficeEditSession, OfficeSaveRequest
+from app.models.office_edit_session import OfficeEditSession
+from app.models.office_save_request import OfficeSaveRequest
 from app.utils.workspace_manifest import find_manifest_file
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,7 @@ class OfficeSaveWritebackService:
 
     def commit_saved_content(
         self,
+        db: Session,
         *,
         edit_session: OfficeEditSession,
         save_request: OfficeSaveRequest,
@@ -38,7 +42,7 @@ class OfficeSaveWritebackService:
         writeback_object_key = (
             _build_office_writeback_object_key(
                 current_object_key=edit_session.object_key,
-                save_request_id=save_request.save_request_id,
+                save_request_id=str(save_request.save_request_id),
             )
             if edit_session.manifest_key
             else edit_session.object_key
@@ -51,6 +55,18 @@ class OfficeSaveWritebackService:
                 body=content,
                 content_type=content_type,
             )
+
+            # Marker: content is staged but manifest not yet flipped.
+            # Commit it before any external side effect (manifest flip) so the
+            # recovery marker is durable: if the process crashes after storage
+            # points at the new object but before complete_save_request commits,
+            # recover_staged_writebacks() can still replay from this marker.
+            self.editing_store.mark_staged(
+                db,
+                save_request.save_request_id,
+                staged_object_key=writeback_object_key,
+            )
+            db.commit()
 
             if edit_session.manifest_key:
                 metadata = (
@@ -69,6 +85,7 @@ class OfficeSaveWritebackService:
 
             try:
                 self.editing_store.complete_save_request(
+                    db,
                     save_request.save_request_id,
                     edit_session_id=edit_session.edit_session_id,
                     object_key=writeback_object_key,

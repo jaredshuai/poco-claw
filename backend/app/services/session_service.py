@@ -16,6 +16,10 @@ from app.repositories.message_repository import MessageRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.run_repository import RunRepository
 from app.repositories.scheduled_task_repository import ScheduledTaskRepository
+from app.services.run_transition_policy import (
+    RUN_TRANSITION_APPLY,
+    RunTransitionPolicy,
+)
 from app.repositories.session_queue_item_repository import SessionQueueItemRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.tool_execution_repository import ToolExecutionRepository
@@ -226,6 +230,16 @@ class SessionService:
         )
         canceled_runs = 0
         for run in runs:
+            # Route cancellation through the run state machine instead of
+            # mutating status directly: it enforces the terminal/non-terminal
+            # precondition and keeps cancel consistent with start/fail.
+            # Owner-initiated cancel intentionally does not check worker
+            # ownership — a session owner may cancel any run in their session.
+            if (
+                RunTransitionPolicy.evaluate_cancel_by_owner(run, now=now)
+                != RUN_TRANSITION_APPLY
+            ):
+                continue
             run.status = "canceled"
             run.finished_at = now
             run.claimed_by = None

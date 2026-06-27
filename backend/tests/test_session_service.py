@@ -850,6 +850,107 @@ class TestSessionServiceCancelSession(unittest.TestCase):
         self.assertEqual(ctx.exception.error_code, ErrorCode.NOT_FOUND)
 
 
+class TestSessionServiceCancelSessionStateMachine(unittest.TestCase):
+    """cancel_session must route through RunTransitionPolicy, not mutate status directly.
+
+    These prove the §2.3 / §7.2 fix: the cancel loop evaluates each run through
+    the state machine, so a run in an unexpected state is left untouched even if
+    the run query returned it.
+    """
+
+    def setUp(self) -> None:
+        self.db = MagicMock()
+        self.service = SessionService()
+        self.session_id = uuid.uuid4()
+        self.user_id = "user-123"
+
+    def _make_run(self, status: str) -> MagicMock:
+        run = MagicMock()
+        run.id = uuid.uuid4()
+        run.status = status
+        run.scheduled_task_id = None
+        run.claimed_by = None
+        run.lease_expires_at = None
+        return run
+
+    def _run_cancel(self, runs: list) -> tuple:
+        """Invoke cancel_session with the given runs, wiring repos to empty
+        via context managers (patch decorators only inject into test methods,
+        not helper methods, so we manage patches manually)."""
+        with (
+            patch(
+                "app.services.session_service.SessionRepository"
+            ) as mock_session_repo,
+            patch(
+                "app.services.session_service.SessionQueueItemRepository"
+            ) as mock_queue_repo,
+            patch(
+                "app.services.session_service.UserInputRequestRepository"
+            ) as mock_user_input_repo,
+            patch(
+                "app.services.session_service.ToolExecutionRepository"
+            ) as mock_tool_repo,
+        ):
+            mock_session = MagicMock()
+            mock_session.id = self.session_id
+            mock_session.user_id = self.user_id
+            mock_session.status = "active"
+            mock_session_repo.get_by_id.return_value = mock_session
+
+            mock_query = MagicMock()
+            mock_query.filter.return_value = mock_query
+            mock_query.order_by.return_value = mock_query
+            mock_query.all.return_value = runs
+            self.db.query.return_value = mock_query
+
+            mock_queue_repo.mark_canceled.return_value = 0
+            mock_user_input_repo.list_pending_by_session.return_value = []
+            mock_tool_repo.list_unfinished_by_session.return_value = []
+
+            result = self.service.cancel_session(
+                self.db, self.session_id, user_id=self.user_id
+            )
+        return mock_session, result
+
+    def test_cancel_marks_valid_runs_canceled(self) -> None:
+        """queued/claimed/running runs are all transitioned to canceled."""
+        runs = [
+            self._make_run("queued"),
+            self._make_run("claimed"),
+            self._make_run("running"),
+        ]
+        _, result = self._run_cancel(runs)
+        canceled_runs = result[1]
+        self.assertEqual(canceled_runs, 3)
+        for run in runs:
+            self.assertEqual(run.status, "canceled")
+            self.assertIsNotNone(run.finished_at)
+
+    def test_cancel_skips_terminal_run_returned_by_query(self) -> None:
+        """Core fix: if the query returns a run already in a terminal state
+        (race / stale read / query drift), the state machine must skip it
+        rather than re-stamping it canceled. Pre-fix this was a direct
+        status='canceled' assignment with no guard."""
+        queued = self._make_run("queued")
+        terminal_completed = self._make_run("completed")
+        terminal_failed = self._make_run("failed")
+        _, result = self._run_cancel([queued, terminal_completed, terminal_failed])
+        canceled_runs = result[1]
+        self.assertEqual(canceled_runs, 1)
+        self.assertEqual(queued.status, "canceled")
+        # Terminal runs untouched by the cancel path.
+        self.assertEqual(terminal_completed.status, "completed")
+        self.assertEqual(terminal_failed.status, "failed")
+
+    def test_cancel_does_not_require_worker_ownership(self) -> None:
+        """Owner-initiated cancel may cancel a run claimed by any worker."""
+        run = self._make_run("claimed")
+        run.claimed_by = "another-worker"
+        _, result = self._run_cancel([run])
+        self.assertEqual(result[1], 1)
+        self.assertEqual(run.status, "canceled")
+
+
 class TestSessionServiceBranchSession(unittest.TestCase):
     """Test branch_session method."""
 

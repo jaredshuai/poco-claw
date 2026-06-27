@@ -366,6 +366,76 @@ class TestRunTransitionPolicyEvaluateCancel(unittest.TestCase):
         self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
 
 
+class TestRunTransitionPolicyEvaluateCancelByOwner(unittest.TestCase):
+    """RunTransitionPolicy.evaluate_cancel_by_owner — session-owner cancel semantics.
+
+    The owner may cancel any run in their session regardless of which worker
+    claimed it, so unlike evaluate_cancel this never checks worker ownership.
+    """
+
+    def setUp(self) -> None:
+        self.now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+
+    # --- Non-terminal, valid statuses → apply ---
+
+    def test_queued_returns_apply(self) -> None:
+        run = create_mock_run(status="queued", claimed_by=None)
+        self.assertEqual(
+            RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now),
+            RUN_TRANSITION_APPLY,
+        )
+
+    def test_claimed_returns_apply(self) -> None:
+        run = create_mock_run(status="claimed", claimed_by="worker-1")
+        self.assertEqual(
+            RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now),
+            RUN_TRANSITION_APPLY,
+        )
+
+    def test_running_returns_apply(self) -> None:
+        run = create_mock_run(status="running", claimed_by="worker-1")
+        self.assertEqual(
+            RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now),
+            RUN_TRANSITION_APPLY,
+        )
+
+    # --- Owner semantics: ownership is NOT checked ---
+
+    def test_claimed_by_other_worker_still_applies(self) -> None:
+        """Key difference from evaluate_cancel: owner may cancel a run claimed
+        by any worker, so a different claimed_by must not block cancellation."""
+        run = create_mock_run(status="claimed", claimed_by="another-worker")
+        self.assertEqual(
+            RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now),
+            RUN_TRANSITION_APPLY,
+        )
+
+    def test_running_by_other_worker_still_applies(self) -> None:
+        run = create_mock_run(status="running", claimed_by="another-worker")
+        self.assertEqual(
+            RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now),
+            RUN_TRANSITION_APPLY,
+        )
+
+    # --- Terminal → noop ---
+
+    def test_terminal_returns_noop(self) -> None:
+        for status in ["completed", "failed", "canceled"]:
+            run = create_mock_run(status=status)
+            self.assertEqual(
+                RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now),
+                RUN_TRANSITION_NOOP,
+            )
+
+    # --- Unknown status → bad request ---
+
+    def test_unknown_status_raises_bad_request(self) -> None:
+        run = create_mock_run(status="unknown")
+        with self.assertRaises(AppException) as ctx:
+            RunTransitionPolicy.evaluate_cancel_by_owner(run, now=self.now)
+        self.assertEqual(ctx.exception.error_code, ErrorCode.BAD_REQUEST)
+
+
 # =============================================================================
 # RunLifecycleService Tests
 # =============================================================================

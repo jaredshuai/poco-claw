@@ -3,6 +3,7 @@ from typing import Protocol
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.core.deps import require_internal_token
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.task import (
     ContainerDeleteRequest,
@@ -29,6 +30,7 @@ def get_container_pool() -> ExecutorContainerPool:
 @router.post("/cancel", response_model=ResponseSchema[dict])
 async def cancel_task(
     request: TaskCancelRequest,
+    _auth: None = Depends(require_internal_token),
     container_pool: ExecutorContainerPool = Depends(get_container_pool),
 ) -> JSONResponse:
     """Cancel running task and delete container.
@@ -50,6 +52,7 @@ async def cancel_task(
 @router.post("/delete", response_model=ResponseSchema[dict])
 async def delete_container(
     request: ContainerDeleteRequest,
+    _auth: None = Depends(require_internal_token),
     container_pool: ExecutorContainerPool = Depends(get_container_pool),
 ) -> JSONResponse:
     """Delete persistent container explicitly.
@@ -70,6 +73,7 @@ async def delete_container(
 
 @router.get("/load", response_model=ResponseSchema[ContainerStatsResponse])
 async def get_executor_load(
+    _auth: None = Depends(require_internal_token),
     container_pool: ExecutorContainerPool = Depends(get_container_pool),
 ) -> JSONResponse:
     """Get executor container load statistics.

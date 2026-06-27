@@ -5,6 +5,7 @@ from typing import Protocol
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.core.deps import require_internal_token
 from app.schemas.response import Response, ResponseSchema
 from app.schemas.task import (
     SessionStatusResponse,
@@ -45,6 +46,7 @@ def get_task_service() -> TaskApiService:
 @router.post("", response_model=ResponseSchema[TaskCreateResponse])
 async def create_task(
     request: TaskCreateRequest,
+    _auth: None = Depends(require_internal_token),
     service: TaskApiService = Depends(get_task_service),
 ) -> JSONResponse:
     """Create a task and schedule it for execution. If session_id is provided, continues existing conversation."""

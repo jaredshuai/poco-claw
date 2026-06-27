@@ -2,11 +2,6 @@ name: CI Markdownlint
 
 on:
   pull_request:
-    paths:
-      - "**/*.md"
-      - "**/*.mdx"
-      - ".markdownlint-cli2.jsonc"
-      - ".github/workflows/ci-markdownlint.yml"
   push:
     branches:
       - main

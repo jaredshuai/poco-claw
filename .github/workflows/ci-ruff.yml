@@ -2,13 +2,6 @@ name: CI Ruff
 
 on:
   pull_request:
-    paths:
-      - "backend/**"
-      - "executor/**"
-      - "executor_manager/**"
-      - "pyproject.toml"
-      - ".pre-commit-config.yaml"
-      - ".github/workflows/ci-ruff.yml"
   push:
     branches:
       - main

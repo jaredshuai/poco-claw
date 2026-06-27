@@ -26,7 +26,7 @@
 
 - 已形成前端、后端、executor、executor-manager、IM 的多服务结构。
 - 已具备 Docker 部署、基础 CI、镜像发布与贡献说明。
-- 仍缺少较完整的仓库治理自动化收敛，例如 fork / 上游自动化分层说明、统一的必检集合说明、统一 release 说明机制。
+- 仍缺少较完整的仓库治理自动化收敛，例如统一 release 说明机制、根级检查命令、提交前后 hooks 与 contract sync 检查。
 
 阶段性原则：
 
@@ -125,7 +125,7 @@ PR 描述至少包含：
 
 - [CONTRIBUTING.md](/D:/codespace/poco-claw/CONTRIBUTING.md) 已对分支命名、提交格式和 PR 描述给出建议。
 - 仓库已提供 [PR 模板](/D:/codespace/poco-claw/.github/pull_request_template.md) 作为最小描述骨架。
-- 仓库已提供 [PR 标题校验 workflow](/D:/codespace/poco-claw/.github/workflows/ci-pr-title.yml)，但默认仅在上游仓库启用。
+- 仓库已提供 [PR 标题校验 workflow](/D:/codespace/poco-claw/.github/workflows/ci-pr-title.yml)。该 workflow 在 fork 与上游仓库均默认执行，并作为 `main` 分支保护的必检项之一，因此向 fork 提交 PR 时也必须使用符合 Conventional Commits 的标题。
 
 ## 4. 版本与发布策略
 
@@ -213,15 +213,28 @@ PR 描述至少包含：
 - [ci-gitleaks.yml](/D:/codespace/poco-claw/.github/workflows/ci-gitleaks.yml)
 - [ci-markdownlint.yml](/D:/codespace/poco-claw/.github/workflows/ci-markdownlint.yml)
 - [ci-prettier.yml](/D:/codespace/poco-claw/.github/workflows/ci-prettier.yml)
+- [ci-pr-title.yml](/D:/codespace/poco-claw/.github/workflows/ci-pr-title.yml)
 - [ci-pyrefly.yml](/D:/codespace/poco-claw/.github/workflows/ci-pyrefly.yml)
 - [ci-pytest.yml](/D:/codespace/poco-claw/.github/workflows/ci-pytest.yml)
 - [ci-ruff.yml](/D:/codespace/poco-claw/.github/workflows/ci-ruff.yml)
 
-这些 workflow 保持启用，但会通过 `paths` 约束只在相关文件改动时运行，避免 fork 中出现无关噪音。
+当前 `main` 分支保护使用的必检 context 包括：
+
+- `eslint`
+- `markdownlint`
+- `prettier`
+- `actionlint`
+- `Pyrefly (backend)`
+- `Pyrefly (executor)`
+- `Pyrefly (executor_manager)`
+- `ruff`
+- `gitleaks`
+- `pr-title`
+
+上述必检 workflow（`eslint`、`markdownlint`、`prettier`、`actionlint`、`pr-title`、`Pyrefly`、`ruff`）在 PR 上默认不使用 `paths` 过滤，确保必检 context 能稳定回报状态，避免出现 required context 未产生状态而阻塞合并。其余非必检 workflow（如 `ci-pytest.yml`、`ci-frontend-build.yml`）仍可通过 `paths` 约束只在相关文件改动时运行。
 
 **仅在上游仓库 `poco-ai/poco-claw` 默认执行的自动化：**
 
-- [ci-pr-title.yml](/D:/codespace/poco-claw/.github/workflows/ci-pr-title.yml)
 - [labeler.yml](/D:/codespace/poco-claw/.github/workflows/labeler.yml)
 - [docker-images.yml](/D:/codespace/poco-claw/.github/workflows/docker-images.yml)
 - [close-stale-issues.yml](/D:/codespace/poco-claw/.github/workflows/close-stale-issues.yml)
@@ -232,7 +245,7 @@ PR 描述至少包含：
   - secret scanning
   - push protection
 
-这样做的目标是：fork 默认只保留代码质量与安全信号，把 PR 元数据、镜像发布、外部通知、评论驱动自动化与仓库维护任务收敛为上游职责。
+这样做的目标是：fork 默认保留代码质量、安全与 PR 元数据校验信号，把镜像发布、外部通知、评论驱动自动化与仓库维护任务收敛为上游职责。
 
 ### 6.2 治理缺口
 
@@ -298,32 +311,32 @@ PR 描述至少包含：
 
 ## 11. 当前治理执行矩阵
 
-| 主题              | 当前准绳                                                                               | 当前状态       |
-| ----------------- | -------------------------------------------------------------------------------------- | -------------- |
-| 项目入口          | `README.md`                                                                            | 已落地         |
-| 贡献流程          | `CONTRIBUTING.md`                                                                      | 已落地         |
-| AI 代理约束       | `AGENTS.md`                                                                            | 已落地         |
-| 仓库治理          | `docs/repository-governance.md`                                                        | 草案           |
-| Python 代码检查   | `ci-ruff.yml`, `ci-pyrefly.yml`, `ci-pytest.yml`, `.pre-commit-config.yaml`            | fork 默认启用  |
-| Frontend 检查     | `ci-eslint.yml`, `ci-frontend-build.yml`, `ci-prettier.yml`, `.pre-commit-config.yaml` | fork 默认启用  |
-| Markdown 检查     | `ci-markdownlint.yml`                                                                  | fork 默认启用  |
-| PR 标题校验       | `ci-pr-title.yml`                                                                      | 仅上游默认启用 |
-| Workflow 静态检查 | `ci-actionlint.yml`                                                                    | 已落地         |
-| Secret scanning   | `ci-gitleaks.yml`                                                                      | fork 默认启用  |
-| Dependabot        | `.github/dependabot.yml`                                                               | 已落地         |
-| Docker 发布       | `docker-images.yml`                                                                    | 仅上游默认启用 |
-| CODEOWNERS        | `.github/CODEOWNERS`                                                                   | 已落地         |
-| Labeler           | `.github/labeler.yml`, `.github/workflows/labeler.yml`                                 | 仅上游默认启用 |
-| GitHub labels     | repository labels                                                                      | 已落地         |
-| Merge strategy    | repository settings                                                                    | 已落地         |
-| Branch protection | repository settings                                                                    | 已落地         |
+| 主题              | 当前准绳                                                                               | 当前状态                                        |
+| ----------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 项目入口          | `README.md`                                                                            | 已落地                                          |
+| 贡献流程          | `CONTRIBUTING.md`                                                                      | 已落地                                          |
+| AI 代理约束       | `AGENTS.md`                                                                            | 已落地                                          |
+| 仓库治理          | `docs/repository-governance.md`                                                        | 草案                                            |
+| Python 代码检查   | `ci-ruff.yml`, `ci-pyrefly.yml`, `ci-pytest.yml`, `.pre-commit-config.yaml`            | fork 默认启用；`ruff` / `Pyrefly` 为 PR 必检    |
+| Frontend 检查     | `ci-eslint.yml`, `ci-frontend-build.yml`, `ci-prettier.yml`, `.pre-commit-config.yaml` | fork 默认启用；`eslint` / `prettier` 为 PR 必检 |
+| Markdown 检查     | `ci-markdownlint.yml`                                                                  | fork 默认启用；PR 必检                          |
+| PR 标题校验       | `ci-pr-title.yml`                                                                      | fork 默认启用；PR 必检                          |
+| Workflow 静态检查 | `ci-actionlint.yml`                                                                    | fork 默认启用；PR 必检                          |
+| Secret scanning   | `ci-gitleaks.yml`                                                                      | fork 默认启用                                   |
+| Dependabot        | `.github/dependabot.yml`                                                               | 已落地                                          |
+| Docker 发布       | `docker-images.yml`                                                                    | 仅上游默认启用                                  |
+| CODEOWNERS        | `.github/CODEOWNERS`                                                                   | 已落地                                          |
+| Labeler           | `.github/labeler.yml`, `.github/workflows/labeler.yml`                                 | 仅上游默认启用                                  |
+| GitHub labels     | repository labels                                                                      | 已落地                                          |
+| Merge strategy    | repository settings                                                                    | 已落地                                          |
+| Branch protection | repository settings                                                                    | 已落地                                          |
 
 ## 12. 下一步建议
 
-基于当前仓库现状，建议按以下顺序补治理自动化：
+基于当前仓库现状，建议按以下顺序继续补治理自动化：
 
-1. 为 `main` 补 GitHub 仓库设置层的保护与必检规则
-2. 把当前分散的 CI workflow 收敛成更清晰的必检集合
+1. 持续维护 `main` 分支保护与 workflow required context 的一致性，避免必检 context 被路径过滤或仓库条件跳过后无法回报状态
+2. 为本地与 CI 增加统一的根级 `check` 命令，降低贡献者验证成本
 3. 评估是否需要引入 Changesets
 
 在这些缺口补齐前，本文档应作为 **人工 review 与 AI 代理执行** 的主要治理依据。

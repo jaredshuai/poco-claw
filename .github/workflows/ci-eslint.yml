@@ -2,9 +2,6 @@ name: CI ESLint
 
 on:
   pull_request:
-    paths:
-      - "frontend/**"
-      - ".github/workflows/ci-eslint.yml"
   push:
     branches:
       - main

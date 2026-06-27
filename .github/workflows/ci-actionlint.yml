@@ -2,8 +2,6 @@ name: CI Actionlint
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/**"
   push:
     branches:
       - main

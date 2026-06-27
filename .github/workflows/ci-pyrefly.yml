@@ -2,13 +2,6 @@ name: CI Pyrefly
 
 on:
   pull_request:
-    paths:
-      - "backend/**"
-      - "executor/**"
-      - "executor_manager/**"
-      - "pyproject.toml"
-      - ".pre-commit-config.yaml"
-      - ".github/workflows/ci-pyrefly.yml"
   push:
     branches:
       - main

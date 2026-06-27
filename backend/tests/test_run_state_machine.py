@@ -20,7 +20,6 @@ from app.services.run_lifecycle_service import (
     FinalizeTerminalResult,
     RunLifecycleService,
 )
-from app.services.run_worker_lease_policy import RunWorkerLeasePolicy
 
 
 class FixedClock:
@@ -286,7 +285,9 @@ class TestRunTransitionPolicyEvaluateComplete(unittest.TestCase):
     def test_terminal_returns_noop(self) -> None:
         for status in ["completed", "failed", "canceled"]:
             run = create_mock_run(status=status)
-            result = RunTransitionPolicy.evaluate_complete(run, "worker-1", now=self.now)
+            result = RunTransitionPolicy.evaluate_complete(
+                run, "worker-1", now=self.now
+            )
             self.assertEqual(result, RUN_TRANSITION_NOOP)
 
     # --- Non-running, non-terminal → bad request ---
@@ -479,7 +480,9 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self.assertEqual(db_run.lease_expires_at, self.now + timedelta(seconds=3600))
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    def test_preserves_existing_lease_when_not_provided(self, mock_repo: MagicMock) -> None:
+    def test_preserves_existing_lease_when_not_provided(
+        self, mock_repo: MagicMock
+    ) -> None:
         db_session = MagicMock()
         db_session.status = "running"
         mock_repo.get_by_id_for_update.return_value = db_session
@@ -515,7 +518,9 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     # --- Session status handling ---
 
     @patch("app.services.run_lifecycle_service.SessionRepository")
-    def test_session_not_set_to_running_when_canceled(self, mock_repo: MagicMock) -> None:
+    def test_session_not_set_to_running_when_canceled(
+        self, mock_repo: MagicMock
+    ) -> None:
         db_session = MagicMock()
         db_session.status = "canceled"
         mock_repo.get_by_id_for_update.return_value = db_session

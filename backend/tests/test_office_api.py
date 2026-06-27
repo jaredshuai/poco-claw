@@ -3,7 +3,6 @@
 import asyncio
 import importlib
 import os
-from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -552,6 +551,7 @@ class TestOfficeEditingFlow:
         """Configure the mock store's get_edit_session to return a session
         that will pass the ForceSave/use-case validation checks."""
         from tests.office_test_helpers import make_edit_session
+
         es = make_edit_session(session_id=session_id)
         self._mock_store.get_edit_session.return_value = es
         return es
@@ -595,7 +595,6 @@ class TestOfficeEditingFlow:
             edit_session_id=config.edit_session_id,
         )
 
-
         with (
             patch("app.api.v1.office.session_service") as mock_ss,
             patch("app.api.v1.office.command_client") as mock_command,
@@ -607,7 +606,10 @@ class TestOfficeEditingFlow:
         assert result.status == "saving"
         assert result.save_request_id is not None
         # Verify the forcesave command was called with this save_request_id as userdata
-        assert mock_command.forcesave.call_args.kwargs["userdata"] == result.save_request_id
+        assert (
+            mock_command.forcesave.call_args.kwargs["userdata"]
+            == result.save_request_id
+        )
 
     def test_duplicate_forcesave_returns_conflict_with_active_request_id(self):
         from fastapi import HTTPException
@@ -799,7 +801,6 @@ class TestOfficeEditingFlow:
 
     def test_callback_status_6_ignores_duplicate_while_commit_in_progress(self):
         from app.api.v1.office import (
-            editing_store,
             force_save,
             get_save_status,
             get_viewer_config,
@@ -1439,7 +1440,6 @@ class TestOfficeEditingFlow:
 
     def test_save_status_returns_failed_when_edit_session_expires(self):
         from app.api.v1.office import (
-            editing_store,
             force_save,
             get_save_status,
             get_viewer_config,
@@ -1700,7 +1700,6 @@ class TestOfficeEditingFlow:
 
     def test_callback_status_7_does_not_regress_saved_request(self):
         from app.api.v1.office import (
-            editing_store,
             force_save,
             get_save_status,
             get_viewer_config,
@@ -1787,7 +1786,6 @@ class TestOfficeEditingFlow:
 
     def test_callback_status_6_does_not_write_back_failed_save_request(self):
         from app.api.v1.office import (
-            editing_store,
             force_save,
             get_save_status,
             get_viewer_config,

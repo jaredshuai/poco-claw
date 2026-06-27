@@ -156,10 +156,7 @@ class StatefulOfficeEditingStore:
     def get_active_save_request(self, db, edit_session_id) -> OfficeSaveRequest | None:
         es_key = _uuid_key(edit_session_id)
         for sr in self._save_requests.values():
-            if (
-                sr.edit_session_id == es_key
-                and sr.status in ACTIVE_SAVE_STATUSES
-            ):
+            if sr.edit_session_id == es_key and sr.status in ACTIVE_SAVE_STATUSES:
                 return sr
         return None
 

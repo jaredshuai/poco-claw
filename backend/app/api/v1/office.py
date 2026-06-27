@@ -201,7 +201,7 @@ async def get_viewer_config(
             file_size_limit_bytes=settings.office_file_size_limit_mb * 1024 * 1024,
             presign_expires_in=settings.office_presign_expires_seconds,
             callback_base_url=settings.office_callback_base_url,
-        )
+        ),
     )
 
 
@@ -254,7 +254,7 @@ async def force_save(
                 user_id=actor.user_id,
                 file_path=request.file_path,
                 edit_session_id=request.edit_session_id,
-            )
+            ),
         )
     except OfficeSaveInProgressError as exc:
         raise HTTPException(
@@ -285,7 +285,7 @@ async def get_save_status(
             session_id=str(session_id),
             save_request_id=save_request_id,
             user_id=actor.user_id,
-        )
+        ),
     )
 
     return OfficeSaveStatusResponse(
@@ -313,7 +313,7 @@ async def discard_edit_session(
             user_id=actor.user_id,
             file_path=request.file_path,
             edit_session_id=request.edit_session_id,
-        )
+        ),
     )
     return OfficeDiscardEditSessionResponse(
         edit_session_id=result.edit_session_id,

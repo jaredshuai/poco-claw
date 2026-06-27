@@ -5,7 +5,7 @@ method's behavior for the new DB-backed interface.
 """
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.orm import Session
@@ -15,8 +15,6 @@ from app.services.office_editing_service import (
 )
 from app.services.office_save_statuses import (
     SAVE_STATUS_COMMITTING,
-    SAVE_STATUS_SAVED,
-    SAVE_STATUS_STAGED,
 )
 from app.services.office_writeback_service import (
     OfficeSaveWritebackService,
@@ -46,9 +44,7 @@ def _edit_session(*, manifest_key: str | None = "manifest.json") -> OfficeEditSe
     return es
 
 
-def _save_request(
-    *, staged_object_key: str | None = None
-) -> OfficeSaveRequest:
+def _save_request(*, staged_object_key: str | None = None) -> OfficeSaveRequest:
     now = datetime.now(UTC)
     sr = OfficeSaveRequest(
         edit_session_id=uuid.uuid4(),

@@ -68,9 +68,7 @@ class OfficeEditSessionRepository:
         )
 
     @staticmethod
-    def mark_discarded(
-        session_db: Session, edit_session_id: uuid.UUID
-    ) -> bool:
+    def mark_discarded(session_db: Session, edit_session_id: uuid.UUID) -> bool:
         """Soft-delete an edit session so its callback token stops resolving.
 
         Returns True when a row was affected.

@@ -73,9 +73,7 @@ class OfficeSaveRequestRepository:
         )
 
     @staticmethod
-    def mark_saving(
-        session_db: Session, save_request_id: uuid.UUID
-    ) -> None:
+    def mark_saving(session_db: Session, save_request_id: uuid.UUID) -> None:
         stmt = (
             update(OfficeSaveRequest)
             .where(OfficeSaveRequest.id == save_request_id)

@@ -89,9 +89,7 @@ class OfficeForceSaveUseCase:
                 message="Session does not belong to the user",
             )
 
-        edit_session = self.editing_store.get_edit_session(
-            db, command.edit_session_id
-        )
+        edit_session = self.editing_store.get_edit_session(db, command.edit_session_id)
         if (
             edit_session is None
             or edit_session.session_id != command.session_id
@@ -126,6 +124,4 @@ class OfficeForceSaveUseCase:
             raise
 
         self.editing_store.mark_saving(db, save_request.save_request_id)
-        return OfficeForceSaveResult(
-            save_request_id=str(save_request.save_request_id)
-        )
+        return OfficeForceSaveResult(save_request_id=str(save_request.save_request_id))

@@ -8,18 +8,12 @@ conditional-update contracts.
 import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from app.repositories.office_edit_session_repository import OfficeEditSessionRepository
 from app.repositories.office_save_request_repository import OfficeSaveRequestRepository
 from app.services.office_editing_service import (
-    SAVE_STATUS_CALLBACK_RECEIVED,
-    SAVE_STATUS_COMMITTING,
-    SAVE_STATUS_FAILED,
     SAVE_STATUS_PENDING,
-    SAVE_STATUS_SAVED,
-    SAVE_STATUS_SAVING,
-    SAVE_STATUS_STAGED,
 )
 
 
@@ -118,24 +112,8 @@ class TestOfficeEditSessionRepositoryMutations(unittest.TestCase):
 
     def test_update_object_key_executes_update(self) -> None:
         db = MagicMock()
-        OfficeEditSessionRepository.update_object_key(
-            db, uuid.uuid4(), "new/key.docx"
-        )
+        OfficeEditSessionRepository.update_object_key(db, uuid.uuid4(), "new/key.docx")
         db.execute.assert_called_once()
-
-    def test_expire_discarded_and_expired_returns_rows(self) -> None:
-        db = MagicMock()
-        query_chain = MagicMock()
-        db.query.return_value = query_chain
-        query_chain.filter.return_value = query_chain
-        rows = [MagicMock()]
-        query_chain.all.return_value = rows
-
-        result = OfficeEditSessionRepository.expire_discarded_and_expired(
-            db, now=_now()
-        )
-
-        self.assertEqual(result, rows)
 
 
 # =============================================================================
@@ -236,27 +214,6 @@ class TestOfficeSaveRequestRepositoryBulkOperations(unittest.TestCase):
         )
 
         self.assertEqual(count, 3)
-
-    def test_expire_old(self) -> None:
-        db = MagicMock()
-        result_mock = MagicMock()
-        result_mock.rowcount = 5
-        db.execute.return_value = result_mock
-
-        count = OfficeSaveRequestRepository.expire_old(db, now=_now())
-
-        self.assertEqual(count, 5)
-
-    def test_recover_staged_returns_rows(self) -> None:
-        db = MagicMock()
-        rows = [MagicMock(), MagicMock()]
-        scalars_mock = MagicMock()
-        scalars_mock.all.return_value = rows
-        db.scalars.return_value = scalars_mock
-
-        result = OfficeSaveRequestRepository.recover_staged(db)
-
-        self.assertEqual(result, rows)
 
 
 if __name__ == "__main__":

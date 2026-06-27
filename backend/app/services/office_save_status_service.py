@@ -82,7 +82,11 @@ class OfficeSaveStatusUseCase:
 
 
 def _to_response_status(status: str) -> OfficeSaveStatusValue:
-    if status in {SAVE_STATUS_CALLBACK_RECEIVED, SAVE_STATUS_STAGED, SAVE_STATUS_COMMITTING}:
+    if status in {
+        SAVE_STATUS_CALLBACK_RECEIVED,
+        SAVE_STATUS_STAGED,
+        SAVE_STATUS_COMMITTING,
+    }:
         return SAVE_STATUS_SAVING
     if status == SAVE_STATUS_SAVED:
         return SAVE_STATUS_SAVED

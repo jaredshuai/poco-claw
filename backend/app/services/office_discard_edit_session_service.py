@@ -18,9 +18,7 @@ class OfficeDiscardEditingStore(Protocol):
         self, db: Session, edit_session_id: object
     ) -> OfficeEditSession | None: ...
 
-    def discard_edit_session(
-        self, db: Session, edit_session_id: object
-    ) -> bool: ...
+    def discard_edit_session(self, db: Session, edit_session_id: object) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -55,9 +53,7 @@ class OfficeDiscardEditSessionUseCase:
                 message="Session does not belong to the user",
             )
 
-        edit_session = self.editing_store.get_edit_session(
-            db, command.edit_session_id
-        )
+        edit_session = self.editing_store.get_edit_session(db, command.edit_session_id)
         if (
             edit_session is None
             or edit_session.session_id != command.session_id

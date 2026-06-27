@@ -28,7 +28,9 @@ def test_callback_rejects_invalid_token() -> None:
     with pytest.raises(AppException) as exc_info:
         asyncio.run(
             _use_case(editing_store=editing_store).handle(
-                db, token="bad-token", callback=OfficeCallbackRequest(status=7, key="doc-key")
+                db,
+                token="bad-token",
+                callback=OfficeCallbackRequest(status=7, key="doc-key"),
             )
         )
 
@@ -62,7 +64,9 @@ def test_callback_delegates_status_7_to_save_use_case() -> None:
     editing_store.get_save_request.return_value.edit_session_id = es.id
     editing_store.get_save_request.return_value.id = uuid.uuid4()
 
-    callback = OfficeCallbackRequest(status=7, key=es.document_key, userdata="save-123", error=123)
+    callback = OfficeCallbackRequest(
+        status=7, key=es.document_key, userdata="save-123", error=123
+    )
 
     asyncio.run(
         _use_case(editing_store=editing_store).handle(

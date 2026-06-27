@@ -35,6 +35,19 @@ from app.services.office_save_statuses import (
     SAVE_STATUS_STAGED,
 )
 
+# Re-exported so callers import status constants from this module
+# (mirrors the pre-DB-backed public surface).
+__all__ = [
+    "ACTIVE_SAVE_STATUSES",
+    "SAVE_STATUS_CALLBACK_RECEIVED",
+    "SAVE_STATUS_COMMITTING",
+    "SAVE_STATUS_FAILED",
+    "SAVE_STATUS_PENDING",
+    "SAVE_STATUS_SAVED",
+    "SAVE_STATUS_SAVING",
+    "SAVE_STATUS_STAGED",
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +110,9 @@ class OfficeEditingStore:
     def discard_edit_session(self, db, edit_session_id) -> bool:
         return OfficeEditSessionRepository.mark_discarded(db, edit_session_id)
 
-    def update_edit_session_object_key(self, db, edit_session_id, object_key: str) -> bool:
+    def update_edit_session_object_key(
+        self, db, edit_session_id, object_key: str
+    ) -> bool:
         session = OfficeEditSessionRepository.get_by_id(db, edit_session_id)
         if not session or session.discarded:
             return False
@@ -138,7 +153,9 @@ class OfficeEditingStore:
     def mark_saving(self, db, save_request_id) -> None:
         OfficeSaveRequestRepository.mark_saving(db, save_request_id)
 
-    def mark_staged(self, db, save_request_id, *, staged_object_key: str | None = None) -> None:
+    def mark_staged(
+        self, db, save_request_id, *, staged_object_key: str | None = None
+    ) -> None:
         sr = OfficeSaveRequestRepository.get_by_id(db, save_request_id)
         if sr is None:
             return
@@ -328,5 +345,7 @@ async def run_office_editing_cleanup_loop(
                     stats.get("save_requests", 0),
                 )
         except Exception:
-            logger.warning("Office editing cleanup loop iteration failed", exc_info=True)
+            logger.warning(
+                "Office editing cleanup loop iteration failed", exc_info=True
+            )
         await asyncio.sleep(interval_seconds)

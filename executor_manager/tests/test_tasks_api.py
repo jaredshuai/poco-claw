@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -98,16 +99,24 @@ class TestTasksEndpoints(unittest.TestCase):
 
         with _service_override(app, mock_service):
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/tasks",
-                json={
-                    "user_id": "user-123",
-                    "prompt": "Test prompt",
-                    "config": {
-                        "model": "claude-3",
+            with patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(
+                    internal_api_token="internal-test-token",
+                    callback_token="callback-token",
+                ),
+            ):
+                response = client.post(
+                    "/api/v1/tasks",
+                    json={
+                        "user_id": "user-123",
+                        "prompt": "Test prompt",
+                        "config": {
+                            "model": "claude-3",
+                        },
                     },
-                },
-            )
+                    headers={"X-Internal-Token": "internal-test-token"},
+                )
 
             assert response.status_code == 200
             data = response.json()
@@ -131,17 +140,25 @@ class TestTasksEndpoints(unittest.TestCase):
 
         with _service_override(app, mock_service):
             client = TestClient(app)
-            response = client.post(
-                "/api/v1/tasks",
-                json={
-                    "user_id": "user-123",
-                    "prompt": "Continue conversation",
-                    "session_id": "existing-session",
-                    "config": {
-                        "model": "claude-3",
+            with patch(
+                "app.core.deps.get_settings",
+                return_value=SimpleNamespace(
+                    internal_api_token="internal-test-token",
+                    callback_token="callback-token",
+                ),
+            ):
+                response = client.post(
+                    "/api/v1/tasks",
+                    json={
+                        "user_id": "user-123",
+                        "prompt": "Continue conversation",
+                        "session_id": "existing-session",
+                        "config": {
+                            "model": "claude-3",
+                        },
                     },
-                },
-            )
+                    headers={"X-Internal-Token": "internal-test-token"},
+                )
 
             assert response.status_code == 200
             data = response.json()

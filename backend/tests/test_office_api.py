@@ -771,7 +771,9 @@ class TestOfficeEditingFlow:
                 "last_modified": "2026-04-26T00:00:00Z",
             }
 
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
             writeback_put = mock_storage.put_object.call_args_list[0].kwargs
             assert writeback_put["key"] != "ws/abc/report.docx"
@@ -907,7 +909,9 @@ class TestOfficeEditingFlow:
             ),
             patch("app.api.v1.office.storage_service") as mock_storage,
         ):
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
         mock_client.get.assert_not_called()
         mock_storage.put_object.assert_not_called()
@@ -1023,7 +1027,9 @@ class TestOfficeEditingFlow:
 
             mock_storage.put_object.side_effect = put_object_side_effect
 
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
         put_keys = [
             call.kwargs["key"] for call in mock_storage.put_object.call_args_list
@@ -1154,7 +1160,9 @@ class TestOfficeEditingFlow:
                 "last_modified": "2026-04-26T00:00:00Z",
             }
 
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
         status = _run(
             get_save_status(
@@ -1238,6 +1246,7 @@ class TestOfficeEditingFlow:
         with pytest.raises(AppException) as exc:
             _run(
                 office_callback(
+                    db=mock_db,
                     token=callback_token,
                     request=callback.model_dump(exclude_none=True),
                 )
@@ -1343,7 +1352,9 @@ class TestOfficeEditingFlow:
                 "etag": "etag-v2",
                 "last_modified": "2026-04-26T00:00:00Z",
             }
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
         assert exc.value.error_code == ErrorCode.FORBIDDEN
         mock_client.get.assert_not_called()
@@ -1434,7 +1445,9 @@ class TestOfficeEditingFlow:
         callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
 
         with pytest.raises(AppException) as exc:
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
         assert exc.value.error_code == ErrorCode.FORBIDDEN
 
@@ -1600,7 +1613,7 @@ class TestOfficeEditingFlow:
         )
         callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
 
-        _run(office_callback(token=callback_token_b, request=callback_body))
+        _run(office_callback(db=mock_db, token=callback_token_b, request=callback_body))
 
         status = _run(
             get_save_status(
@@ -1683,7 +1696,7 @@ class TestOfficeEditingFlow:
         )
         callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
 
-        _run(office_callback(token=callback_token, request=callback_body))
+        _run(office_callback(db=mock_db, token=callback_token, request=callback_body))
 
         status = _run(
             get_save_status(
@@ -1770,7 +1783,7 @@ class TestOfficeEditingFlow:
         )
         callback_body = _signed_callback_body(callback.model_dump(exclude_none=True))
 
-        _run(office_callback(token=callback_token, request=callback_body))
+        _run(office_callback(db=mock_db, token=callback_token, request=callback_body))
 
         status = _run(
             get_save_status(
@@ -1872,7 +1885,9 @@ class TestOfficeEditingFlow:
             ),
             patch("app.api.v1.office.storage_service") as mock_storage,
         ):
-            _run(office_callback(token=callback_token, request=callback_body))
+            _run(
+                office_callback(db=mock_db, token=callback_token, request=callback_body)
+            )
 
         mock_client.get.assert_not_called()
         mock_storage.put_object.assert_not_called()

@@ -56,12 +56,17 @@ class OfficeSaveWritebackService:
                 content_type=content_type,
             )
 
-            # Marker: content is staged but manifest not yet flipped
+            # Marker: content is staged but manifest not yet flipped.
+            # Commit it before any external side effect (manifest flip) so the
+            # recovery marker is durable: if the process crashes after storage
+            # points at the new object but before complete_save_request commits,
+            # recover_staged_writebacks() can still replay from this marker.
             self.editing_store.mark_staged(
                 db,
                 save_request.save_request_id,
                 staged_object_key=writeback_object_key,
             )
+            db.commit()
 
             if edit_session.manifest_key:
                 metadata = (

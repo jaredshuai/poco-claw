@@ -182,7 +182,7 @@ async def get_viewer_config(
     """
     db_session = session_service.get_session(db, request.session_id)
     settings = get_settings()
-    return OfficeViewerConfigUseCase(
+    result = OfficeViewerConfigUseCase(
         storage_service=get_storage_service(),
         editing_store=editing_store,
     ).execute(
@@ -203,6 +203,11 @@ async def get_viewer_config(
             callback_base_url=settings.office_callback_base_url,
         ),
     )
+    # The use case flushes the new edit-session row without committing; the
+    # get_db dependency only closes the session, so commit explicitly here to
+    # persist it (mirrors the explicit-commit pattern in sessions.py / session_queue.py).
+    db.commit()
+    return result
 
 
 @router.get("/download-latest")
@@ -265,6 +270,7 @@ async def force_save(
             },
         ) from exc
 
+    db.commit()
     return OfficeForceSaveResponse(
         save_request_id=result.save_request_id,
         status=result.status,
@@ -315,6 +321,7 @@ async def discard_edit_session(
             edit_session_id=request.edit_session_id,
         ),
     )
+    db.commit()
     return OfficeDiscardEditSessionResponse(
         edit_session_id=result.edit_session_id,
         status=result.status,
@@ -347,7 +354,7 @@ async def office_callback(
         token=token,
         callback=callback,
     )
-
+    db.commit()
     return {"error": 0}
 
 

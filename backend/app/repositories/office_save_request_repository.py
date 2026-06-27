@@ -194,6 +194,7 @@ class OfficeSaveRequestRepository:
         stmt = (
             update(OfficeSaveRequest)
             .where(OfficeSaveRequest.expires_at <= now)
+            .where(OfficeSaveRequest.status.in_(ACTIVE_SAVE_STATUSES))
             .values(status=SAVE_STATUS_FAILED, error_code="office_save_request_expired")
         )
         result = session_db.connection().execute(stmt)

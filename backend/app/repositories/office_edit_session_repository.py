@@ -91,6 +91,7 @@ class OfficeEditSessionRepository:
         stmt = (
             update(OfficeEditSession)
             .where(OfficeEditSession.id == edit_session_id)
+            .where(OfficeEditSession.discarded.is_(False))
             .values(object_key=object_key)
         )
         session_db.execute(stmt)

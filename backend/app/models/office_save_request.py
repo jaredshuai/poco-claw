@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -44,8 +43,6 @@ class OfficeSaveRequest(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Compatibility alias: callers refer to `.save_request_id`; maps to the PK.
-    if not TYPE_CHECKING:
-
-        @property
-        def save_request_id(self) -> uuid.UUID:
-            return self.id
+    @property
+    def save_request_id(self) -> uuid.UUID:
+        return self.id

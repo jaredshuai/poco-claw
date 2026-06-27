@@ -94,7 +94,7 @@ class TestOfficeEditSessionRepositoryMutations(unittest.TestCase):
         db = MagicMock()
         result_mock = MagicMock()
         result_mock.rowcount = 1
-        db.execute.return_value = result_mock
+        db.connection().execute.return_value = result_mock
 
         affected = OfficeEditSessionRepository.mark_discarded(db, uuid.uuid4())
 
@@ -104,7 +104,7 @@ class TestOfficeEditSessionRepositoryMutations(unittest.TestCase):
         db = MagicMock()
         result_mock = MagicMock()
         result_mock.rowcount = 0
-        db.execute.return_value = result_mock
+        db.connection().execute.return_value = result_mock
 
         affected = OfficeEditSessionRepository.mark_discarded(db, uuid.uuid4())
 
@@ -172,7 +172,7 @@ class TestOfficeSaveRequestRepositoryTryBeginCommit(unittest.TestCase):
         db = MagicMock()
         result_mock = MagicMock()
         result_mock.rowcount = 1
-        db.execute.return_value = result_mock
+        db.connection().execute.return_value = result_mock
         fetched = MagicMock()
         db.query.return_value = MagicMock()
         db.query.return_value.filter.return_value = MagicMock()
@@ -185,13 +185,13 @@ class TestOfficeSaveRequestRepositoryTryBeginCommit(unittest.TestCase):
         )
 
         self.assertEqual(result, fetched)
-        db.execute.assert_called_once()
+        db.connection().execute.assert_called_once()
 
     def test_returns_none_when_no_rows_affected(self) -> None:
         db = MagicMock()
         result_mock = MagicMock()
         result_mock.rowcount = 0
-        db.execute.return_value = result_mock
+        db.connection().execute.return_value = result_mock
 
         result = OfficeSaveRequestRepository.try_begin_commit(
             db, uuid.uuid4(), uuid.uuid4()
@@ -207,7 +207,7 @@ class TestOfficeSaveRequestRepositoryBulkOperations(unittest.TestCase):
         db = MagicMock()
         result_mock = MagicMock()
         result_mock.rowcount = 3
-        db.execute.return_value = result_mock
+        db.connection().execute.return_value = result_mock
 
         count = OfficeSaveRequestRepository.fail_active_by_edit_session(
             db, uuid.uuid4(), error_code="expired", completed_at=_now()

@@ -79,7 +79,7 @@ class OfficeEditSessionRepository:
             .where(OfficeEditSession.discarded.is_(False))
             .values(discarded=True)
         )
-        result = session_db.execute(stmt)
+        result = session_db.connection().execute(stmt)
         return result.rowcount > 0
 
     @staticmethod

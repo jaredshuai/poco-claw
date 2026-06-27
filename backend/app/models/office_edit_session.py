@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -39,8 +38,6 @@ class OfficeEditSession(Base, TimestampMixin):
     )
 
     # Compatibility alias: callers refer to `.edit_session_id`; maps to the PK.
-    if not TYPE_CHECKING:
-
-        @property
-        def edit_session_id(self) -> uuid.UUID:
-            return self.id
+    @property
+    def edit_session_id(self) -> uuid.UUID:
+        return self.id

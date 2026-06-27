@@ -56,7 +56,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("callback_token", name="uq_office_edit_sessions_callback_token"),
+        sa.UniqueConstraint(
+            "callback_token", name="uq_office_edit_sessions_callback_token"
+        ),
     )
     op.create_index(
         op.f("ix_office_edit_sessions_callback_token"),

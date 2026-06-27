@@ -122,7 +122,7 @@ class OfficeSaveRequestRepository:
                 error_message=None,
             )
         )
-        result = session_db.execute(stmt)
+        result = session_db.connection().execute(stmt)
         if result.rowcount == 0:
             return None
         session_db.expire_all()
@@ -186,7 +186,7 @@ class OfficeSaveRequestRepository:
                 error_code=error_code,
             )
         )
-        result = session_db.execute(stmt)
+        result = session_db.connection().execute(stmt)
         return result.rowcount
 
     @staticmethod
@@ -196,7 +196,7 @@ class OfficeSaveRequestRepository:
             .where(OfficeSaveRequest.expires_at <= now)
             .values(status=SAVE_STATUS_FAILED, error_code="office_save_request_expired")
         )
-        result = session_db.execute(stmt)
+        result = session_db.connection().execute(stmt)
         return result.rowcount
 
     @staticmethod

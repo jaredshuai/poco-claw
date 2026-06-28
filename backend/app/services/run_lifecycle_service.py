@@ -9,6 +9,7 @@ from app.models.agent_run import AgentRun
 from app.models.agent_session import AgentSession
 from app.repositories.scheduled_task_repository import ScheduledTaskRepository
 from app.repositories.session_repository import SessionRepository
+from app.schemas.run import RunStatus
 from app.services.clock import Clock, SystemClock
 from app.services.run_lifecycle_event_service import RunLifecycleEventService
 from app.services.session_queue_service import SessionQueueService
@@ -31,7 +32,9 @@ class FinalizeTerminalResult:
 
 
 class RunLifecycleService:
-    TERMINAL_STATUSES = {"completed", "failed", "canceled"}
+    TERMINAL_STATUSES = frozenset(
+        {RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELED}
+    )
 
     def __init__(
         self,
@@ -55,9 +58,9 @@ class RunLifecycleService:
         db_task.last_run_id = db_run.id
         db_task.last_run_status = db_run.status
 
-        if db_run.status == "failed":
+        if db_run.status == RunStatus.FAILED:
             db_task.last_error = db_run.last_error or db_task.last_error
-        elif db_run.status in {"completed", "canceled"}:
+        elif db_run.status in {RunStatus.COMPLETED, RunStatus.CANCELED}:
             db_task.last_error = None
 
     def mark_running(
@@ -71,9 +74,9 @@ class RunLifecycleService:
             return db_session
 
         now = self._clock.now_utc()
-        if db_run.status in {"queued", "claimed"}:
+        if db_run.status in {RunStatus.QUEUED, RunStatus.CLAIMED}:
             self._session_queue_service.clear_execution_state(db_session)
-            db_run.status = "running"
+            db_run.status = RunStatus.RUNNING
         if db_run.started_at is None:
             db_run.started_at = now
 
@@ -107,7 +110,7 @@ class RunLifecycleService:
             )
 
         if db_run.status in self.TERMINAL_STATUSES:
-            if status == "failed" and error_message and not db_run.last_error:
+            if status == RunStatus.FAILED and error_message and not db_run.last_error:
                 db_run.last_error = error_message
             self._sync_scheduled_task_last_status(db, db_run)
             db.flush()
@@ -121,7 +124,7 @@ class RunLifecycleService:
         now = self._clock.now_utc()
         from_status = db_run.status
 
-        if status == "completed" and from_status != "running":
+        if status == RunStatus.COMPLETED and from_status != RunStatus.RUNNING:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=(
@@ -130,7 +133,10 @@ class RunLifecycleService:
                 ),
             )
 
-        if status == "failed" and from_status not in ["claimed", "running"]:
+        if status == RunStatus.FAILED and from_status not in [
+            RunStatus.CLAIMED,
+            RunStatus.RUNNING,
+        ]:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=(
@@ -139,7 +145,11 @@ class RunLifecycleService:
                 ),
             )
 
-        if status == "canceled" and from_status not in ["queued", "claimed", "running"]:
+        if status == RunStatus.CANCELED and from_status not in [
+            RunStatus.QUEUED,
+            RunStatus.CLAIMED,
+            RunStatus.RUNNING,
+        ]:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=(
@@ -170,7 +180,7 @@ class RunLifecycleService:
         db_run.lease_expires_at = None
 
         promoted_run: AgentRun | None = None
-        if status == "completed":
+        if status == RunStatus.COMPLETED:
             db_run.progress = 100
             db_run.last_error = None
             promoted_run = self._session_queue_service.promote_next_if_available(
@@ -178,12 +188,12 @@ class RunLifecycleService:
             )
             if promoted_run is None:
                 db_session.status = "completed"
-        elif status == "failed":
+        elif status == RunStatus.FAILED:
             if error_message:
                 db_run.last_error = error_message
             self._session_queue_service.pause_active_items(db, db_session.id)
             db_session.status = "failed"
-        elif status == "canceled":
+        elif status == RunStatus.CANCELED:
             self._session_queue_service.cancel_active_items(db, db_session.id)
             db_session.status = "canceled"
 

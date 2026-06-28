@@ -41,12 +41,12 @@
 
 **核心能力**：语义理解、中文查询、跨层追踪、模糊兜底。
 
-| 能力 | 评级 | 说明 |
-|------|------|------|
-| 语义定位（概念→文件） | ★★★★★ | 中文/英文均精准，即使查询词没出现在符号名中 |
-| 跨层追踪（UI→后端） | ★★★★★ | 大项目（>100K 行）可能需分前后端两次查询 |
-| 模糊语义/中文兜底 | ★★★★★ | 不可替代——其他工具做不到语义理解 |
-| 空结果 | 正确行为 | 返回 "No relevant files" 不一定是 bug，可能代码库确实无对应概念 |
+| 能力                  | 评级     | 说明                                                            |
+| --------------------- | -------- | --------------------------------------------------------------- |
+| 语义定位（概念→文件） | ★★★★★    | 中文/英文均精准，即使查询词没出现在符号名中                     |
+| 跨层追踪（UI→后端）   | ★★★★★    | 大项目（>100K 行）可能需分前后端两次查询                        |
+| 模糊语义/中文兜底     | ★★★★★    | 不可替代——其他工具做不到语义理解                                |
+| 空结果                | 正确行为 | 返回 "No relevant files" 不一定是 bug，可能代码库确实无对应概念 |
 
 ---
 
@@ -56,17 +56,17 @@
 
 **kind 支持矩阵**：
 
-| kind | Rust | Python | TS/React | 备注 |
-|------|------|--------|----------|------|
-| `function` | ✅ | ✅ | ✅ | 通用 |
-| `method` | ✅ | ✅ | ✅ | 通用 |
-| `class` | ✅ | ✅ | ✅ | 通用（struct/class） |
-| `enum` | ✅ | ❌ | ❌ | |
-| `interface` | ⚠️ | ✅ | ✅ | Rust trait 效果差 |
-| `route` | ⚠️ 项目相关 | ⚠️ 项目相关 | ⚠️ 项目相关 | 部分项目可用（路径片段查询），不稳定。替代：search_graph(label:"Route") 或 get_architecture 的 routes |
-| `type` | ❌ | ❌ | ✅ | TS type_alias 被索引 |
-| `component` | ❌ | ❌ | ❌ | 均不支持（React 组件识别为 Function） |
-| `variable` | ✅ | ✅ | ✅ | |
+| kind        | Rust        | Python      | TS/React    | 备注                                                                                                  |
+| ----------- | ----------- | ----------- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| `function`  | ✅          | ✅          | ✅          | 通用                                                                                                  |
+| `method`    | ✅          | ✅          | ✅          | 通用                                                                                                  |
+| `class`     | ✅          | ✅          | ✅          | 通用（struct/class）                                                                                  |
+| `enum`      | ✅          | ❌          | ❌          |                                                                                                       |
+| `interface` | ⚠️          | ✅          | ✅          | Rust trait 效果差                                                                                     |
+| `route`     | ⚠️ 项目相关 | ⚠️ 项目相关 | ⚠️ 项目相关 | 部分项目可用（路径片段查询），不稳定。替代：search_graph(label:"Route") 或 get_architecture 的 routes |
+| `type`      | ❌          | ❌          | ✅          | TS type_alias 被索引                                                                                  |
+| `component` | ❌          | ❌          | ❌          | 均不支持（React 组件识别为 Function）                                                                 |
+| `variable`  | ✅          | ✅          | ✅          |                                                                                                       |
 
 ### 2.2 codegraph_callers —— 精确调用者
 
@@ -179,11 +179,11 @@ RETURN n.name, n.complexity, n.file_path ORDER BY n.complexity DESC LIMIT 10
 
 ### 3.7 高级功能
 
-| 功能 | 状态 | 说明 |
-|------|------|------|
+| 功能             | 状态      | 说明                                                                             |
+| ---------------- | --------- | -------------------------------------------------------------------------------- |
 | `detect_changes` | ⚠️ 条件性 | 冷启动可能返回 0（全新首次索引无基线）。`scope`/`depth` 参数被接受但不解决冷启动 |
-| `manage_adr` | ✅ | 正常读取/写入 |
-| `ingest_traces` | ❌ 未实现 | 返回 `{status:'accepted', note:'not yet implemented'}`。监控脚本勿匹配旧字符串 |
+| `manage_adr`     | ✅        | 正常读取/写入                                                                    |
+| `ingest_traces`  | ❌ 未实现 | 返回 `{status:'accepted', note:'not yet implemented'}`。监控脚本勿匹配旧字符串   |
 
 ### 3.8 高级特性（杀手级功能）
 
@@ -244,41 +244,41 @@ rg -c "def test_" --type py tests/ | wc -l
 
 ### 高影响陷阱（日常使用必须知道）
 
-| # | 陷阱 | 应对 |
-|---|------|------|
-| 1 | `search_code` 默认 `regex=false` 是字面量搜索 | **需要正则务必传 `regex=true`** |
-| 2 | `get_code_snippet` 默认不返回 caller/callee 名称 | 传 `include_neighbors=true` 获取名称数组 |
-| 3 | `semantic_query` results 字段全库 bug | 用 `query`（BM25）替代 |
-| 4 | `is_test` 字段在 Function 上全 false | 用 `file_path` 或 `name` 前缀过滤测试代码 |
-| 5 | 公共服务函数 callers 可能为空（LSP 间隙） | 用 `codegraph_explore` 交叉验证 |
-| 6 | `codegraph_explore` 测试覆盖标注不可信 | 用 `rg -c "#\[test\]"` 或 `def test_` 实数 |
-| 7 | `search_code` dedup 最高 8.3x | 精确计数用 `rg -c` |
-| 8 | `__init__.py`/`mod.rs` 返回 0 符号 | 用 rg 看导出 |
+| #   | 陷阱                                             | 应对                                       |
+| --- | ------------------------------------------------ | ------------------------------------------ |
+| 1   | `search_code` 默认 `regex=false` 是字面量搜索    | **需要正则务必传 `regex=true`**            |
+| 2   | `get_code_snippet` 默认不返回 caller/callee 名称 | 传 `include_neighbors=true` 获取名称数组   |
+| 3   | `semantic_query` results 字段全库 bug            | 用 `query`（BM25）替代                     |
+| 4   | `is_test` 字段在 Function 上全 false             | 用 `file_path` 或 `name` 前缀过滤测试代码  |
+| 5   | 公共服务函数 callers 可能为空（LSP 间隙）        | 用 `codegraph_explore` 交叉验证            |
+| 6   | `codegraph_explore` 测试覆盖标注不可信           | 用 `rg -c "#\[test\]"` 或 `def test_` 实数 |
+| 7   | `search_code` dedup 最高 8.3x                    | 精确计数用 `rg -c`                         |
+| 8   | `__init__.py`/`mod.rs` 返回 0 符号               | 用 rg 看导出                               |
 
 ### Cypher 限制速查
 
-| 特性 | 状态 |
-|------|------|
-| `path=` 变量 | ❌ 所有项目失败 |
-| `WITH` 子句 | ❌ 静默丢结果 |
-| 布尔简写 `WHERE n.x` | ❌ 报错，必须 `= true` |
-| `type(r)` + 聚合 | ⚠️ 返回数字非字符串 |
-| 反向遍历 `<-[:]-` | ⚠️ 项目相关 |
-| `!=`/`<>` 字段 vs 字段 | ⚠️ 项目相关 |
-| `!=`/`<>` 字段 vs 字面量 | ✅ 正常 |
-| `DISTINCT`/`CONTAINS`/`STARTS WITH`/`ENDS WITH`/`IN` | ✅ |
-| `GROUP BY`/`count`/`sum`/`max`/`min`/`SKIP LIMIT` | ✅ |
+| 特性                                                 | 状态                   |
+| ---------------------------------------------------- | ---------------------- |
+| `path=` 变量                                         | ❌ 所有项目失败        |
+| `WITH` 子句                                          | ❌ 静默丢结果          |
+| 布尔简写 `WHERE n.x`                                 | ❌ 报错，必须 `= true` |
+| `type(r)` + 聚合                                     | ⚠️ 返回数字非字符串    |
+| 反向遍历 `<-[:]-`                                    | ⚠️ 项目相关            |
+| `!=`/`<>` 字段 vs 字段                               | ⚠️ 项目相关            |
+| `!=`/`<>` 字段 vs 字面量                             | ✅ 正常                |
+| `DISTINCT`/`CONTAINS`/`STARTS WITH`/`ENDS WITH`/`IN` | ✅                     |
+| `GROUP BY`/`count`/`sum`/`max`/`min`/`SKIP LIMIT`    | ✅                     |
 
 ### 条件性陷阱（项目相关，遇到时实测）
 
-| 陷阱 | 触发条件 |
-|------|---------|
+| 陷阱                        | 触发条件                             |
+| --------------------------- | ------------------------------------ |
 | C2-revised LSP 公共服务间隙 | 大项目 + 公共服务函数（无 `_` 前缀） |
-| C5 反向遍历 | 部分项目支持，部分报错 |
-| N14 字段 vs 字段不等比较 | 部分项目失败 |
-| `semantic_results` 子字段 | 部分项目有，部分无 |
-| `route` kind | 项目相关，部分可用部分不可用 |
-| `detect_changes` 冷启动 | 全新首次索引返回 0 |
+| C5 反向遍历                 | 部分项目支持，部分报错               |
+| N14 字段 vs 字段不等比较    | 部分项目失败                         |
+| `semantic_results` 子字段   | 部分项目有，部分无                   |
+| `route` kind                | 项目相关，部分可用部分不可用         |
+| `detect_changes` 冷启动     | 全新首次索引返回 0                   |
 
 ---
 
@@ -315,23 +315,23 @@ rg               = "文本在哪"       → 兜底线，不可替代（特殊符
 
 ### 18 个工具索引
 
-| 工具 | 所属 | 一句话用途 |
-|------|------|-----------|
-| `fast_context_search` | fast_context | 语义定位：概念→文件、中文、跨层追踪 |
-| `codegraph_search` | codegraph | 按 kind 搜符号 |
-| `codegraph_callers` | codegraph | 精确调用者（注意漏报测试） |
-| `codegraph_node` | codegraph | 读符号源码 + Trail，大文件符号化 |
-| `codegraph_explore` | codegraph | blast radius + 源码一站式（重构首选，最可靠） |
-| `index_repository` | codebase-memory | 索引仓库 |
-| `index_status` | codebase-memory | 确认索引状态 |
-| `list_projects` | codebase-memory | 查看已索引项目 |
-| `get_graph_schema` | codebase-memory | 查看图数据模型 |
-| `get_architecture` | codebase-memory | 项目全景：热点/聚类/路由（支持 aspect 子集） |
-| `get_code_snippet` | codebase-memory | 25+ 静态指标（传 include_neighbors=true 获取名称） |
-| `search_graph` | codebase-memory | BM25 语义排名搜索（用 query，不用 semantic_query） |
-| `query_graph` | codebase-memory | Cypher 图查询（限制见速查表） |
-| `trace_path` | codebase-memory | 调用链 + hop 深度 + risk 标签 |
-| `search_code` | codebase-memory | 文本搜索（regex=true 解锁 PCRE，context:N 最有价值） |
-| `detect_changes` | codebase-memory | Git diff（冷启动可能 0） |
-| `manage_adr` | codebase-memory | 架构决策记录 |
-| `ingest_traces` | codebase-memory | 运行时追踪（未实现） |
+| 工具                  | 所属            | 一句话用途                                           |
+| --------------------- | --------------- | ---------------------------------------------------- |
+| `fast_context_search` | fast_context    | 语义定位：概念→文件、中文、跨层追踪                  |
+| `codegraph_search`    | codegraph       | 按 kind 搜符号                                       |
+| `codegraph_callers`   | codegraph       | 精确调用者（注意漏报测试）                           |
+| `codegraph_node`      | codegraph       | 读符号源码 + Trail，大文件符号化                     |
+| `codegraph_explore`   | codegraph       | blast radius + 源码一站式（重构首选，最可靠）        |
+| `index_repository`    | codebase-memory | 索引仓库                                             |
+| `index_status`        | codebase-memory | 确认索引状态                                         |
+| `list_projects`       | codebase-memory | 查看已索引项目                                       |
+| `get_graph_schema`    | codebase-memory | 查看图数据模型                                       |
+| `get_architecture`    | codebase-memory | 项目全景：热点/聚类/路由（支持 aspect 子集）         |
+| `get_code_snippet`    | codebase-memory | 25+ 静态指标（传 include_neighbors=true 获取名称）   |
+| `search_graph`        | codebase-memory | BM25 语义排名搜索（用 query，不用 semantic_query）   |
+| `query_graph`         | codebase-memory | Cypher 图查询（限制见速查表）                        |
+| `trace_path`          | codebase-memory | 调用链 + hop 深度 + risk 标签                        |
+| `search_code`         | codebase-memory | 文本搜索（regex=true 解锁 PCRE，context:N 最有价值） |
+| `detect_changes`      | codebase-memory | Git diff（冷启动可能 0）                             |
+| `manage_adr`          | codebase-memory | 架构决策记录                                         |
+| `ingest_traces`       | codebase-memory | 运行时追踪（未实现）                                 |

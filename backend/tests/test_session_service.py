@@ -7,6 +7,7 @@ from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
 from app.schemas.session import (
     SessionCreateRequest,
+    SessionStatus,
     SessionUpdateRequest,
     TaskConfig,
 )
@@ -214,7 +215,7 @@ class TestSessionServiceUpdateSession(unittest.TestCase):
 
         self.service.update_session(self.db, self.session_id, request)
 
-        self.assertEqual(mock_session.status, "completed")
+        self.assertEqual(mock_session.status, SessionStatus.COMPLETED)
         self.db.commit.assert_called_once()
 
     @patch("app.services.session_service.SessionRepository")
@@ -618,7 +619,7 @@ class TestSessionServiceCancelSession(unittest.TestCase):
 
         self.service.cancel_session(self.db, self.session_id, user_id=self.user_id)
 
-        self.assertEqual(mock_session.status, "canceled")
+        self.assertEqual(mock_session.status, SessionStatus.CANCELED)
         self.db.commit.assert_called_once()
 
     @patch("app.services.session_service.ToolExecutionRepository")

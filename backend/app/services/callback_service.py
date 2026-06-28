@@ -17,6 +17,7 @@ from app.schemas.callback import (
     CallbackResponse,
     CallbackStatus,
 )
+from app.schemas.session import SessionStatus
 from app.services.deliverable_detection_service import DeliverableDetectionService
 from app.services.mcp_connection_service import McpConnectionService
 from app.services.clock import Clock, SystemClock
@@ -469,7 +470,7 @@ class CallbackService:
                 message="Session not found yet",
             )
 
-        if db_session.status == "canceled":
+        if db_session.status == SessionStatus.CANCELED:
             return CallbackResponse(
                 session_id=str(db_session.id),
                 status=db_session.status,
@@ -649,7 +650,7 @@ class CallbackService:
         elif callback.status in {CallbackStatus.COMPLETED, CallbackStatus.FAILED}:
             unfinished_run = RunRepository.get_unfinished_by_session(db, db_session.id)
             if unfinished_run is None:
-                db_session.status = callback.status.value
+                db_session.status = SessionStatus(callback.status.value)
                 terminal_transition_applied = True
 
         if callback.status == CallbackStatus.COMPLETED:
@@ -665,7 +666,7 @@ class CallbackService:
                     db, db_session
                 )
                 if promoted_run is not None:
-                    db_session.status = "pending"
+                    db_session.status = SessionStatus.PENDING
 
         if (
             persisted_message is not None
@@ -719,7 +720,7 @@ class CallbackService:
             and not preserve_existing_ready_workspace
             and callback.workspace_export_status is not None
             and callback.workspace_export_status.strip().lower() == "ready"
-            and (db_session.status or "").strip().lower() in {"completed", "failed"}
+            and db_session.status in {SessionStatus.COMPLETED, SessionStatus.FAILED}
         ):
             # Workspace export may arrive in a separate callback after the initial
             # COMPLETED callback.  Trigger detection when the export becomes ready for

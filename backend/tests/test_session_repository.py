@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from app.models.agent_session import AgentSession
 from app.repositories.session_repository import SessionRepository
+from app.schemas.session import SessionStatus
 
 
 class TestSessionRepositoryCreate(unittest.TestCase):
@@ -17,7 +18,7 @@ class TestSessionRepositoryCreate(unittest.TestCase):
 
         self.assertEqual(result.user_id, user_id)
         self.assertEqual(result.kind, "chat")
-        self.assertEqual(result.status, "pending")
+        self.assertEqual(result.status, SessionStatus.PENDING)
         self.assertIsNone(result.config_snapshot)
         self.assertIsNone(result.project_id)
         db.add.assert_called_once()

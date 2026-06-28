@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import json
 import logging
 from pathlib import PurePosixPath
@@ -47,6 +48,7 @@ class OfficeSaveWritebackService:
             if edit_session.manifest_key
             else edit_session.object_key
         )
+        content_sha256 = hashlib.sha256(content).hexdigest()
         visible_writeback_committed = False
 
         try:
@@ -78,6 +80,7 @@ class OfficeSaveWritebackService:
                     object_key=writeback_object_key,
                     metadata=metadata,
                     content_size=len(content),
+                    content_sha256=content_sha256,
                 )
                 visible_writeback_committed = True
             else:
@@ -124,6 +127,7 @@ class OfficeSaveWritebackService:
         object_key: str,
         metadata: dict[str, Any],
         content_size: int,
+        content_sha256: str,
     ) -> None:
         manifest = self.storage_service.get_manifest(manifest_key)
         file_entry = find_manifest_file(manifest, file_path)
@@ -134,6 +138,7 @@ class OfficeSaveWritebackService:
             )
 
         file_entry["key"] = object_key
+        file_entry["sha256"] = content_sha256
         file_entry["size"] = metadata.get("content_length") or content_size
         if metadata.get("etag"):
             file_entry["etag"] = metadata["etag"]

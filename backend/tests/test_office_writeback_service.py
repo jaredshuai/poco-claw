@@ -7,6 +7,8 @@ method's behavior for the new DB-backed interface.
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
+import hashlib
+import json
 import pytest
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,7 @@ from app.services.office_writeback_service import (
     OfficeSaveWritebackService,
     OfficeWritebackStateCommitError,
 )
+from app.utils.workspace_manifest import find_manifest_file
 
 # Reusable helpers that return our *new* model types (SQLAlchemy)
 from app.models.office_edit_session import OfficeEditSession
@@ -176,6 +179,47 @@ def test_marker_persist_failure_before_manifest_cleans_up_staged_object() -> Non
         )
 
     storage_service.delete_object.assert_called_once()
+
+
+def test_writeback_records_content_sha256_in_manifest() -> None:
+    """commit_saved_content records sha256 of content bytes in the manifest file entry."""
+    db = MagicMock(spec=Session)
+    storage_service = MagicMock()
+    storage_service.get_manifest.return_value = {
+        "files": [{"path": "report.docx", "key": "ws/abc/report.docx"}]
+    }
+    storage_service.get_object_metadata.return_value = {
+        "content_length": 10,
+        "etag": "abc123",
+    }
+    editing_store = MagicMock()
+
+    service = OfficeSaveWritebackService(
+        storage_service=storage_service,
+        editing_store=editing_store,
+    )
+
+    content = b"hello office world"
+    service.commit_saved_content(
+        db,
+        edit_session=_edit_session(manifest_key="manifest.json"),
+        save_request=_save_request(),
+        content=content,
+        content_type="text/plain",
+    )
+
+    expected_sha256 = hashlib.sha256(content).hexdigest()
+
+    # The final put_object call writes the manifest (manifest_key passed).
+    manifest_call = next(
+        call
+        for call in storage_service.put_object.call_args_list
+        if call.kwargs.get("key") == "manifest.json"
+    )
+    manifest_body = json.loads(manifest_call.kwargs["body"].decode("utf-8"))
+    file_entry = find_manifest_file(manifest_body, "report.docx")
+    assert file_entry is not None
+    assert file_entry["sha256"] == expected_sha256
 
 
 class TestRecoverStagedWritebacks:

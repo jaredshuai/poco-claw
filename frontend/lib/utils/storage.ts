@@ -19,9 +19,7 @@ export type LocalStorageKey =
   | "connector_state";
 
 export type SessionStorageKey =
-  | "temp_state"
-  | "navigation_state"
-  | "filter_state";
+  "temp_state" | "navigation_state" | "filter_state";
 
 // ---------------------------------------------------------------------------
 // Generic helpers (private)

@@ -201,11 +201,7 @@ export interface TaskConfig {
   /** Optional explicit subagent selection (by id). */
   subagent_ids?: number[];
   workspace_strategy?:
-    | "clone"
-    | "worktree"
-    | "sparse-clone"
-    | "sparse-worktree"
-    | null;
+    "clone" | "worktree" | "sparse-clone" | "sparse-worktree" | null;
   workspace_sparse_paths?: string[];
   workspace_reference_branch?: string | null;
   input_files?: InputFile[];

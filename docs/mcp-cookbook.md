@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD060 --><!-- CJK-wide table cells make compact column-style checks unreliable -->
+
 # MCP 代码探索 Cookbook（最终版 v7）
 
 > 跨代码库实测总结。涵盖 4 个 MCP 共 18 个工具函数，经 4 个项目（Rust / Python / TypeScript / 混合）约 15 轮评测验证。
@@ -9,7 +11,7 @@
 
 接手一个新任务时，按这个顺序走：
 
-```
+```text
 1. get_architecture(aspects=['all'])
    → 快速了解项目结构、热点、入口点、语言分布、聚类
    ⚠️ 大项目用 aspect 子集（["hotspots"] 等）省 token
@@ -90,7 +92,7 @@
 
 ### 3.0 前置准备
 
-```
+```text
 index_repository(repo_path: "<路径>", mode: "moderate")
 index_status(project: "<项目名>")
 get_graph_schema(project: "<项目名>")
@@ -106,6 +108,7 @@ get_graph_schema(project: "<项目名>")
 必含：`complexity`, `cognitive`, `loop_count`, `loop_depth`, `param_count`, `max_access_depth`, `callers`, `callees`, `lines`, `is_exported`, `signature`, `return_type`, `parent_class`, `fp`, `sp`, `bt`
 
 **include_neighbors 参数（重要）**：
+
 - 默认/false：返回 `callers`/`callees` **计数**（数字）
 - `include_neighbors=true`：**添加** `caller_names`/`callee_names` **名称数组**
 - **需要看依赖名称时传 `include_neighbors=true`**
@@ -120,6 +123,7 @@ get_graph_schema(project: "<项目名>")
 ### 3.4 query_graph —— Cypher 图查询
 
 **支持的 Cypher 特性**：
+
 - ✅ `DISTINCT`, `CONTAINS`, `STARTS WITH`, `ENDS WITH`, `toUpper()`, `IN [...]`
 - ✅ `count()`, `sum()`, `max()`, `min()`, `collect()`（⚠️ collect() 输出被 CSV 截断）
 - ✅ 隐式 `GROUP BY`, `SKIP ... LIMIT`, `ORDER BY`, `AND`, 范围 `>= <=`
@@ -128,6 +132,7 @@ get_graph_schema(project: "<项目名>")
 - ✅ 布尔比较 `WHERE n.x = true`（⚠️ **不支持简写** `WHERE n.x`——报错）
 
 **不支持的 Cypher 特性**：
+
 - ❌ `MATCH path=...`（路径变量，报错 `expected token type 66`）
 - ❌ `WITH` 子句（静默丢结果）
 - ❌ 反向遍历 `<-[:TYPE]-`（**项目相关**——部分项目支持，遇到报错改用正向写法）
@@ -135,6 +140,7 @@ get_graph_schema(project: "<项目名>")
 - ⚠️ `type(r)` 与聚合函数同时使用时返回数字而非字符串
 
 **最有价值的 Cypher 查询**（找重构候选）：
+
 ```cypher
 MATCH (n:Function) WHERE n.complexity > 10
 RETURN n.name, n.complexity, n.file_path ORDER BY n.complexity DESC LIMIT 10
@@ -150,12 +156,14 @@ RETURN n.name, n.complexity, n.file_path ORDER BY n.complexity DESC LIMIT 10
 ### 3.6 search_code —— 文本搜索
 
 **regex 参数（重要）**：
+
 - 默认 `regex=false`：**纯字面量搜索**（`.`/`\b`/`\s` 等当字面字符）
 - 传 `regex=true`：**完整 PCRE**（`.*`/`\w+`/`\d{4}`/`[a-z]+`/`^import`/`|` 全部支持）
 - 工具遇 `|` 且 `regex=false` 时**主动警告**："Pass regex=true for 'foo|bar'"
 - **需要正则务必传 `regex=true`**
 
 **其他参数**：
+
 - ✅ `context:N`：返回匹配点前后 N 行源码 + `context_start` 行号（**最有价值的模式**）
 - ✅ `limit:N`：限制 results 数组大小，`total_results` 报全量；`limit:0` 返回空数组但 directories 仍填充
 - ✅ `mode:files`：只看文件列表
@@ -164,6 +172,7 @@ RETURN n.name, n.complexity, n.file_path ORDER BY n.complexity DESC LIMIT 10
 **dedup 陷阱**：`search_code` 有去重合并，`total_results` ≠ 原始匹配数。已知最高 **8.3x**（`from app` 982→119）。与模式文本量负相关（短模式 dedup 更激进）。`total_grep_matches` 有 500 上限截断。精确计数用 `rg -c`。
 
 **跨语言特殊符号**：
+
 - Rust：`#[test]`/`derive(`/`pub(crate)`/`cfg(` → ❌ 全崩，用 rg
 - Python：`@staticmethod`/`@router`/`@app` → ✅ 正常
 - TypeScript：`"use client"`/`@/`/`import.*from` → ✅ 正常（需 `regex=true`）
@@ -179,20 +188,24 @@ RETURN n.name, n.complexity, n.file_path ORDER BY n.complexity DESC LIMIT 10
 ### 3.8 高级特性（杀手级功能）
 
 **💡 SIMILAR_TO 边（重构利器）**：
+
 - Jaccard 相似度识别**几乎相同**的节点对（阈值 ≥0.95）
 - 用于发现并行实现/重复代码/重构候选
 - 测试文件内也有效（识别重复测试模式）
 - ❌ 不适合松散相似性——后者用 search_graph query 或 fast_context
 
 **💡 FILE_CHANGES_WITH 边**：
+
 - coupling_score 支持变更影响分析
 
 **💡 Route 节点**：
+
 - `source` 三类：`decorator`（真实路由）、`""`（infra）、`infra`（compose 变量）
 - 用 `WHERE r.source='decorator'` 过滤
 - 装饰器 Route `start_line=0, end_line=0`，通过 DECORATES 边关联 Function（部分项目无此边）
 
 **⚠️ is_test 字段不可信**：
+
 - Function 节点上**全部为 false**（即使函数名明显是 `test_*`）
 - `is_test=true` 只标记 Module（测试文件本身），不标记 Function
 - 过滤测试代码用 `file_path CONTAINS 'tests/'` 或 `name STARTS WITH 'test_'`
@@ -271,7 +284,7 @@ rg -c "def test_" --type py tests/ | wc -l
 
 ## 六、每次新代码库必须验证的事项
 
-```
+```text
 □ codegraph_search 支持哪些 kind（语言差异）
 □ search_code 需要正则时传 regex=true
 □ search_code context:N 获取源码上下文（最有价值模式）
@@ -293,7 +306,7 @@ rg -c "def test_" --type py tests/ | wc -l
 
 ## 附录：一句话总结
 
-```
+```text
 fast_context     = "这个概念在哪"   → 语义理解，不可替代
 codegraph        = "谁调用谁"       → 调用图 + 符号化，不可替代
 codebase-memory  = "静态指标 + 全景" → 图数据库 + 25 个维度，不可替代

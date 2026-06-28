@@ -145,9 +145,7 @@ export function AssistantMessage({
   };
 
   const usageJson = runUsage?.usage_json as
-    | Record<string, unknown>
-    | null
-    | undefined;
+    Record<string, unknown> | null | undefined;
   const inputTokens = pickNumber(usageJson?.input_tokens);
   const outputTokens = pickNumber(usageJson?.output_tokens);
   const costLabel = formatCostUsd(runUsage?.total_cost_usd);

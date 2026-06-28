@@ -22,6 +22,4 @@ export interface SearchResultMessage {
 }
 
 export type SearchResult =
-  | SearchResultTask
-  | SearchResultProject
-  | SearchResultMessage;
+  SearchResultTask | SearchResultProject | SearchResultMessage;

@@ -6,12 +6,7 @@ import type {
 } from "@/features/chat/types/api/models";
 
 export type SettingsTabId =
-  | "account"
-  | "models"
-  | "execution"
-  | "usage"
-  | "shortcuts"
-  | "other";
+  "account" | "models" | "execution" | "usage" | "shortcuts" | "other";
 
 export type SettingsTabRequest = {
   tab: SettingsTabId;
@@ -62,11 +57,7 @@ export interface ExecutionSettings {
   permissions: Record<string, unknown>;
   workspace: {
     checkout_strategy?:
-      | "clone"
-      | "worktree"
-      | "sparse-clone"
-      | "sparse-worktree"
-      | null;
+      "clone" | "worktree" | "sparse-clone" | "sparse-worktree" | null;
     sparse_paths?: string[];
     reference_branch?: string | null;
   };

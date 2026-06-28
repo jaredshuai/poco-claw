@@ -7,11 +7,7 @@ import type { InputFile, MessageFeedbackVote } from "../api/session";
 export type MessageRole = "user" | "assistant" | "system";
 
 export type MessageStatus =
-  | "sending"
-  | "sent"
-  | "streaming"
-  | "completed"
-  | "failed";
+  "sending" | "sent" | "streaming" | "completed" | "failed";
 
 export type TextBlock = {
   _type: "TextBlock";
@@ -41,10 +37,7 @@ export type ToolResultBlock = {
 };
 
 export type MessageBlock =
-  | TextBlock
-  | ThinkingBlock
-  | ToolUseBlock
-  | ToolResultBlock;
+  TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock;
 
 export type ToolCall = {
   id: string;

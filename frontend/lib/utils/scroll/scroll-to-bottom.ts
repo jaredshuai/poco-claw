@@ -4,8 +4,7 @@
 export function scrollToBottom(
   element: HTMLElement | null,
   options?:
-    | ScrollBehavior
-    | { behavior: ScrollBehavior; block: ScrollBehavior },
+    ScrollBehavior | { behavior: ScrollBehavior; block: ScrollBehavior },
 ): void {
   if (!element) return;
 

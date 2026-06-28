@@ -3,7 +3,7 @@
 .env
 .env.local
 .env*.local
-.claude/plan/gemini-connector-cross-verify-out.txt
+.claude/plan/
 .factory/
 oss_data/
 tmp_workspace/
@@ -13,3 +13,16 @@ tmp_workspace/
 im.db
 im/*.db
 .ace-tool/
+
+# Local agent / headless-CLI tooling artifacts (not project sources)
+.agent-jobs/
+.agents/
+.atomcode/
+.codegraph/
+.qwen/
+
+# Node dependencies
+node_modules/
+
+# Windows shell artifact from "2>nul" redirection
+nul

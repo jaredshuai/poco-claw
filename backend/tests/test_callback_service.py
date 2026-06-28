@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.schemas.callback import AgentCallbackRequest, CallbackStatus
+from app.schemas.session import SessionStatus
 from app.services.callback_service import CallbackService
 from app.services.run_lifecycle_service import FinalizeTerminalResult
 
@@ -18,7 +19,7 @@ class FixedClock:
 
 def create_mock_db_session(
     session_id: uuid.UUID | None = None,
-    status: str = "running",
+    status: str = SessionStatus.RUNNING,
     title: str = "Test Session",
     sdk_session_id: str = "sdk-123",
     workspace_export_status: str | None = None,
@@ -1028,7 +1029,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
     def test_canceled_session(self) -> None:
         db = MagicMock()
         service = CallbackService()
-        db_session = create_mock_db_session(status="canceled")
+        db_session = create_mock_db_session(status=SessionStatus.CANCELED)
 
         with patch.object(service, "_resolve_session_and_run") as mock_resolve:
             mock_resolve.return_value = (db_session, None)
@@ -1308,7 +1309,7 @@ class TestCallbackServiceProcessAgentCallback(unittest.TestCase):
         session_queue_service.promote_next_if_available.assert_called_once_with(
             db, db_session
         )
-        self.assertEqual(db_session.status, "pending")
+        self.assertEqual(db_session.status, SessionStatus.PENDING)
 
     def test_terminal_callback_detects_pending_skill_with_injected_service(
         self,

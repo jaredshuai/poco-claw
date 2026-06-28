@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any
 from uuid import UUID
 
@@ -6,6 +7,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.callback import AgentCurrentState
 from app.schemas.input_file import InputFile
+
+
+class SessionStatus(str, Enum):
+    """Session lifecycle status.
+
+    Values are the canonical lowercase literals persisted in the
+    AgentSession.status column and serialized over the wire; do NOT rename
+    them. str-enum so comparisons against legacy raw strings still hold.
+    """
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELED = "canceled"
 
 
 class TaskConfig(BaseModel):

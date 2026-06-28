@@ -5,20 +5,10 @@
 import type { ApiStatePatch } from "../api/callback";
 
 export type ExecutionStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "canceled";
+  "pending" | "running" | "completed" | "failed" | "canceled";
 
 export type ArtifactType =
-  | "text"
-  | "code_diff"
-  | "image"
-  | "ppt"
-  | "pdf"
-  | "markdown"
-  | "json";
+  "text" | "code_diff" | "image" | "ppt" | "pdf" | "markdown" | "json";
 
 export interface Artifact {
   id: string;

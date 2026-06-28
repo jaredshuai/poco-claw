@@ -20,8 +20,7 @@ export function getSkillsMarketplaceRecommendationsCacheTtlMs(): number {
 }
 
 export function readCachedSkillsMarketplaceRecommendations():
-  | SkillsMpRecommendationSection[]
-  | null {
+  SkillsMpRecommendationSection[] | null {
   const storage = getStorage();
   if (!storage) return null;
 

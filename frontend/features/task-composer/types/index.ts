@@ -19,11 +19,7 @@ export interface TaskSendOptions {
   skill_config?: Record<string, boolean> | null;
   plugin_config?: Record<string, boolean> | null;
   workspace_strategy?:
-    | "clone"
-    | "worktree"
-    | "sparse-clone"
-    | "sparse-worktree"
-    | null;
+    "clone" | "worktree" | "sparse-clone" | "sparse-worktree" | null;
   workspace_sparse_paths?: string[] | null;
   workspace_reference_branch?: string | null;
   run_schedule?: {

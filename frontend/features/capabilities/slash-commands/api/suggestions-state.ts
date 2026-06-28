@@ -13,8 +13,7 @@ export function getSlashCommandSuggestionsInvalidatedAt(): number {
 }
 
 export function getCachedSlashCommandSuggestions():
-  | SlashCommandSuggestion[]
-  | null {
+  SlashCommandSuggestion[] | null {
   if (cachedSuggestions === null) return null;
   if (cachedSuggestionsAt < invalidatedAt) return null;
   return cachedSuggestions;

@@ -13,6 +13,7 @@ from app.models.session_queue_item import AgentSessionQueueItem
 from app.repositories.message_repository import MessageRepository
 from app.repositories.run_repository import RunRepository
 from app.repositories.session_queue_item_repository import SessionQueueItemRepository
+from app.schemas.session import SessionStatus
 from app.schemas.session_queue_item import (
     SessionQueueItemResponse,
     SessionQueueItemUpdateRequest,
@@ -225,7 +226,7 @@ class SessionQueueService:
             scheduled_at=scheduled_at,
             config_snapshot=run_config_snapshot or None,
         )
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         db.flush()
         return db_message, db_run
 

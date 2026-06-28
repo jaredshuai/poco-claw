@@ -25,7 +25,11 @@ from app.repositories.session_repository import SessionRepository
 from app.repositories.tool_execution_repository import ToolExecutionRepository
 from app.repositories.usage_log_repository import UsageLogRepository
 from app.repositories.user_input_request_repository import UserInputRequestRepository
-from app.schemas.session import SessionCreateRequest, SessionUpdateRequest
+from app.schemas.session import (
+    SessionCreateRequest,
+    SessionStatus,
+    SessionUpdateRequest,
+)
 from app.schemas.task import TaskEnqueueResponse
 from app.services.clock import Clock, SystemClock
 
@@ -287,7 +291,7 @@ class SessionService:
                     duration = now - started_at.astimezone(timezone.utc)
                     execution.duration_ms = max(0, int(duration.total_seconds() * 1000))
 
-        db_session.status = "canceled"
+        db_session.status = SessionStatus.CANCELED
 
         db.commit()
         db.refresh(db_session)
@@ -347,7 +351,7 @@ class SessionService:
 
         # Copy session-level metadata and latest exported workspace snapshot.
         branched_session.title = source_session.title
-        branched_session.status = "completed"
+        branched_session.status = SessionStatus.COMPLETED
         branched_session.workspace_archive_url = source_session.workspace_archive_url
         branched_session.state_patch = self._deepcopy_json(source_session.state_patch)
         branched_session.workspace_files_prefix = source_session.workspace_files_prefix
@@ -584,7 +588,7 @@ class SessionService:
             config_snapshot=run_config_snapshot or None,
         )
         db_session.state_patch = {}
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
 
         db.commit()
         db.refresh(db_run)
@@ -706,7 +710,7 @@ class SessionService:
             config_snapshot=run_config_snapshot or None,
         )
         db_session.state_patch = {}
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         # Start a fresh upstream SDK thread, otherwise removed turns may still affect context.
         db_session.sdk_session_id = None
 

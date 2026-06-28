@@ -7,6 +7,7 @@ from app.services.run_lifecycle_service import (
     FinalizeTerminalResult,
     RunLifecycleService,
 )
+from app.schemas.session import SessionStatus
 
 
 class FixedClock:
@@ -110,7 +111,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_queued_to_running(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         db_run = MagicMock()
@@ -127,7 +128,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_mark_running_sets_lease_when_provided(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         db_run = MagicMock()
@@ -145,7 +146,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self, mock_repo: MagicMock
     ) -> None:
         db_session = MagicMock()
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         existing_lease = datetime(2026, 4, 29, 13, 0, tzinfo=timezone.utc)
@@ -165,7 +166,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self, mock_repo: MagicMock
     ) -> None:
         db_session = MagicMock()
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         db_run = MagicMock()

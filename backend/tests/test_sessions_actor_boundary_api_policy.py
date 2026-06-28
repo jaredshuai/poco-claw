@@ -19,6 +19,7 @@ from app.api.v1.sessions import (
     regenerate_message,
     edit_message_and_regenerate,
 )
+from app.schemas.session import SessionStatus
 
 
 def _run(coro):
@@ -231,7 +232,7 @@ class TestCancelSessionActorBoundary:
         session_id = uuid.uuid4()
         mock_session = MagicMock()
         mock_session.id = session_id
-        mock_session.status = "canceled"
+        mock_session.status = SessionStatus.CANCELED
 
         mock_session_service.cancel_session.return_value = (
             mock_session,
@@ -270,7 +271,7 @@ class TestCancelSessionActorBoundary:
         session_id = uuid.uuid4()
         mock_session = MagicMock()
         mock_session.id = session_id
-        mock_session.status = "canceled"
+        mock_session.status = SessionStatus.CANCELED
 
         mock_session_service.cancel_session.return_value = (
             mock_session,
@@ -306,7 +307,7 @@ class TestCancelSessionActorBoundary:
         session_id = uuid.uuid4()
         mock_session = MagicMock()
         mock_session.id = session_id
-        mock_session.status = "canceled"
+        mock_session.status = SessionStatus.CANCELED
 
         mock_session_service.cancel_session.return_value = (
             mock_session,
@@ -350,7 +351,7 @@ class TestCancelSessionActorBoundary:
         session_id = uuid.uuid4()
         mock_session = MagicMock()
         mock_session.id = session_id
-        mock_session.status = "canceled"
+        mock_session.status = SessionStatus.CANCELED
 
         mock_session_service.cancel_session.return_value = (mock_session, 0, 0, 0)
 

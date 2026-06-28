@@ -1,9 +1,5 @@
 export type PendingSkillCreationStatus =
-  | "pending"
-  | "creating"
-  | "success"
-  | "failed"
-  | "canceled";
+  "pending" | "creating" | "success" | "failed" | "canceled";
 
 export interface PendingSkillCreation {
   id: string;

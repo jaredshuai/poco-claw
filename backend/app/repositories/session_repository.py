@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.agent_session import AgentSession
+from app.schemas.session import SessionStatus
 
 
 class SessionRepository:
@@ -23,7 +24,7 @@ class SessionRepository:
             config_snapshot=config,
             project_id=project_id,
             kind=kind,
-            status="pending",
+            status=SessionStatus.PENDING,
         )
         session_db.add(db_session)
         return db_session

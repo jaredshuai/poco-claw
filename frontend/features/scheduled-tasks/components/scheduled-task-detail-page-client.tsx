@@ -456,9 +456,7 @@ export function ScheduledTaskDetailPageClient({ taskId }: { taskId: string }) {
                                 : null;
 
                             const usageJson = run.usage?.usage_json as
-                              | Record<string, unknown>
-                              | null
-                              | undefined;
+                              Record<string, unknown> | null | undefined;
                             const inputTokens = pickNumber(
                               usageJson?.input_tokens,
                             );

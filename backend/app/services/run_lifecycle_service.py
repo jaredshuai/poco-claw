@@ -10,6 +10,7 @@ from app.models.agent_session import AgentSession
 from app.repositories.scheduled_task_repository import ScheduledTaskRepository
 from app.repositories.session_repository import SessionRepository
 from app.schemas.run import RunStatus
+from app.schemas.session import SessionStatus
 from app.services.clock import Clock, SystemClock
 from app.services.run_lifecycle_event_service import RunLifecycleEventService
 from app.services.session_queue_service import SessionQueueService
@@ -86,8 +87,8 @@ class RunLifecycleService:
         # If no lease_seconds provided and run already has a lease, preserve it
         # (this allows callback-driven mark_running to keep existing running lease)
 
-        if db_session.status != "canceled":
-            db_session.status = "running"
+        if db_session.status != SessionStatus.CANCELED:
+            db_session.status = SessionStatus.RUNNING
 
         self._sync_scheduled_task_last_status(db, db_run)
         db.flush()
@@ -187,15 +188,15 @@ class RunLifecycleService:
                 db, db_session
             )
             if promoted_run is None:
-                db_session.status = "completed"
+                db_session.status = SessionStatus.COMPLETED
         elif status == RunStatus.FAILED:
             if error_message:
                 db_run.last_error = error_message
             self._session_queue_service.pause_active_items(db, db_session.id)
-            db_session.status = "failed"
+            db_session.status = SessionStatus.FAILED
         elif status == RunStatus.CANCELED:
             self._session_queue_service.cancel_active_items(db, db_session.id)
-            db_session.status = "canceled"
+            db_session.status = SessionStatus.CANCELED
 
         self._sync_scheduled_task_last_status(db, db_run)
         db.flush()

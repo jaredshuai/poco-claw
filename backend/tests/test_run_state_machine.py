@@ -20,6 +20,7 @@ from app.services.run_lifecycle_service import (
     FinalizeTerminalResult,
     RunLifecycleService,
 )
+from app.schemas.session import SessionStatus
 
 
 class FixedClock:
@@ -466,7 +467,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_terminal_status_unchanged(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
-        db_session.status = "completed"
+        db_session.status = SessionStatus.COMPLETED
         mock_repo.get_by_id_for_update.return_value = db_session
 
         for terminal_status in ["completed", "failed", "canceled"]:
@@ -483,7 +484,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_queued_to_running(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         db_run = MagicMock()
@@ -517,7 +518,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_running_preserves_started_at(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
-        db_session.status = "running"
+        db_session.status = SessionStatus.RUNNING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         original_started_at = self.now - timedelta(hours=1)
@@ -554,7 +555,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self, mock_repo: MagicMock
     ) -> None:
         db_session = MagicMock()
-        db_session.status = "running"
+        db_session.status = SessionStatus.RUNNING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         existing_lease = datetime(2026, 4, 29, 13, 0, tzinfo=timezone.utc)
@@ -572,7 +573,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
     @patch("app.services.run_lifecycle_service.SessionRepository")
     def test_updates_lease_when_provided(self, mock_repo: MagicMock) -> None:
         db_session = MagicMock()
-        db_session.status = "running"
+        db_session.status = SessionStatus.RUNNING
         mock_repo.get_by_id_for_update.return_value = db_session
 
         db_run = MagicMock()
@@ -592,7 +593,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self, mock_repo: MagicMock
     ) -> None:
         db_session = MagicMock()
-        db_session.status = "canceled"
+        db_session.status = SessionStatus.CANCELED
         mock_repo.get_by_id_for_update.return_value = db_session
 
         db_run = MagicMock()
@@ -603,7 +604,7 @@ class TestRunLifecycleServiceMarkRunning(unittest.TestCase):
         self.service.mark_running(self.db, db_run)
 
         # Session status should NOT be changed from "canceled"
-        self.assertEqual(db_session.status, "canceled")
+        self.assertEqual(db_session.status, SessionStatus.CANCELED)
 
 
 class TestRunLifecycleServiceFinalizeTerminal(unittest.TestCase):

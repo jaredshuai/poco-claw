@@ -23,6 +23,7 @@ from app.schemas.scheduled_task import (
     ScheduledTaskTriggerResponse,
     ScheduledTaskUpdateRequest,
 )
+from app.schemas.session import SessionStatus
 from app.services.clock import Clock, SystemClock
 from app.services.task_service import TaskService
 
@@ -438,7 +439,7 @@ class ScheduledTaskService:
 
         # Clear previous execution state so the UI doesn't show stale file changes.
         db_session.state_patch = {}
-        db_session.status = "pending"
+        db_session.status = SessionStatus.PENDING
 
         user_message_content = self._build_user_message_content(prompt)
         db_message = MessageRepository.create(

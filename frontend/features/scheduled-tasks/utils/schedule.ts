@@ -1,9 +1,5 @@
 export type SchedulePreset =
-  | "interval"
-  | "daily"
-  | "weekly"
-  | "monthly"
-  | "cron";
+  "interval" | "daily" | "weekly" | "monthly" | "cron";
 export type IntervalUnit = "minute" | "hour";
 
 export interface InferredSchedule {

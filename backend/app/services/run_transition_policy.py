@@ -7,13 +7,16 @@ from typing import Any, Literal
 
 from app.core.errors.error_codes import ErrorCode
 from app.core.errors.exceptions import AppException
+from app.schemas.run import RunStatus
 from app.services.run_worker_lease_policy import RunWorkerLeasePolicy
 
 RUN_TRANSITION_APPLY = "apply"
 RUN_TRANSITION_NOOP = "noop"
 RunTransitionDecision = Literal["apply", "noop"]
 
-TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "canceled"})
+TERMINAL_RUN_STATUSES = frozenset(
+    {RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELED}
+)
 
 
 class RunTransitionPolicy:
@@ -29,11 +32,11 @@ class RunTransitionPolicy:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
-        if db_run.status == "running":
+        if db_run.status == RunStatus.RUNNING:
             RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
             return RUN_TRANSITION_NOOP
 
-        if db_run.status != "claimed":
+        if db_run.status != RunStatus.CLAIMED:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Run status cannot be started: {db_run.status}",
@@ -53,14 +56,14 @@ class RunTransitionPolicy:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
-        if db_run.status not in ["claimed", "running"]:
+        if db_run.status not in [RunStatus.CLAIMED, RunStatus.RUNNING]:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Run status cannot be failed: {db_run.status}",
             )
 
         RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
-        if db_run.status == "claimed":
+        if db_run.status == RunStatus.CLAIMED:
             RunWorkerLeasePolicy.ensure_active_claim(db_run, now=now)
         return RUN_TRANSITION_APPLY
 
@@ -74,7 +77,7 @@ class RunTransitionPolicy:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
-        if db_run.status != "running":
+        if db_run.status != RunStatus.RUNNING:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Run status cannot be completed: {db_run.status}",
@@ -100,14 +103,18 @@ class RunTransitionPolicy:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
-        if db_run.status not in ["queued", "claimed", "running"]:
+        if db_run.status not in [
+            RunStatus.QUEUED,
+            RunStatus.CLAIMED,
+            RunStatus.RUNNING,
+        ]:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Run status cannot be canceled: {db_run.status}",
             )
 
         # queued runs have no claimed_by, so skip worker ownership check
-        if db_run.status in ("claimed", "running"):
+        if db_run.status in (RunStatus.CLAIMED, RunStatus.RUNNING):
             RunWorkerLeasePolicy.ensure_worker_owns_run(db_run, worker_id)
         return RUN_TRANSITION_APPLY
 
@@ -130,7 +137,11 @@ class RunTransitionPolicy:
         if db_run.status in TERMINAL_RUN_STATUSES:
             return RUN_TRANSITION_NOOP
 
-        if db_run.status not in ["queued", "claimed", "running"]:
+        if db_run.status not in [
+            RunStatus.QUEUED,
+            RunStatus.CLAIMED,
+            RunStatus.RUNNING,
+        ]:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Run status cannot be canceled: {db_run.status}",
